@@ -1,5 +1,40 @@
 # AWS Document Management Platform - Solution Architecture Specification
 
+## Table of Contents
+1. [Executive Summary & Solution Overview](#1-executive-summary--solution-overview)
+   - [1.1 Core Authority Model](#11-core-authority-model)
+   - [1.2 Interplay & Architectural Necessity: S3 Annotations vs. DynamoDB Control Plane](#12-interplay--architectural-necessity-s3-annotations-vs-dynamodb-control-plane)
+   - [1.3 Solution Scope Boundaries & Phased Roadmap](#13-solution-scope-boundaries--phased-roadmap)
+2. [AWS Services Inventory & Architectural Justifications](#2-aws-services-inventory--architectural-justifications)
+3. [Data Architecture & Storage Models](#3-data-architecture--storage-models)
+   - [3.1 S3 Storage Partitioning & Native Object Annotations](#31-s3-storage-partitioning--native-object-annotations)
+   - [3.2 Authoritative Annotation Schema (`bank.document-metadata/1`)](#32-authoritative-annotation-schema-bankdocument-metadata1)
+   - [3.3 DynamoDB Single-Table Design (`doc-platform-mvp-control`)](#33-dynamodb-single-table-design-doc-platform-mvp-control)
+   - [3.4 OpenSearch Serverless Index Mapping (`documents-v1`)](#34-opensearch-serverless-index-mapping-documents-v1)
+4. [Enterprise Design Patterns & Production Scalability](#4-enterprise-design-patterns--production-scalability)
+   - [4.1 Dynamic Multi-Tenant Schema Registry](#41-dynamic-multi-tenant-schema-registry)
+   - [4.2 Zero Cold-Start Precompiled Schema Compilation](#42-zero-cold-start-precompiled-schema-compilation)
+5. [End-to-End API Sequence Flows (15 Operations)](#5-end-to-end-api-sequence-flows-15-operations)
+6. [Security, Governance & Compliance](#6-security-governance--compliance)
+   - [6.1 Role-Based Access Control (RBAC) Matrix](#61-role-based-access-control-rbac-matrix)
+7. [Deployment & Infrastructure as Code (AWS CDK)](#7-deployment--infrastructure-as-code-aws-cdk)
+   - [7.1 Stack Dependency Graph](#71-stack-dependency-graph)
+   - [7.2 Step-by-Step Deployment Instructions](#72-step-by-step-deployment-instructions)
+   - [7.3 Resource Retention & Teardown](#73-resource-retention--teardown)
+8. [Failure Handling, Consistency & Background Reconciliation](#8-failure-handling-consistency--background-reconciliation)
+   - [8.1 Idempotency Enforcement](#81-idempotency-enforcement)
+   - [8.2 Cross-Service Consistency Management](#82-cross-service-consistency-management)
+   - [8.3 Scheduled Background Reconciliation Worker](#83-scheduled-background-reconciliation-worker)
+9. [Testing Strategy & Acceptance Criteria](#9-testing-strategy--acceptance-criteria)
+   - [9.1 Functional Acceptance Criteria](#91-functional-acceptance-criteria)
+   - [9.2 Reliability & Performance Targets](#92-reliability--performance-targets)
+10. [Step-by-Step E2E Verification & Demonstration Script](#10-step-by-step-e2e-verification--demonstration-script)
+11. [Known Architectural Limitations & Risk Governance Matrix](#11-known-architectural-limitations--risk-governance-matrix)
+- [Appendix A: Authoritative Source-of-Truth Statement](#appendix-a-authoritative-source-of-truth-statement)
+- [Appendix B: Definition of Done (DoD)](#appendix-b-definition-of-done-dod)
+
+---
+
 ## 1. Executive Summary & Solution Overview
 
 The **AWS Document Management Platform** is an enterprise-grade, cloud-native document management solution built entirely on AWS managed and serverless services. Designed as a modern, decoupled alternative to legacy ECM platforms (such as EMC Documentum), the system provides high-performance document ingestion, strict immutable content versioning, authoritative metadata management with optimistic concurrency control, multi-attribute search indexing, and role-based access governance.
@@ -68,6 +103,40 @@ To maintain strict data integrity without distributed two-phase commit transacti
    - It is asynchronously hydrated via DynamoDB Streams and SQS. If OpenSearch becomes unavailable, primary document retrieval, downloads, and mutations remain 100% operational via DynamoDB and S3.
 5. **Audit Evidence (Amazon S3 Audit Bucket):**
    - Asynchronous stream events automatically write immutable audit logs partitioned by date to a dedicated KMS-encrypted S3 audit bucket.
+
+### 1.2 Interplay & Architectural Necessity: S3 Annotations vs. DynamoDB Control Plane
+
+A common architectural question in this design is: **If Amazon S3 Annotations store the authoritative document metadata, why is DynamoDB still necessary?**
+
+While S3 Annotations solve the problem of binding rich, structured, mutable metadata directly to object versions without the 2 KB header limit or sidecar sprawl, **Amazon S3 is an object storage system, not a transactional database**. DynamoDB provides critical control plane capabilities that S3 cannot perform natively:
+
+| Dimension / Capability | Amazon S3 & S3 Annotations | Amazon DynamoDB Control Table | Why DynamoDB Is Essential |
+|---|---|---|---|
+| **Authoritative Metadata Storage** | **Primary Authority** (Holds complete JSON conforming to `bank.document-metadata/1`) | Stores only lightweight pointer, revision count, and annotation ETag | S3 Annotations allow rich metadata to live directly with object versions, enabling open analytics (e.g. S3 Metadata Apache Iceberg) without sidecar files. |
+| **Optimistic Concurrency Control (OCC)** | No conditional update expressions across arbitrary attributes | **Primary (`ConditionExpression`)** | On `PATCH /metadata`, DynamoDB atomically checks `current_metadata_revision = :expected` and commits the increment. S3 does not support atomic integer increments or complex conditional expressions, making DynamoDB necessary to prevent lost updates under concurrent edits. |
+| **Active Version Pointer Resolution** | Requires full S3 bucket version listing | **Primary ($O(1)$ sub-millisecond lookup)** | DynamoDB instantly maps `DOC#{document_id}` to `current_s3_version_id` without paginating opaque S3 version markers. |
+| **Sequential Version Lineage & History** | Non-sequential, opaque S3 version strings | **Primary (Sort-Key Indexed Querying)** | Querying `pk = DOC#{id} AND begins_with(sk, 'VER#')` retrieves ordered version history (`v1`, `v2`, `v3`) in a single indexed read without inspecting every S3 version annotation. |
+| **Multi-Item Transactions & Idempotency** | No multi-object transactional API | **Primary (`TransactWriteItems`)** | Atomically updates the document pointer, records a new version, and commits client idempotency locks (`IDEMP#{client_id}#{key}`) in a single ACID transaction. |
+| **Change Data Capture (CDC)** | Event notifications lack before/after diffs | **Primary (DynamoDB Streams)** | Emits ordered stream records containing `OldImage` and `NewImage` to reliably drive the asynchronous S3 audit logger and OpenSearch search indexing pipeline. |
+| **Upload Session State Machine** | No application session tracking | **Primary (State machine with TTL)** | Coordinates direct multipart/presigned upload sessions (`INITIATED` → `ACTIVE`/`ABORTED`) with automated TTL cleanup. |
+| **Logical Soft Deletion & Restoration** | No soft-delete concept without moving objects | **Primary (Status flag management)** | Instantly toggles `status: 'SOFT_DELETED'` and purges search projections while leaving WORM S3 binaries and annotations untouched for instant restore or compliance hold. |
+
+### 1.3 Solution Scope Boundaries & Phased Roadmap
+
+To maintain engineering discipline and establish clear delivery milestones, capabilities are explicitly partitioned into current solution scope versus deferred roadmap items:
+
+#### A. Core Solution Scope (Included)
+- **Document Classes:** Canonical `loan_agreement` document class with static JSON Schema v1 (`bank.document-metadata/1`).
+- **File Formats & Uploads:** PDF, TIFF, JPEG, and Office formats. Inline binary uploads ($\le 4\text{ MiB}$) and direct presigned S3 uploads ($> 4\text{ MiB}$).
+- **Versioning & Metadata:** S3 native object versioning; authoritative structured S3 Annotations (`document-metadata`); optimistic concurrency control on metadata patches.
+- **Search & Retrieval:** Active document search in OpenSearch Serverless with exact match, numeric/date ranges, sorting, and cursor pagination; direct presigned download URL generation.
+- **Identity & RBAC:** AWS Cognito User Pools with 4 application role groups (`Document.Reader`, `Document.Writer`, `Document.MetadataEditor`, `Document.Admin`).
+- **Asynchronous Pipeline & Observability:** DynamoDB Streams $\rightarrow$ SQS $\rightarrow$ Indexer Lambda; S3 Audit Bucket logging; CloudWatch metrics, alarms, and dashboards.
+- **Infrastructure as Code:** 8 fully decoupled, typed TypeScript AWS CDK v2 stacks.
+
+#### B. Deferred Roadmap (Excluded from Current Phase)
+- **Phase 2 Candidates:** Runtime dynamic schema management APIs; multi-part upload (>5 GB); Athena & S3 Metadata Tables analytics; bulk document operations; search aggregations; deep archive lifecycle (S3 Glacier).
+- **Long-Term Enterprise Roadmap:** OCR and AI content extraction (Amazon Textract / Amazon Bedrock); full-text content search; multi-region active-active disaster recovery; S3 Object Lock formal compliance retention; fine-grained attribute-based access control (ABAC / Cedar).
 
 ---
 
@@ -1213,3 +1282,98 @@ npm run demo
   ```bash
   cdk destroy --all
   ```
+
+---
+
+## 8. Failure Handling, Consistency & Background Reconciliation
+
+### 8.1 Idempotency Enforcement
+All state-mutating endpoints (`POST /documents`, `POST /documents/uploads`, `POST /uploads/{id}/complete`, `POST /documents/{id}/versions`, `PATCH /documents/{id}/metadata`, `POST /documents/{id}/soft-delete`, `POST /documents/{id}/restore`) require an `Idempotency-Key` header.
+- **Locking Table Entity:** `IDEMP#{client_id}#{idempotency_key}` stored in DynamoDB with a SHA-256 hash of the request payload and automated TTL expiry.
+- **Conflict Prevention:** If a client retransmits the same key with an altered payload, the API Gateway Lambda immediately rejects the request with a `409 IDEMPOTENCY_CONFLICT`.
+
+### 8.2 Cross-Service Consistency Management
+Because Amazon S3 and Amazon DynamoDB do not support distributed two-phase commit transactions, the architecture relies on explicit state transitions, optimistic locking, and background self-healing:
+1. **Orphaned S3 Content (S3 PUT succeeds, DynamoDB commit fails):** The S3 object version exists without an active DynamoDB pointer. The uncommitted version remains harmless in S3 and is flagged by the scheduled reconciler.
+2. **Annotation Mutation without Pointer Advance:** If `PutObjectAnnotation` succeeds but the DynamoDB conditional update fails due to a collision, the client retries with the updated `expected_metadata_revision`.
+3. **OpenSearch Indexing Lag / Outage:** OpenSearch is asynchronously populated from DynamoDB Streams via SQS. If OpenSearch is temporarily degraded, messages accumulate safely in the durable SQS Index Queue (and DLQ after 3 retries). Core document retrieval and downloads remain 100% operational.
+
+### 8.3 Scheduled Background Reconciliation Worker
+The `BackgroundWorker` Lambda includes a scheduled reconciliation cycle that scans active records to detect and repair discrepancies:
+- Detects missing `document-metadata` S3 Annotations.
+- Reconciles DynamoDB pointers pointing to missing S3 VersionIds.
+- Re-indexes stale or missing records into OpenSearch Serverless.
+- Purges expired direct upload sessions (`UPLOAD#{upload_id}`) past their TTL expiration.
+
+---
+
+## 9. Testing Strategy & Acceptance Criteria
+
+### 9.1 Functional Acceptance Criteria
+- [x] **Inline Upload:** Successfully ingests binary files $\le 4\text{ MiB}$ and registers authoritative S3 annotation and DynamoDB pointer.
+- [x] **Direct S3 Upload:** Generates presigned single-PUT URL; verifies upload completion and schema conformance upon `completeDirectUpload`.
+- [x] **Immutability (WORM):** S3 Bucket Policy and IAM execution roles strictly deny `s3:DeleteObjectVersion`.
+- [x] **Optimistic Concurrency:** Concurrent metadata updates with mismatched `expected_metadata_revision` immediately return `409 METADATA_CONFLICT`.
+- [x] **Historical Version Retrieval:** Resolves historical application versions (`v1`, `v2`, `v3`) to exact S3 VersionIds and generates functional presigned download URLs.
+- [x] **Structured Search:** OpenSearch filters on exact fields, numeric ranges (`loan_amount`), and date ranges (`signed_date`), while completely excluding `SOFT_DELETED` documents.
+- [x] **Soft-Delete & Restoration:** Soft-deleting instantly removes a document from search; restoring it re-indexes the document and reactivates the pointer.
+- [x] **RBAC Governance:** Unauthorized role requests return `403 FORBIDDEN` across all restricted routes.
+
+### 9.2 Reliability & Performance Targets
+- **Metadata Retrieval (P95):** $< 500\text{ ms}$ (excluding binary transfer).
+- **Search Latency (P95):** $< 1.5\text{ s}$ across indexed collections.
+- **Metadata Mutation (P95):** $< 800\text{ ms}$ (S3 annotation update + DynamoDB conditional write).
+- **Search Projection Lag (P95):** Document visible in OpenSearch within $< 30\text{ s}$ of DynamoDB commit.
+- **Zero Data Loss:** SQS DLQ captures failed index projections after 3 retries with CloudWatch alarming.
+
+---
+
+## 10. Step-by-Step E2E Verification & Demonstration Script
+
+The solution includes an end-to-end verification scenario executed via `npm run demo` or the Streamlit web console (`app.py`):
+
+1. **Authentication:** Authenticate with AWS Cognito User Pools to obtain a valid JWT token with `Document.Admin` / `Document.Writer` claims.
+2. **Inline Document Ingestion:** Ingest a synthetic loan agreement PDF ($300\text{ KB}$) via `POST /v1/documents`.
+3. **Verify State & Version 1:** Verify S3 VersionId, `application_version: 1`, and `metadata_revision: 1`.
+4. **Metadata Search:** Query OpenSearch Serverless by `customer_id` and `loan_type` to verify immediate indexing.
+5. **Direct Download:** Fetch the presigned download URL and verify document integrity.
+6. **Optimistic Metadata Patch:** Update `branch_code` via `PATCH /v1/documents/{id}/metadata` with `expected_metadata_revision: 1`.
+7. **Verify In-Place Mutation:** Confirm `metadata_revision: 2` is updated in the S3 Annotation without creating a new S3 binary version.
+8. **Concurrency Conflict Demonstration:** Submit a concurrent update with stale `expected_metadata_revision: 1` and verify `409 METADATA_CONFLICT`.
+9. **Binary Version Creation:** Upload a revised binary version via `POST /v1/documents/{id}/versions` and confirm `application_version: 2`.
+10. **Historical Version Retrieval:** Retrieve `application_version: 1` and verify independent download URL generation.
+11. **Large File Upload (> 4 MiB):** Initiate direct presigned upload session via `POST /v1/documents/uploads`, upload binary to S3, and commit session via `POST /v1/uploads/{id}/complete`.
+12. **Soft-Delete Lifecycle:** Execute `POST /v1/documents/{id}/soft-delete` and confirm document is purged from search results.
+13. **Document Recovery:** Execute `POST /v1/documents/{id}/restore` and verify document reappears in search results.
+14. **Security Enforcement:** Attempt restricted administrative actions with `Document.Reader` credentials and verify `403 FORBIDDEN`.
+15. **Observability & Audit Trail:** Inspect CloudWatch Dashboard metrics, DLQ depth, and S3 Audit Bucket event logs.
+
+---
+
+## 11. Known Architectural Limitations & Risk Governance Matrix
+
+| Limitation / Risk | Architecture Mitigation | Long-Term Strategic Treatment |
+|---|---|---|
+| **S3 Annotations are mutable in-place** | Every mutation emits an immutable audit event written directly to the KMS-encrypted S3 Audit Bucket. | Phase 2 introduces historical metadata snapshotting. |
+| **S3 + DynamoDB cross-service atomic boundary** | Explicit state machines (`INITIATED`, `ACTIVE`), optimistic concurrency, and background reconciler. | Automated Step Functions orchestration for multi-stage workflows. |
+| **OpenSearch is eventually consistent** | DynamoDB provides immediate strong consistency for direct lookups; search projection lag is monitored via CloudWatch. | Near-real-time index tuning and OpenSearch pipeline scaling. |
+| **Single-Region Scope (`us-east-1`)** | Cost-effective and optimal for current phase; all stacks are fully parameterized in CDK. | Multi-Region Active-Passive deployment with S3 Cross-Region Replication (CRR) and DynamoDB Global Tables. |
+| **Static Document Schema** | Zero cold-start latency; in-memory validation via Ajv against `loan_agreement-v1.json`. | Phase 2 introduces Dynamic DynamoDB Schema Registry with event-driven cache invalidation. |
+
+---
+
+## Appendix A: Authoritative Source-of-Truth Statement
+
+> **Amazon S3 Object Versions are the authoritative store for raw document binaries. The mutable `document-metadata` Amazon S3 Object Annotation attached to each version is the authoritative store for business and system metadata. Amazon DynamoDB provides the fast transactional control plane, managing active version pointers, optimistic concurrency locks, idempotency deduplication, and workflow state. Amazon OpenSearch Serverless is purely a derived, rebuildable read model for search queries.**
+
+---
+
+## Appendix B: Definition of Done (DoD)
+
+The Document Management Platform solution is considered fully delivered when:
+1. All 8 AWS CDK stacks synthesize and deploy cleanly to `us-east-1` without manual intervention.
+2. An authorized caller can execute the complete 15-step end-to-end demonstration lifecycle without error.
+3. Both inline ($\le 4\text{ MiB}$) and direct presigned ($> 4\text{ MiB}$) ingestion pipelines succeed with schema validation.
+4. Concurrency protection (`409 Conflict`) and asynchronous index DLQ recovery are verified.
+5. All security baselines (Cognito RBAC, KMS encryption, S3 WORM deny policies, log redaction) pass automated compliance audits.
+
