@@ -57,9 +57,9 @@ To maintain strict data integrity without distributed two-phase commit transacti
 1. **Content Authority (Amazon S3 Object Versions):**
    - S3 is the absolute, immutable source of truth for raw document binaries (PDF, TIFF, JPEG, Office).
    - Every content update to a logical document key creates a new, immutable `S3 VersionId`. Application roles are explicitly denied `s3:DeleteObjectVersion` permissions.
-2. **Metadata Authority (Amazon S3 Metadata Annotations):**
-   - Each content version owns an authoritative, structured JSON annotation stored in S3 (`documents/{document_class}/{document_id}.annotation.json`).
-   - The annotation holds the complete system and business metadata conforming strictly to the document class schema (`bank.document-metadata/1`).
+2. **Metadata Authority (Amazon S3 Object Annotations):**
+   - Each content version owns an authoritative, structured JSON annotation attached directly to the versioned S3 object via the native **Amazon S3 Annotations API** (`s3:PutObjectAnnotation`, `s3:GetObjectAnnotation`).
+   - The annotation is named `document-metadata` and holds the complete system and business metadata conforming strictly to the document class schema (`bank.document-metadata/1`).
 3. **Control Plane & Pointer Authority (Amazon DynamoDB):**
    - DynamoDB maintains the current pointer (`DOC#{document_id}`), mapping the logical document to its latest active `current_s3_version_id`, `current_application_version`, and `current_metadata_revision`.
    - DynamoDB also acts as the concurrency coordinator, idempotency registry, upload session tracker, and version lineage catalog.
@@ -78,7 +78,7 @@ To maintain strict data integrity without distributed two-phase commit transacti
 | **Amazon API Gateway** (REST API) | Public-facing REST interface; handles routing, Cognito JWT authentication, binary media decoding (`*/*`), stage-level throttling (1,000 RPS burst 2,000), and input parsing. | Fully managed serverless ingress; native integration with AWS Cognito authorizers; built-in DDoS protection; transparent binary payload passthrough for inline uploads without requiring custom reverse proxies. |
 | **AWS Lambda** (Node.js 20.x, TypeScript) | Core compute layer executing Command handlers, Query handlers, Search proxying, Stream processing, and OpenSearch indexing. | True serverless pay-per-use execution model; instant auto-scaling; native integration with DynamoDB Streams, SQS event sources, and IAM execution roles; zero operating system maintenance. |
 | **Amazon S3** (Standard Tier) | Authoritative storage for versioned document binaries and structured mutable JSON annotations. | Industry-standard 99.999999999% (11 9s) durability; native object versioning; high-throughput multipart and single-PUT capabilities; direct presigned URL generation bypassing compute bottlenecks. |
-| **S3 Metadata Annotations Pattern** | Stores full, structured metadata sidecars alongside the versioned binaries in S3. | Eliminates S3's 2 KB user-defined metadata header limitation; provides an open, portable metadata format coupled directly with storage; allows metadata evolution without modifying raw document bytes. |
+| **Amazon S3 Annotations Feature** | Attaches full, structured, mutable metadata payloads (`document-metadata`) directly to versioned S3 objects via `PutObjectAnnotation` / `GetObjectAnnotation`. | Eliminates S3's 2 KB user-defined metadata header limitation without sidecar file sprawl; provides an open JSON metadata format natively bound to the object version; allows metadata evolution without modifying raw document bytes; ready for S3 Metadata Apache Iceberg analytics. |
 | **Amazon DynamoDB** (Single-Table Design) | Fast transactional control plane storing active document pointers, application version registry, upload sessions, and idempotency locks. | Single-digit millisecond latency at any scale; atomic transactions (`TransactWriteCommand`); conditional updates for optimistic concurrency; native Change Data Capture (CDC) via DynamoDB Streams. |
 | **Amazon OpenSearch Serverless (AOSS)** | Search collection (`documents-v1`) indexing current active documents for multi-field filtering, date/number ranges, and cursor pagination. | Full-text and structured search without cluster sizing, sharding, or version upgrades; automated capacity scaling (OCUs); native IAM SigV4 request signing; decoupling search from transaction storage. |
 | **Amazon SQS & Dead-Letter Queue (DLQ)** | Decouples DynamoDB Stream events from OpenSearch indexing; buffers traffic spikes; captures failed index records after 3 retries in `doc-platform-mvp-index-dlq`. | Guaranteed message persistence; eliminates backpressure on the control plane during search index outages; self-healing asynchronous retry pipeline with DLQ alerting. |
@@ -92,15 +92,15 @@ To maintain strict data integrity without distributed two-phase commit transacti
 
 ## 3. Data Architecture & Storage Models
 
-### 3.1 S3 Storage Partitioning & Key Conventions
-Document binaries and their authoritative metadata annotations reside in the primary document bucket (`doc-platform-mvp-docs-{account}-{region}`):
+### 3.1 S3 Storage Partitioning & Native Object Annotations
+Document binaries reside in the primary document bucket (`doc-platform-mvp-docs-{account}-{region}`). Metadata is bound directly to the object versions as a named S3 Annotation:
 
 ```
 s3://doc-platform-mvp-docs-{account}-{region}/
  └── documents/
       └── {document_class}/
-           ├── {document_id}                    <-- Raw Document Binary (PDF, TIFF, etc.) [Versioned]
-           └── {document_id}.annotation.json    <-- Authoritative Metadata Annotation JSON
+           └── {document_id}                    <-- Raw Document Binary (PDF, TIFF, etc.) [Versioned]
+                └── Annotation: "document-metadata"  <-- Native S3 Annotation JSON Payload
 ```
 
 ### 3.2 Authoritative Annotation Schema (`bank.document-metadata/1`)
@@ -172,16 +172,17 @@ The table uses `pk` (Partition Key) and `sk` (Sort Key) with Pay-Per-Request on-
 
 ### 3.5 Document Metadata Architecture & Immutability Rules
 
-#### 3.5.1 The S3 Metadata Annotation (Sidecar) Pattern
+#### 3.5.1 The Amazon S3 Object Annotations Feature (`s3:PutObjectAnnotation`, `s3:GetObjectAnnotation`)
 In enterprise document management, metadata typically outgrows the storage layer's basic capabilities. Amazon S3 natively supports User-Defined Object Metadata headers (`x-amz-meta-*`), but enforces a **strict 2 KB total header size limit** and makes metadata **strictly immutable** (modifying user metadata requires a full `CopyObject` operation duplicating object bytes).
 
-To overcome these constraints, this architecture uses the **Authoritative S3 Metadata Annotation (Sidecar) Pattern**:
-- Every document content version is paired with a dedicated JSON annotation file: `s3://{doc-bucket}/documents/{document_class}/{document_id}.annotation.json`.
-- The annotation is tagged with `x-amz-meta-target-version-id: {s3_version_id}` to bind it cryptographically to the exact S3 binary version.
+To overcome these constraints without introducing sidecar file sprawl, this architecture uses the **native Amazon S3 Annotations API feature**:
+- Every document content version owns a dedicated named annotation: `document-metadata` attached directly to the versioned S3 object key (`documents/{document_class}/{document_id}`) targeted by its `s3_version_id`.
+- Handlers call `PutObjectAnnotationCommand` and `GetObjectAnnotationCommand` directly from `@aws-sdk/client-s3`.
 - **Benefits:**
-  1. **Arbitrary Schema Richness:** No 2 KB header constraint; supports nested attributes, audit tracking, and large business datasets.
-  2. **Decoupled Lifecycle:** Business metadata can be corrected or evolved without rewriting multi-megabyte binary files or generating unnecessary S3 object versions.
-  3. **Zero Lock-In:** Metadata is stored in standard JSON alongside the binary in S3, making the storage tier self-describing and portable.
+  1. **Arbitrary Schema Richness:** Supports up to 1 MB per annotation payload with deep JSON validation against `bank.document-metadata/1`.
+  2. **Decoupled Lifecycle:** Business metadata can be corrected or evolved in-place without rewriting multi-megabyte binary files or generating unnecessary S3 binary versions.
+  3. **Zero File Sprawl:** Eliminates secondary `.annotation.json` companion objects.
+  4. **S3 Metadata Iceberg Integration:** Annotations automatically flow into S3 Metadata Apache Iceberg tables for SQL analytics via Amazon Athena without custom ETL jobs.
 
 #### 3.5.2 Field Immutability vs. Mutability Matrix
 To protect data provenance, auditability, and cryptographic checksums, the platform strictly categorizes metadata attributes:
@@ -238,7 +239,7 @@ Client (Sends expected_revision: 1)
 5. JSON Schema Validation ──► Validate complete merged dictionary via Ajv
    │
    ▼
-6. S3 PutObject ───────────► Write updated annotation JSON to S3, capture new ETag
+6. S3 PutObjectAnnotation ──► Attach updated annotation JSON to S3 object version
    │
    ▼
 7. DynamoDB Conditional Update ──► UPDATE DOC#{id} SET rev=2, etag WHERE rev=1
@@ -255,9 +256,9 @@ Client (Sends expected_revision: 1)
 1. **Authorization Check:** The API Gateway Cognito authorizer verifies that the caller has `Document.MetadataEditor`, `Document.Writer`, or `Document.Admin` role.
 2. **Immutability Enforcement:** The handler checks incoming `changes` keys against `IMMUTABLE_FIELDS`. If any immutable field is present, a `400 VALIDATION_ERROR` is returned immediately.
 3. **Optimistic Concurrency Check (DynamoDB):** The current document pointer is fetched using a strongly consistent read from DynamoDB (`pk: DOC#{id}, sk: DOC`). If `currentDoc.current_metadata_revision !== expected_metadata_revision`, the update is aborted with a `409 METADATA_CONFLICT` response returning the actual current revision.
-4. **Authoritative Annotation Fetch:** S3 retrieves the existing `documents/{class}/{doc_id}.annotation.json` file.
+4. **Authoritative Annotation Fetch:** S3 retrieves the existing `document-metadata` annotation on `documents/{class}/{doc_id}` targeted by `current_s3_version_id` via `GetObjectAnnotationCommand`.
 5. **Merge & Validation:** The allowed business field changes are merged into the existing metadata dictionary. `metadata_revision` is incremented to `expected_revision + 1`, and `metadata_updated_at` / `metadata_updated_by` are stamped. The complete merged payload is validated against the static JSON Schema (`bank.document-metadata/1`) using Ajv.
-6. **S3 Annotation Commit:** The updated JSON is written to S3 via `PutObjectCommand`, producing a new S3 `ETag`.
+6. **S3 Annotation Commit:** The updated JSON is attached to the object version via `PutObjectAnnotationCommand`.
 7. **Atomic Catalog Commit:** DynamoDB executes a conditional update:
    ```json
    {
@@ -524,7 +525,7 @@ All APIs (except `/health`) require an `Authorization: Bearer <Cognito-JWT-Token
     UploadInline Lambda->>UploadInline Lambda: Check size (<= 4 MiB), verify SHA256 checksum & Ajv schema
     UploadInline Lambda->>S3: PutObject (raw binary content)
     S3-->>UploadInline Lambda: Return S3 VersionId & ETag
-    UploadInline Lambda->>S3: PutObject (document-metadata annotation JSON)
+    UploadInline Lambda->>S3: PutObjectAnnotation (Attach document-metadata JSON)
     S3-->>UploadInline Lambda: Return Annotation ETag
     UploadInline Lambda->>DynamoDB: TransactWriteItems (DOC# pointer + VER#0000000001 + IDEMP# lock)
     DynamoDB-->>UploadInline Lambda: Transaction Success
@@ -609,7 +610,7 @@ All APIs (except `/health`) require an `Authorization: Bearer <Cognito-JWT-Token
     API Gateway->>DirectComplete Lambda: Invoke
     DirectComplete Lambda->>DynamoDB: GetItem UPLOAD#{upload_id} (Verify state == INITIATED)
     DirectComplete Lambda->>S3: HeadObject (Verify object presence, length, and fetch VersionId)
-    DirectComplete Lambda->>S3: PutObject (Write document-metadata annotation JSON)
+    DirectComplete Lambda->>S3: PutObjectAnnotation (Attach document-metadata JSON)
     DirectComplete Lambda->>DynamoDB: Commit Document Creation (DOC# pointer + VER#0000000001)
     DirectComplete Lambda->>DynamoDB: UpdateItem UPLOAD#{upload_id} (State -> ACTIVE)
     DirectComplete Lambda-->>API Gateway: 201 Created
@@ -676,7 +677,7 @@ All APIs (except `/health`) require an `Authorization: Bearer <Cognito-JWT-Token
     Client->>API Gateway: GET /v1/documents/{document_id}
     API Gateway->>GetDoc Lambda: Invoke
     GetDoc Lambda->>DynamoDB: GetItem DOC#{document_id} (Strongly consistent read)
-    GetDoc Lambda->>S3: GetObject (Read authoritative annotation JSON)
+    GetDoc Lambda->>S3: GetObjectAnnotation (Read document-metadata annotation)
     GetDoc Lambda->>S3: Generate Presigned GetObject URL (15 min expiry)
     GetDoc Lambda-->>API Gateway: 200 OK (document pointer + metadata + download_url)
     API Gateway-->>Client: 200 OK
@@ -744,10 +745,10 @@ All APIs (except `/health`) require an `Authorization: Bearer <Cognito-JWT-Token
     Client->>API Gateway: POST /v1/documents/{document_id}/versions (Binary Body)
     API Gateway->>CreateVersion Lambda: Invoke
     CreateVersion Lambda->>DynamoDB: GetItem DOC#{document_id} (Fetch current version & key)
-    CreateVersion Lambda->>S3: GetObject (Read existing annotation to carry forward attributes)
+    CreateVersion Lambda->>S3: GetObjectAnnotation (Read existing document-metadata)
     CreateVersion Lambda->>S3: PutObject (Write new binary bytes to same S3 key)
     S3-->>CreateVersion Lambda: Return new S3 VersionId
-    CreateVersion Lambda->>S3: PutObject (Write updated annotation with application_version = current + 1)
+    CreateVersion Lambda->>S3: PutObjectAnnotation (Attach updated annotation to new VersionId)
     CreateVersion Lambda->>DynamoDB: TransactWriteItems (Update DOC# pointer + PutItem VER#0000000002)
     CreateVersion Lambda-->>API Gateway: 201 Created (document_id, application_version: 2)
     API Gateway-->>Client: 201 Created
@@ -818,7 +819,7 @@ All APIs (except `/health`) require an `Authorization: Bearer <Cognito-JWT-Token
     Client->>API Gateway: GET /v1/documents/{document_id}/metadata
     API Gateway->>GetMetadata Lambda: Invoke
     GetMetadata Lambda->>DynamoDB: GetItem DOC#{document_id}
-    GetMetadata Lambda->>S3: GetObject (Read annotation JSON)
+    GetMetadata Lambda->>S3: GetObjectAnnotation (Read document-metadata annotation)
     GetMetadata Lambda-->>API Gateway: 200 OK (Authoritative metadata payload)
     API Gateway-->>Client: 200 OK
   ```
@@ -876,9 +877,9 @@ All APIs (except `/health`) require an `Authorization: Bearer <Cognito-JWT-Token
     alt Revision Mismatch
       MetadataUpdate Lambda-->>Client: 409 METADATA_CONFLICT (current_revision: 2)
     else Revision Matches
-      MetadataUpdate Lambda->>S3: GetObject (Read existing annotation JSON)
+      MetadataUpdate Lambda->>S3: GetObjectAnnotation (Read existing document-metadata)
       MetadataUpdate Lambda->>MetadataUpdate Lambda: Merge allowed fields & validate against Ajv schema
-      MetadataUpdate Lambda->>S3: PutObject (Write updated annotation with revision = expected + 1)
+      MetadataUpdate Lambda->>S3: PutObjectAnnotation (Update document-metadata annotation)
       MetadataUpdate Lambda->>DynamoDB: UpdateItem DOC#{document_id} SET current_metadata_revision = 2 WHERE revision == 1
       MetadataUpdate Lambda-->>API Gateway: 200 OK (new metadata_revision: 2)
       API Gateway-->>Client: 200 OK
@@ -959,7 +960,7 @@ All APIs (except `/health`) require an `Authorization: Bearer <Cognito-JWT-Token
     Client->>API Gateway: POST /v1/documents/{document_id}/restore
     API Gateway->>Restore Lambda: Invoke
     Restore Lambda->>DynamoDB: UpdateItem DOC#{document_id} (status = 'ACTIVE')
-    Restore Lambda->>S3: GetObject (Read current authoritative annotation)
+    Restore Lambda->>S3: GetObjectAnnotation (Read document-metadata annotation)
     Restore Lambda->>OpenSearch: UpsertDocument (Re-populate search index)
     Restore Lambda-->>API Gateway: 200 OK (status: 'ACTIVE')
     API Gateway-->>Client: 200 OK
@@ -1058,7 +1059,7 @@ sequenceDiagram
   alt Stale Event or Soft-Deleted
     Indexer->>Indexer: Skip stale event OR Delete projection if SOFT_DELETED
   else Valid Active Revision
-    Indexer->>S3: GetObject (Read authoritative annotation JSON)
+    Indexer->>S3: GetObjectAnnotation (Read document-metadata annotation)
     Indexer->>OpenSearch: Upsert document projection
   end
 

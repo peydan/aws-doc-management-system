@@ -12,7 +12,11 @@
     "cdk": "cdk",
     "seed": "ts-node scripts/seed-demo-dataset.ts",
     "demo": "ts-node scripts/run-demo-scenario.ts",
-    "gui": "streamlit run app.py"
+    "migrate:annotations": "ts-node scripts/migrate-s3-annotations.ts",
+    "reload": "ts-node scripts/reload-documents.ts",
+    "gui": "streamlit run app.py",
+    "gui:deploy": "streamlit run app_for_deployment.py",
+    "test:python": "python3 test_client_for_deployment.py"
   },
   "dependencies": {
     "@aws-sdk/client-cognito-identity-provider": "^3.600.0",

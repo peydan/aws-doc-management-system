@@ -1,5 +1,6 @@
 import * as https from "https";
-import * as aws4 from "aws4";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const aws4 = require("aws4");
 import { defaultProvider } from "@aws-sdk/credential-provider-node";
 
 async function callLogsApi(action: string, body: any): Promise<any> {

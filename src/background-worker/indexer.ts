@@ -30,7 +30,11 @@ export async function handler(event: SQSEvent): Promise<void> {
         continue;
       }
 
-      const anno = await S3Manager.getAnnotation(document_class, document_id);
+      const anno = await S3Manager.getAnnotation(
+        document_class,
+        document_id,
+        currentDoc.current_s3_version_id
+      );
       await OpenSearchManager.upsertDocumentProjection(anno.metadata, currentDoc.status);
 
       console.log(`Successfully indexed document ${document_id} into OpenSearch`);

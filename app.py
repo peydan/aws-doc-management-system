@@ -77,11 +77,12 @@ def parse_jwt_payload(token: str) -> Optional[Dict[str, Any]]:
         return None
 
 # Initialize Session State
-DEFAULT_API_URL = os.environ.get("API_URL", "https://your-api-id.execute-api.us-east-1.amazonaws.com/v1")
-DEFAULT_COGNITO_CLIENT_ID = os.environ.get("COGNITO_CLIENT_ID", "")
-DEFAULT_COGNITO_USER_POOL_ID = os.environ.get("COGNITO_USER_POOL_ID", "")
+DEFAULT_API_URL = os.environ.get("API_URL", "https://k0urmbeen9.execute-api.us-east-1.amazonaws.com/v1")
+DEFAULT_COGNITO_CLIENT_ID = os.environ.get("COGNITO_CLIENT_ID", "3fcn104kkvrb642f33khd5c0p6")
+DEFAULT_COGNITO_USER_POOL_ID = os.environ.get("COGNITO_USER_POOL_ID", "us-east-1_aMUcSBi6e")
+DEFAULT_COGNITO_PASSWORD = os.environ.get("COGNITO_PASSWORD", "DemoPassword123!")
 
-if "api_url" not in st.session_state or st.session_state.api_url == "https://doc-platform-api.execute-api.us-east-1.amazonaws.com/v1":
+if "api_url" not in st.session_state or "your-api-id" in st.session_state.api_url or "doc-platform-api" in st.session_state.api_url or not st.session_state.api_url:
     st.session_state.api_url = DEFAULT_API_URL
 if "auth_token" not in st.session_state:
     st.session_state.auth_token = ""
@@ -92,7 +93,7 @@ if "cognito_region" not in st.session_state:
 if "cognito_username" not in st.session_state:
     st.session_state.cognito_username = "admin-user"
 if "cognito_password" not in st.session_state or not st.session_state.cognito_password:
-    st.session_state.cognito_password = os.environ.get("COGNITO_PASSWORD", "")
+    st.session_state.cognito_password = DEFAULT_COGNITO_PASSWORD
 if "verify_ssl" not in st.session_state:
     st.session_state.verify_ssl = True
 if "use_system_proxy" not in st.session_state:

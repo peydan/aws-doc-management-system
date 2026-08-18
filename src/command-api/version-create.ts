@@ -21,7 +21,11 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     const currentDoc = await DynamoManager.getDocument(documentId);
-    const existingAnno = await S3Manager.getAnnotation(currentDoc.document_class, documentId);
+    const existingAnno = await S3Manager.getAnnotation(
+      currentDoc.document_class,
+      documentId,
+      currentDoc.current_s3_version_id
+    );
 
     if (!event.body) {
       throw new ValidationError('Binary body for new content version is required');

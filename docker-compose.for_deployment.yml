@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  streamlit-for-deployment:
+    build:
+      context: .
+      dockerfile: Dockerfile.for_deployment
+    image: doc-platform-streamlit-for-deployment:latest
+    container_name: doc-platform-streamlit-for-deployment
+    ports:
+      - "8501:8501"
+    environment:
+      - API_URL=${API_URL:-https://your-api-id.execute-api.us-east-1.amazonaws.com/v1}
+      - COGNITO_CLIENT_ID=${COGNITO_CLIENT_ID:-}
+      - COGNITO_USER_POOL_ID=${COGNITO_USER_POOL_ID:-}
+      - COGNITO_REGION=${COGNITO_REGION:-us-east-1}
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3

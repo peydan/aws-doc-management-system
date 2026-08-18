@@ -50,7 +50,11 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       throw new MetadataConflictError(expectedRevision, currentDoc.current_metadata_revision);
     }
 
-    const annoResult = await S3Manager.getAnnotation(currentDoc.document_class, documentId);
+    const annoResult = await S3Manager.getAnnotation(
+      currentDoc.document_class,
+      documentId,
+      currentDoc.current_s3_version_id
+    );
     const currentMetadata = annoResult.metadata;
 
     const nextRevision = expectedRevision + 1;

@@ -75,6 +75,9 @@ export class ApiStack extends cdk.Stack {
         handler: 'handler',
         timeout: cdk.Duration.seconds(30),
         memorySize: 512,
+        bundling: {
+          externalModules: [],
+        },
         environment: {
           ...commonEnv,
           ...extraEnv,
@@ -94,6 +97,24 @@ export class ApiStack extends cdk.Stack {
     const softDeleteLambda = createHandlerLambda('SoftDeleteLambda', '../src/command-api/soft-delete.ts');
     const restoreLambda = createHandlerLambda('RestoreLambda', '../src/command-api/restore.ts');
 
+    const s3AnnotationWritePolicy = new iam.PolicyStatement({
+      actions: [
+        's3:PutObjectAnnotation',
+        's3:GetObjectAnnotation',
+        's3:DeleteObjectAnnotation',
+        's3:ListObjectAnnotations',
+      ],
+      resources: [`${props.documentBucket.bucketArn}/*`],
+    });
+
+    const s3AnnotationReadPolicy = new iam.PolicyStatement({
+      actions: [
+        's3:GetObjectAnnotation',
+        's3:ListObjectAnnotations',
+      ],
+      resources: [`${props.documentBucket.bucketArn}/*`],
+    });
+
     const commandLambdas = [
       uploadInlineLambda,
       uploadDirectInitLambda,
@@ -107,6 +128,7 @@ export class ApiStack extends cdk.Stack {
     for (const fn of commandLambdas) {
       props.documentBucket.grantReadWrite(fn);
       props.controlTable.grantReadWriteData(fn);
+      fn.addToRolePolicy(s3AnnotationWritePolicy);
     }
 
     const getDocLambda = createHandlerLambda('GetDocLambda', '../src/query-api/get-document.ts');
@@ -127,6 +149,7 @@ export class ApiStack extends cdk.Stack {
     for (const fn of queryLambdas) {
       props.documentBucket.grantRead(fn);
       props.controlTable.grantReadData(fn);
+      fn.addToRolePolicy(s3AnnotationReadPolicy);
     }
 
     const searchLambda = createHandlerLambda('SearchLambdaHandler', '../src/search-api/search-documents.ts');

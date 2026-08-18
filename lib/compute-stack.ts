@@ -54,11 +54,33 @@ export class ComputeStack extends cdk.Stack {
       handler: 'handler',
       timeout: cdk.Duration.seconds(30),
       memorySize: 1024,
+      bundling: {
+        externalModules: [],
+      },
       environment: commonEnv,
+    });
+
+    const s3AnnotationWritePolicy = new iam.PolicyStatement({
+      actions: [
+        's3:PutObjectAnnotation',
+        's3:GetObjectAnnotation',
+        's3:DeleteObjectAnnotation',
+        's3:ListObjectAnnotations',
+      ],
+      resources: [`${props.documentBucket.bucketArn}/*`],
+    });
+
+    const s3AnnotationReadPolicy = new iam.PolicyStatement({
+      actions: [
+        's3:GetObjectAnnotation',
+        's3:ListObjectAnnotations',
+      ],
+      resources: [`${props.documentBucket.bucketArn}/*`],
     });
 
     props.documentBucket.grantReadWrite(this.commandApiFunction);
     props.controlTable.grantReadWriteData(this.commandApiFunction);
+    this.commandApiFunction.addToRolePolicy(s3AnnotationWritePolicy);
     this.commandApiFunction.addToRolePolicy(denyDeleteVersionPolicy);
 
     // 2. Query API Function
@@ -68,11 +90,15 @@ export class ComputeStack extends cdk.Stack {
       handler: 'handler',
       timeout: cdk.Duration.seconds(15),
       memorySize: 512,
+      bundling: {
+        externalModules: [],
+      },
       environment: commonEnv,
     });
 
     props.documentBucket.grantRead(this.queryApiFunction);
     props.controlTable.grantReadData(this.queryApiFunction);
+    this.queryApiFunction.addToRolePolicy(s3AnnotationReadPolicy);
     this.queryApiFunction.addToRolePolicy(denyDeleteVersionPolicy);
 
     // 3. Search API Function
@@ -82,6 +108,9 @@ export class ComputeStack extends cdk.Stack {
       handler: 'handler',
       timeout: cdk.Duration.seconds(15),
       memorySize: 512,
+      bundling: {
+        externalModules: [],
+      },
       environment: commonEnv,
     });
 
@@ -100,6 +129,9 @@ export class ComputeStack extends cdk.Stack {
       handler: 'handler',
       timeout: cdk.Duration.seconds(60),
       memorySize: 512,
+      bundling: {
+        externalModules: [],
+      },
       environment: commonEnv,
     });
 
@@ -124,12 +156,16 @@ export class ComputeStack extends cdk.Stack {
       handler: 'handler',
       timeout: cdk.Duration.seconds(30),
       memorySize: 512,
+      bundling: {
+        externalModules: [],
+      },
       environment: commonEnv,
     });
 
     props.documentBucket.grantRead(this.indexerFunction);
     props.controlTable.grantReadData(this.indexerFunction);
     props.indexQueue.grantConsumeMessages(this.indexerFunction);
+    this.indexerFunction.addToRolePolicy(s3AnnotationReadPolicy);
     this.indexerFunction.addToRolePolicy(
       new iam.PolicyStatement({
         actions: ['aoss:APIAccessAll'],

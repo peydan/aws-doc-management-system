@@ -20,7 +20,11 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const updatedDoc = await DynamoManager.setDocumentStatus(documentId, 'ACTIVE');
 
     try {
-      const annoResult = await S3Manager.getAnnotation(updatedDoc.document_class, documentId);
+      const annoResult = await S3Manager.getAnnotation(
+        updatedDoc.document_class,
+        documentId,
+        updatedDoc.current_s3_version_id
+      );
       await OpenSearchManager.upsertDocumentProjection(annoResult.metadata, 'ACTIVE');
     } catch (err) {
       Logger.warn('OpenSearch re-index warning during restore', { documentId, error: err });

@@ -30,6 +30,7 @@ export class PlatformError extends Error {
     extraProps?: Record<string, any>
   ) {
     super(message);
+    Object.setPrototypeOf(this, new.target.prototype);
     this.name = this.constructor.name;
     this.statusCode = statusCode;
     this.code = code;
@@ -50,6 +51,10 @@ export class PlatformError extends Error {
       },
     };
   }
+}
+
+export function isPlatformError(err: any): err is PlatformError {
+  return err && typeof err === 'object' && typeof err.statusCode === 'number' && typeof err.toResponse === 'function';
 }
 
 export class ValidationError extends PlatformError {

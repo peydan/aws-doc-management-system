@@ -2,7 +2,7 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { authenticateRequest, authorizeRoles } from '../shared/auth';
 import { DynamoManager } from '../shared/dynamo';
 import { S3Manager } from '../shared/s3';
-import { PlatformError, ValidationError } from '../shared/errors';
+import { PlatformError, ValidationError, isPlatformError } from '../shared/errors';
 
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   const correlationId = event.requestContext.requestId;
@@ -16,7 +16,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     const doc = await DynamoManager.getDocument(documentId);
-    const anno = await S3Manager.getAnnotation(doc.document_class, documentId);
+    const anno = await S3Manager.getAnnotation(doc.document_class, documentId, doc.current_s3_version_id);
     const downloadUrl = await S3Manager.generatePresignedDownloadUrl(doc.current_s3_key, doc.current_s3_version_id, 900);
 
     return {
@@ -37,7 +37,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       }),
     };
   } catch (err: any) {
-    if (err instanceof PlatformError) {
+    console.error(`[${event.path || 'get-document'}] Error:`, err);
+    if (err instanceof PlatformError || isPlatformError(err)) {
       return {
         statusCode: err.statusCode,
         headers: { 'Content-Type': 'application/json' },
@@ -50,7 +51,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       body: JSON.stringify({
         error: {
           code: 'INTERNAL_ERROR',
-          message: 'An unexpected internal error occurred',
+          message: err?.message || 'An unexpected internal error occurred',
           correlation_id: correlationId,
           retryable: true,
         },
