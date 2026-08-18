@@ -166,3 +166,69 @@ streamlit run app.py
 ```
 
 The application will open automatically in your browser at `http://localhost:8501`.
+
+---
+
+## 5. How to Configure Streamlit for an Existing AWS Deployment
+
+To connect the Streamlit application to an existing AWS deployment, follow these steps:
+
+### Step 1: Obtain Deployment Endpoints from AWS
+After deploying the CDK stacks (or from CloudFormation Stack Outputs), retrieve the **API Gateway Endpoint** and **Cognito App Client ID**:
+
+```bash
+# Get the API Gateway Base URL (from ApiStack):
+aws cloudformation describe-stacks \
+  --stack-name ApiStack \
+  --query "Stacks[0].Outputs[?OutputKey=='DocumentApiEndpoint'].OutputValue" \
+  --output text
+# Output example: https://a1b2c3d4e5.execute-api.us-east-1.amazonaws.com/v1
+
+# Get the Cognito App Client ID (from SecurityStack):
+aws cloudformation describe-stacks \
+  --stack-name SecurityStack \
+  --query "Stacks[0].Outputs[?OutputKey=='UserPoolClientId'].OutputValue" \
+  --output text
+# Output example: 4abcdef1234567890abcdef123
+```
+
+---
+
+### Step 2: Configure the Streamlit App (3 Options)
+
+#### Option A: Direct GUI Input (Zero Setup — Easiest)
+1. Start the app: `streamlit run app.py`
+2. In the **Left Sidebar**:
+   - Paste the **API Gateway Base URL** into the `API Gateway Base URL` text field.
+   - Under `🔑 Quick Cognito Sign-In`, paste the **Cognito Client ID**.
+   - Select a user persona (`admin-user`, `writer-user`, `editor-user`, `reader-user`) and enter the user password.
+   - Click **"🚀 Sign In"**.
+
+#### Option B: Environment Variables / Terminal Export
+Set the environment variables before starting Streamlit:
+
+```bash
+export API_URL="https://a1b2c3d4e5.execute-api.us-east-1.amazonaws.com/v1"
+export COGNITO_CLIENT_ID="4abcdef1234567890abcdef123"
+export COGNITO_USER_POOL_ID="us-east-1_AbCdEf123"
+export COGNITO_PASSWORD="YourPassword123!"
+
+streamlit run app.py
+```
+
+#### Option C: `.env` File in Project Root
+Create a `.env` file in the project root:
+```properties
+API_URL=https://a1b2c3d4e5.execute-api.us-east-1.amazonaws.com/v1
+COGNITO_CLIENT_ID=4abcdef1234567890abcdef123
+COGNITO_USER_POOL_ID=us-east-1_AbCdEf123
+COGNITO_PASSWORD=YourPassword123!
+```
+
+---
+
+### Step 3: Verify Connectivity
+1. Navigate to **Tab 1: 🟢 System Health** and click **"Ping Health Endpoint"**. You should see `Status: 200 OK` and a healthy service payload.
+2. Navigate to **Tab 0: 🔐 Authentication & Roles** to verify that your active Cognito identity and JWT claims (`Document.Admin`, etc.) are green and valid.
+3. You are now fully connected to the live AWS deployment!
+
