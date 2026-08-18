@@ -1,0 +1,522 @@
+<mxfile host="Electron" agent="Antigravity" version="24.7.5">
+  <diagram id="aws-docman-architecture" name="AWS Document Management Architecture">
+    <mxGraphModel dx="2600" dy="1600" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2600" pageHeight="1600" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- ==================== HEADER & TITLE BANNER ==================== -->
+        <mxCell id="title_banner" value="&lt;b style=&quot;font-size: 22px; color: #232F3E;&quot;&gt;AWS Document Management Platform — System Architecture&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size: 13px; color: #5A6B7C;&quot;&gt;Serverless Architecture: Amazon API Gateway, AWS Lambda, Amazon S3 (Native Versioning &amp;amp; S3 Annotations), DynamoDB Streams, Amazon SQS, OpenSearch Serverless, AWS Cognito &amp;amp; AWS KMS&lt;/span&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#D5DBDB;strokeWidth=1.5;align=left;spacingLeft=25;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="40" y="20" width="2520" height="70" as="geometry" />
+        </mxCell>
+
+        <!-- ==================== CLIENT & PRESENTATION TIER ==================== -->
+        <mxCell id="c_client" value="&lt;b&gt;Client &amp;amp; Consumer Tier&lt;/b&gt;" style="shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_corporate_data_center;strokeColor=#0277BD;fillColor=#F4F9FD;verticalAlign=top;align=left;spacingLeft=30;fontColor=#01579B;dashed=0;strokeWidth=1.5;html=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="110" width="340" height="740" as="geometry" />
+        </mxCell>
+
+        <!-- User / Web UI -->
+        <mxCell id="shape_user" value="" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#0277BD;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.user;" vertex="1" parent="c_client">
+          <mxGeometry x="25" y="45" width="52" height="52" as="geometry" />
+        </mxCell>
+
+        <mxCell id="card_client_ui" value="&lt;b style=&quot;color: #0277BD; font-size: 12px;&quot;&gt;Streamlit Web Application&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot; color=&quot;#333333&quot;&gt;&lt;code&gt;app.py&lt;/code&gt; / &lt;code&gt;api_client.py&lt;/code&gt;&lt;br&gt;Interactive Upload, Search, Version History, Metadata Editor &amp;amp; Document Viewer&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0277BD;strokeWidth=1.2;align=left;spacingLeft=10;" vertex="1" parent="c_client">
+          <mxGeometry x="90" y="40" width="230" height="65" as="geometry" />
+        </mxCell>
+
+        <!-- API Client / SDKs -->
+        <mxCell id="shape_client_sdk" value="" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#0277BD;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.client;" vertex="1" parent="c_client">
+          <mxGeometry x="25" y="130" width="52" height="52" as="geometry" />
+        </mxCell>
+
+        <mxCell id="card_client_sdk" value="&lt;b style=&quot;color: #0277BD; font-size: 12px;&quot;&gt;Enterprise Clients &amp;amp; SDKs&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot; color=&quot;#333333&quot;&gt;Postman / Automated CI/CD / Core Banking Systems&lt;br&gt;Bearer JWT Token Authorization&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0277BD;strokeWidth=1.2;align=left;spacingLeft=10;" vertex="1" parent="c_client">
+          <mxGeometry x="90" y="125" width="230" height="65" as="geometry" />
+        </mxCell>
+
+        <!-- Direct S3 Data Channel -->
+        <mxCell id="card_direct_s3" value="&lt;b style=&quot;color: #2E7D32; font-size: 12px;&quot;&gt;Direct S3 Data Channel&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot; color=&quot;#2E7D32&quot;&gt;• &lt;b&gt;Single-PUT Upload:&lt;/b&gt; Files &amp;gt; 4 MiB direct to S3 via Presigned URL&lt;br&gt;• &lt;b&gt;Presigned GET Download:&lt;/b&gt; Direct S3 high-speed document stream&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#2E7D32;strokeWidth=1.5;dashed=1;align=left;spacingLeft=12;" vertex="1" parent="c_client">
+          <mxGeometry x="20" y="210" width="300" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- RBAC User Groups -->
+        <mxCell id="card_rbac" value="&lt;b style=&quot;color: #D35400; font-size: 12px;&quot;&gt;Cognito User Groups (RBAC)&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot; color=&quot;#333333&quot;&gt;• &lt;b&gt;Document.Reader:&lt;/b&gt; Read, List Versions, Download &amp;amp; Search&lt;br&gt;• &lt;b&gt;Document.Writer:&lt;/b&gt; Inline/Direct Upload &amp;amp; New Content Version&lt;br&gt;• &lt;b&gt;Document.MetadataEditor:&lt;/b&gt; Optimistic Metadata Updates&lt;br&gt;• &lt;b&gt;Document.Admin:&lt;/b&gt; Soft Delete, Restore &amp;amp; Audit Access&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF8E1;strokeColor=#F39C12;strokeWidth=1;align=left;spacingLeft=12;" vertex="1" parent="c_client">
+          <mxGeometry x="20" y="310" width="300" height="130" as="geometry" />
+        </mxCell>
+
+        <!-- Document Specification -->
+        <mxCell id="card_doc_spec" value="&lt;b style=&quot;color: #5B2C6F; font-size: 12px;&quot;&gt;Document &amp;amp; Payload Model&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot; color=&quot;#333333&quot;&gt;• &lt;b&gt;Class:&lt;/b&gt; &lt;code&gt;loan_agreement&lt;/code&gt; (Schema v1)&lt;br&gt;• &lt;b&gt;MIME Types:&lt;/b&gt; PDF, TIFF, JPEG, Office (DOCX)&lt;br&gt;• &lt;b&gt;Inline API Payload:&lt;/b&gt; &amp;le; 4 MiB (&lt;code&gt;*/*&lt;/code&gt; binary media)&lt;br&gt;• &lt;b&gt;Direct S3 Upload:&lt;/b&gt; &amp;gt; 4 MiB up to configured max&lt;br&gt;• &lt;b&gt;Key:&lt;/b&gt; &lt;code&gt;documents/{class}/{doc_id}&lt;/code&gt;&lt;br&gt;• &lt;b&gt;Versioning:&lt;/b&gt; S3 Native Object Versioning&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F4ECF7;strokeColor=#8E44AD;strokeWidth=1;align=left;spacingLeft=12;" vertex="1" parent="c_client">
+          <mxGeometry x="20" y="460" width="300" height="150" as="geometry" />
+        </mxCell>
+
+        <!-- Demo Dataset Box -->
+        <mxCell id="card_demo_data" value="&lt;b style=&quot;color: #117864; font-size: 12px;&quot;&gt;Pre-seeded Demo Dataset&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size: 10.5px;&quot; color=&quot;#333333&quot;&gt;• Mortgages, Commercial &amp;amp; Auto Loan Agreements&lt;br&gt;• Multi-version loans with historical revisions&lt;br&gt;• Soft-deleted items demonstrating isolation&lt;br&gt;• Fully indexed into OpenSearch Serverless&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F8F5;strokeColor=#16A085;strokeWidth=1;align=left;spacingLeft=12;" vertex="1" parent="c_client">
+          <mxGeometry x="20" y="625" width="300" height="95" as="geometry" />
+        </mxCell>
+
+        <!-- ==================== SECURITY & IDENTITY CONTAINER ==================== -->
+        <mxCell id="c_security" value="&lt;b&gt;Security, Identity &amp;amp; Governance&lt;/b&gt;" style="shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_security_group;strokeColor=#DD3522;fillColor=#FDF6F5;verticalAlign=top;align=left;spacingLeft=30;fontColor=#873600;dashed=0;strokeWidth=1.5;html=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="870" width="340" height="690" as="geometry" />
+        </mxCell>
+
+        <!-- Cognito User Pool Shape -->
+        <mxCell id="shape_cognito" value="" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#DD3522;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.cognito;" vertex="1" parent="c_security">
+          <mxGeometry x="25" y="45" width="52" height="52" as="geometry" />
+        </mxCell>
+
+        <mxCell id="card_cognito" value="&lt;b style=&quot;color: #DD3522; font-size: 12px;&quot;&gt;Amazon Cognito User Pool&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot; color=&quot;#333333&quot;&gt;&lt;b&gt;Pool:&lt;/b&gt; &lt;code&gt;doc-platform-user-pool&lt;/code&gt;&lt;br&gt;&lt;b&gt;App Client:&lt;/b&gt; &lt;code&gt;doc-platform-client&lt;/code&gt;&lt;br&gt;Generates JWT ID &amp;amp; Access Tokens with &lt;code&gt;cognito:groups&lt;/code&gt; claims for RBAC&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#DD3522;strokeWidth=1.2;align=left;spacingLeft=10;" vertex="1" parent="c_security">
+          <mxGeometry x="90" y="35" width="230" height="85" as="geometry" />
+        </mxCell>
+
+        <!-- KMS Key Shape -->
+        <mxCell id="shape_kms" value="" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#DD3522;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.key_management_service;" vertex="1" parent="c_security">
+          <mxGeometry x="25" y="150" width="52" height="52" as="geometry" />
+        </mxCell>
+
+        <mxCell id="card_kms" value="&lt;b style=&quot;color: #DD3522; font-size: 12px;&quot;&gt;AWS KMS (CMK)&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot; color=&quot;#333333&quot;&gt;&lt;b&gt;Alias:&lt;/b&gt; &lt;code&gt;alias/doc-platform-mvp&lt;/code&gt;&lt;br&gt;Customer-Managed Key with Key Rotation.&lt;br&gt;SSE-KMS encryption for S3, DynamoDB, SQS &amp;amp; OpenSearch Serverless&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#DD3522;strokeWidth=1.2;align=left;spacingLeft=10;" vertex="1" parent="c_security">
+          <mxGeometry x="90" y="140" width="230" height="85" as="geometry" />
+        </mxCell>
+
+        <!-- IAM Policies Shape -->
+        <mxCell id="shape_iam" value="" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#DD3522;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.identity_and_access_management;" vertex="1" parent="c_security">
+          <mxGeometry x="25" y="255" width="52" height="52" as="geometry" />
+        </mxCell>
+
+        <mxCell id="card_iam" value="&lt;b style=&quot;color: #DD3522; font-size: 12px;&quot;&gt;IAM Guardrails &amp;amp; Policies&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size: 10.5px;&quot; color=&quot;#333333&quot;&gt;• &lt;b&gt;Explicit Deny:&lt;/b&gt; &lt;code&gt;s3:DeleteObjectVersion&lt;/code&gt; on S3 bucket &amp;amp; all Lambda roles&lt;br&gt;• Least-privilege IAM execution roles per function&lt;br&gt;• OpenSearch Data Access Policy for Lambda ARN&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#DD3522;strokeWidth=1.2;align=left;spacingLeft=10;" vertex="1" parent="c_security">
+          <mxGeometry x="90" y="245" width="230" height="95" as="geometry" />
+        </mxCell>
+
+        <!-- Compliance & Immutability Rules -->
+        <mxCell id="card_immutability" value="&lt;b style=&quot;color: #27AE60; font-size: 12px;&quot;&gt;Compliance &amp;amp; Immutability&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size: 10.5px;&quot; color=&quot;#333333&quot;&gt;• Native S3 Object Versioning enabled&lt;br&gt;• Content versions cannot be deleted via app&lt;br&gt;• Soft-delete updates state without deleting S3&lt;br&gt;• Authoritative S3 Annotations version-locked&lt;br&gt;• S3 Audit bucket retains all change history&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F8F5;strokeColor=#27AE60;strokeWidth=1;align=left;spacingLeft=12;" vertex="1" parent="c_security">
+          <mxGeometry x="20" y="360" width="300" height="120" as="geometry" />
+        </mxCell>
+
+        <!-- Authority Hierarchy -->
+        <mxCell id="card_authority" value="&lt;b style=&quot;color: #117864; font-size: 12px;&quot;&gt;System Authority Hierarchy&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size: 10.5px;&quot; color=&quot;#333333&quot;&gt;1. &lt;b&gt;Content Authority:&lt;/b&gt; S3 Object Version bytes&lt;br&gt;2. &lt;b&gt;Metadata Authority:&lt;/b&gt; S3 &lt;code&gt;document-metadata&lt;/code&gt; Annotation&lt;br&gt;3. &lt;b&gt;Pointer Authority:&lt;/b&gt; DynamoDB Current Record&lt;br&gt;4. &lt;b&gt;Search Projection:&lt;/b&gt; OpenSearch Serverless (Rebuildable)&lt;br&gt;5. &lt;b&gt;Audit Evidence:&lt;/b&gt; Encrypted S3 Audit Bucket&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F8F5;strokeColor=#16A085;strokeWidth=1;align=left;spacingLeft=12;" vertex="1" parent="c_security">
+          <mxGeometry x="20" y="495" width="300" height="175" as="geometry" />
+        </mxCell>
+
+        <!-- ==================== AWS CLOUD OUTER CONTAINER ==================== -->
+        <mxCell id="c_aws_cloud" value="&lt;b style=&quot;font-size: 15px;&quot;&gt;AWS Cloud&lt;/b&gt;" style="shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_aws_cloud_alt;strokeColor=#232F3E;fillColor=none;verticalAlign=top;align=left;spacingLeft=30;fontColor=#232F3E;dashed=0;strokeWidth=2;html=1;" vertex="1" parent="1">
+          <mxGeometry x="410" y="110" width="2150" height="1450" as="geometry" />
+        </mxCell>
+
+        <!-- AWS Region us-east-1 Container -->
+        <mxCell id="c_aws_region" value="&lt;b style=&quot;font-size: 14px;&quot;&gt;AWS Region: us-east-1 (N. Virginia)&lt;/b&gt;" style="shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_region;strokeColor=#147EBA;fillColor=none;verticalAlign=top;align=left;spacingLeft=30;fontColor=#147EBA;dashed=1;strokeWidth=1.5;html=1;" vertex="1" parent="c_aws_cloud">
+          <mxGeometry x="20" y="35" width="2110" height="1395" as="geometry" />
+        </mxCell>
+
+        <!-- ==================== REGION COLUMN 1: API GATEWAY INGRESS ==================== -->
+        <mxCell id="c_apigw_col" value="&lt;b&gt;API Ingress &amp;amp; Routing Tier&lt;/b&gt;" style="shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_security_group;strokeColor=#8C4FFF;fillColor=#FAF5FF;verticalAlign=top;align=left;spacingLeft=30;fontColor=#5B2C6F;dashed=0;strokeWidth=1.5;html=1;" vertex="1" parent="c_aws_region">
+          <mxGeometry x="20" y="40" width="310" height="1335" as="geometry" />
+        </mxCell>
+
+        <!-- API Gateway Shape -->
+        <mxCell id="shape_apigw" value="" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#8C4FFF;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.api_gateway;" vertex="1" parent="c_apigw_col">
+          <mxGeometry x="25" y="45" width="56" height="56" as="geometry" />
+        </mxCell>
+
+        <mxCell id="card_apigw" value="&lt;b style=&quot;color: #8C4FFF; font-size: 13px;&quot;&gt;Amazon API Gateway&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot; color=&quot;#333333&quot;&gt;&lt;b&gt;API:&lt;/b&gt; &lt;code&gt;doc-platform-mvp-api&lt;/code&gt; (REST)&lt;br&gt;&lt;b&gt;Stage:&lt;/b&gt; &lt;code&gt;v1&lt;/code&gt;&lt;br&gt;&lt;b&gt;Authorizer:&lt;/b&gt; Cognito JWT User Pool Authorizer&lt;br&gt;&lt;b&gt;Binary Media:&lt;/b&gt; &lt;code&gt;*/*&lt;/code&gt; for inline uploads&lt;br&gt;&lt;b&gt;Throttling:&lt;/b&gt; 1,000 req/s rate, 2,000 burst&lt;br&gt;&lt;b&gt;Logging:&lt;/b&gt; CloudWatch Execution &amp;amp; Access Logs&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#8C4FFF;strokeWidth=1.5;align=left;spacingLeft=10;" vertex="1" parent="c_apigw_col">
+          <mxGeometry x="90" y="35" width="205" height="135" as="geometry" />
+        </mxCell>
+
+        <!-- Endpoint Routes Listing -->
+        <mxCell id="card_routes_cmd" value="&lt;b style=&quot;color: #ED7100; font-size: 11.5px;&quot;&gt;Command Endpoints&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size: 10px;&quot; color=&quot;#333333&quot;&gt;• &lt;code&gt;POST /v1/documents&lt;/code&gt;&lt;br&gt;• &lt;code&gt;POST /v1/documents/uploads&lt;/code&gt;&lt;br&gt;• &lt;code&gt;POST /v1/uploads/{id}/complete&lt;/code&gt;&lt;br&gt;• &lt;code&gt;DELETE /v1/uploads/{id}&lt;/code&gt;&lt;br&gt;• &lt;code&gt;POST /v1/documents/{id}/versions&lt;/code&gt;&lt;br&gt;• &lt;code&gt;PATCH /v1/documents/{id}/metadata&lt;/code&gt;&lt;br&gt;• &lt;code&gt;POST /v1/documents/{id}/soft-delete&lt;/code&gt;&lt;br&gt;• &lt;code&gt;POST /v1/documents/{id}/restore&lt;/code&gt;&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF8E1;strokeColor=#ED7100;strokeWidth=1.2;align=left;spacingLeft=10;" vertex="1" parent="c_apigw_col">
+          <mxGeometry x="15" y="190" width="280" height="165" as="geometry" />
+        </mxCell>
+
+        <mxCell id="card_routes_query" value="&lt;b style=&quot;color: #0277BD; font-size: 11.5px;&quot;&gt;Query Endpoints&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size: 10px;&quot; color=&quot;#333333&quot;&gt;• &lt;code&gt;GET /v1/documents/{id}&lt;/code&gt;&lt;br&gt;• &lt;code&gt;GET /v1/documents/{id}/versions&lt;/code&gt;&lt;br&gt;• &lt;code&gt;GET /v1/documents/{id}/versions/{ver}&lt;/code&gt;&lt;br&gt;• &lt;code&gt;GET /v1/documents/{id}/metadata&lt;/code&gt;&lt;br&gt;• &lt;code&gt;GET /v1/documents/{id}/download&lt;/code&gt;&lt;br&gt;• &lt;code&gt;GET /v1/health&lt;/code&gt;&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F0F7FD;strokeColor=#0277BD;strokeWidth=1.2;align=left;spacingLeft=10;" vertex="1" parent="c_apigw_col">
+          <mxGeometry x="15" y="370" width="280" height="135" as="geometry" />
+        </mxCell>
+
+        <mxCell id="card_routes_search" value="&lt;b style=&quot;color: #6C3483; font-size: 11.5px;&quot;&gt;Search Endpoint&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size: 10px;&quot; color=&quot;#333333&quot;&gt;• &lt;code&gt;POST /v1/search&lt;/code&gt;&lt;br&gt;Exact match filters, Date &amp;amp; Numeric ranges, Cursor pagination via &lt;code&gt;search_after&lt;/code&gt;&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F4ECF7;strokeColor=#8E44AD;strokeWidth=1.2;align=left;spacingLeft=10;" vertex="1" parent="c_apigw_col">
+          <mxGeometry x="15" y="520" width="280" height="90" as="geometry" />
+        </mxCell>
+
+        <!-- API Protection & Correlation Card -->
+        <mxCell id="card_apigw_security" value="&lt;b style=&quot;color: #7D5A00; font-size: 11.5px;&quot;&gt;Gateway Ingress Standards&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size: 10px;&quot; color=&quot;#333333&quot;&gt;• Correlation ID injection (&lt;code&gt;X-Correlation-ID&lt;/code&gt;)&lt;br&gt;• Idempotency key tracking (&lt;code&gt;Idempotency-Key&lt;/code&gt;)&lt;br&gt;• Strict Content-Length verification&lt;br&gt;• SHA256 checksum verification&lt;br&gt;• Standard RFC-7807 Error Envelope&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEF9E7;strokeColor=#F1C40F;strokeWidth=1;align=left;spacingLeft=10;" vertex="1" parent="c_apigw_col">
+          <mxGeometry x="15" y="630" width="280" height="120" as="geometry" />
+        </mxCell>
+
+        <!-- ==================== REGION COLUMN 2: SERVERLESS COMPUTE (AWS LAMBDA) ==================== -->
+        <mxCell id="c_compute_col" value="&lt;b&gt;Serverless Compute Tier (AWS Lambda)&lt;/b&gt;" style="shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_security_group;strokeColor=#ED7100;fillColor=#FFFDF7;verticalAlign=top;align=left;spacingLeft=30;fontColor=#B94A00;dashed=0;strokeWidth=1.5;html=1;" vertex="1" parent="c_aws_region">
+          <mxGeometry x="350" y="40" width="560" height="1335" as="geometry" />
+        </mxCell>
+
+        <!-- Command Lambdas Section -->
+        <mxCell id="shape_lambda_cmd" value="" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#ED7100;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.lambda;" vertex="1" parent="c_compute_col">
+          <mxGeometry x="20" y="45" width="52" height="52" as="geometry" />
+        </mxCell>
+
+        <mxCell id="card_cmd_lambdas" value="&lt;b style=&quot;color: #ED7100; font-size: 12.5px;&quot;&gt;Document Command Lambda Handlers&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size: 10.5px;&quot; color=&quot;#333333&quot;&gt;Node.js 20.x | Memory: 512–1024 MB | Timeout: 30s&lt;br&gt;• &lt;b&gt;UploadInlineLambda:&lt;/b&gt; Ingests &amp;le;4 MiB binary, writes S3 object + S3 Annotation, executes DynamoDB transaction&lt;br&gt;• &lt;b&gt;UploadDirectInitLambda:&lt;/b&gt; Validates metadata schema, creates UPLOAD session in DDB, returns Presigned S3 PUT URL&lt;br&gt;• &lt;b&gt;UploadDirectCompleteLambda:&lt;/b&gt; Verifies S3 upload, attaches S3 Annotation, commits DDB document &amp;amp; version records&lt;br&gt;• &lt;b&gt;VersionCreateLambda:&lt;/b&gt; Increments &lt;code&gt;application_version&lt;/code&gt;, creates new S3 VersionId &amp;amp; resets &lt;code&gt;metadata_revision=1&lt;/code&gt;&lt;br&gt;• &lt;b&gt;MetadataUpdateLambda:&lt;/b&gt; Optimistic concurrency check against DDB &lt;code&gt;metadata_revision&lt;/code&gt;, updates mutable S3 Annotation&lt;br&gt;• &lt;b&gt;SoftDeleteLambda / RestoreLambda:&lt;/b&gt; Flips status to &lt;code&gt;SOFT_DELETED&lt;/code&gt; / &lt;code&gt;ACTIVE&lt;/code&gt; without removing S3 bytes&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#ED7100;strokeWidth=1.5;align=left;spacingLeft=10;" vertex="1" parent="c_compute_col">
+          <mxGeometry x="80" y="35" width="460" height="235" as="geometry" />
+        </mxCell>
+
+        <!-- Query Lambdas Section -->
+        <mxCell id="shape_lambda_query" value="" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#ED7100;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.lambda;" vertex="1" parent="c_compute_col">
+          <mxGeometry x="20" y="295" width="52" height="52" as="geometry" />
+        </mxCell>
+
+        <mxCell id="card_query_lambdas" value="&lt;b style=&quot;color: #ED7100; font-size: 12.5px;&quot;&gt;Document Query Lambda Handlers&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size: 10.5px;&quot; color=&quot;#333333&quot;&gt;Node.js 20.x | Memory: 512 MB | Timeout: 15s&lt;br&gt;• &lt;b&gt;GetDocLambda:&lt;/b&gt; Resolves DynamoDB pointer, fetches authoritative S3 Annotation, generates short-lived presigned download URL&lt;br&gt;• &lt;b&gt;ListVersionsLambda:&lt;/b&gt; Queries DynamoDB version items (&lt;code&gt;SK=VER#...&lt;/code&gt;) returned newest first&lt;br&gt;• &lt;b&gt;GetVersionLambda:&lt;/b&gt; Fetches specific historical S3 VersionId &amp;amp; its associated historical S3 Annotation&lt;br&gt;• &lt;b&gt;GetMetadataLambda:&lt;/b&gt; Direct read of authoritative &lt;code&gt;document-metadata&lt;/code&gt; S3 Annotation&lt;br&gt;• &lt;b&gt;GetDownloadUrlLambda:&lt;/b&gt; Generates 15-minute presigned S3 GET URL with &lt;code&gt;response-content-disposition&lt;/code&gt;&lt;br&gt;• &lt;b&gt;HealthLambda:&lt;/b&gt; Validates downstream S3 &amp;amp; DynamoDB connectivity&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#ED7100;strokeWidth=1.5;align=left;spacingLeft=10;" vertex="1" parent="c_compute_col">
+          <mxGeometry x="80" y="285" width="460" height="205" as="geometry" />
+        </mxCell>
+
+        <!-- Search Lambda Section -->
+        <mxCell id="shape_lambda_search" value="" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#ED7100;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.lambda;" vertex="1" parent="c_compute_col">
+          <mxGeometry x="20" y="515" width="52" height="52" as="geometry" />
+        </mxCell>
+
+        <mxCell id="card_search_lambda" value="&lt;b style=&quot;color: #ED7100; font-size: 12.5px;&quot;&gt;Search Query Lambda Handler&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size: 10.5px;&quot; color=&quot;#333333&quot;&gt;Node.js 20.x | Memory: 512 MB | Timeout: 15s | IAM: &lt;code&gt;aoss:APIAccessAll&lt;/code&gt;&lt;br&gt;• &lt;b&gt;SearchLambdaHandler:&lt;/b&gt; Translates API search filters into OpenSearch Boolean DSL Query:&lt;br&gt;  - Exact keyword filters (&lt;code&gt;customer_id&lt;/code&gt;, &lt;code&gt;loan_number&lt;/code&gt;, &lt;code&gt;document_type&lt;/code&gt;, &lt;code&gt;branch_code&lt;/code&gt;)&lt;br&gt;  - Numeric range filter (&lt;code&gt;loan_amount_minor_units&lt;/code&gt; min/max)&lt;br&gt;  - Date range filter (&lt;code&gt;created_at&lt;/code&gt; / &lt;code&gt;signed_date&lt;/code&gt;)&lt;br&gt;  - Server-enforced &lt;code&gt;status=ACTIVE&lt;/code&gt; filter &amp;amp; &lt;code&gt;search_after&lt;/code&gt; cursor pagination&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#ED7100;strokeWidth=1.5;align=left;spacingLeft=10;" vertex="1" parent="c_compute_col">
+          <mxGeometry x="80" y="505" width="460" height="155" as="geometry" />
+        </mxCell>
+
+        <!-- Async Workers Container -->
+        <mxCell id="c_async_workers" value="&lt;b&gt;Event-Driven Background Workers&lt;/b&gt;" style="shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_security_group;strokeColor=#D35400;fillColor=#FFF8F2;verticalAlign=top;align=left;spacingLeft=25;fontColor=#A04000;dashed=1;strokeWidth=1.2;html=1;" vertex="1" parent="c_compute_col">
+          <mxGeometry x="15" y="680" width="530" height="635" as="geometry" />
+        </mxCell>
+
+        <!-- Stream Processor Worker Lambda -->
+        <mxCell id="shape_lambda_stream" value="" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#ED7100;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.lambda;" vertex="1" parent="c_async_workers">
+          <mxGeometry x="15" y="45" width="52" height="52" as="geometry" />
+        </mxCell>
+
+        <mxCell id="card_stream_worker" value="&lt;b style=&quot;color: #D35400; font-size: 12px;&quot;&gt;Background Stream Processor Lambda&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size: 10.5px;&quot; color=&quot;#333333&quot;&gt;&lt;b&gt;Trigger:&lt;/b&gt; DynamoDB Streams (&lt;code&gt;NEW_AND_OLD_IMAGES&lt;/code&gt;) | Batch: 10, Retries: 3&lt;br&gt;&lt;b&gt;Functions:&lt;/b&gt;&lt;br&gt;1. Filters stream events for Document modifications (&lt;code&gt;INSERT&lt;/code&gt;, &lt;code&gt;MODIFY&lt;/code&gt;)&lt;br&gt;2. Emits indexing work item to &lt;b&gt;SQS Index Queue&lt;/b&gt; with &lt;code&gt;doc_id&lt;/code&gt; &amp;amp; revision&lt;br&gt;3. Generates structured JSON compliance audit record and persists directly to the immutable &lt;b&gt;S3 Audit Bucket&lt;/b&gt; (&lt;code&gt;audit/{YYYY}/{MM}/{DD}/...&lt;/code&gt;)&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#D35400;strokeWidth=1.5;align=left;spacingLeft=10;" vertex="1" parent="c_async_workers">
+          <mxGeometry x="75" y="35" width="440" height="150" as="geometry" />
+        </mxCell>
+
+        <!-- SQS Indexer Consumer Lambda -->
+        <mxCell id="shape_lambda_indexer" value="" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#ED7100;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.lambda;" vertex="1" parent="c_async_workers">
+          <mxGeometry x="15" y="215" width="52" height="52" as="geometry" />
+        </mxCell>
+
+        <mxCell id="card_indexer_worker" value="&lt;b style=&quot;color: #D35400; font-size: 12px;&quot;&gt;SQS Indexer Consumer Lambda&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size: 10.5px;&quot; color=&quot;#333333&quot;&gt;&lt;b&gt;Trigger:&lt;/b&gt; SQS Index Queue (Batch: 5, Visibility Timeout: 120s)&lt;br&gt;&lt;b&gt;Functions:&lt;/b&gt;&lt;br&gt;1. Reads SQS message &amp;amp; verifies against strongly-consistent DDB pointer&lt;br&gt;2. Drops stale events (where message revision &amp;lt; current DDB revision)&lt;br&gt;3. Fetches authoritative S3 Annotation from S3 Documents Bucket&lt;br&gt;4. Upserts document projection into &lt;b&gt;OpenSearch Serverless Collection&lt;/b&gt;&lt;br&gt;5. On &lt;code&gt;SOFT_DELETED&lt;/code&gt; status, executes document removal from OpenSearch&lt;br&gt;6. Poison/failed records automatically route to &lt;b&gt;SQS Index DLQ&lt;/b&gt; after 3 retries&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#D35400;strokeWidth=1.5;align=left;spacingLeft=10;" vertex="1" parent="c_async_workers">
+          <mxGeometry x="75" y="200" width="440" height="190" as="geometry" />
+        </mxCell>
+
+        <!-- Reconciler Lambda -->
+        <mxCell id="shape_lambda_reconcile" value="" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#ED7100;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.lambda;" vertex="1" parent="c_async_workers">
+          <mxGeometry x="15" y="420" width="52" height="52" as="geometry" />
+        </mxCell>
+
+        <mxCell id="card_reconciler_worker" value="&lt;b style=&quot;color: #D35400; font-size: 12px;&quot;&gt;Scheduled State Reconciler Lambda&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size: 10.5px;&quot; color=&quot;#333333&quot;&gt;&lt;b&gt;Trigger:&lt;/b&gt; Scheduled Maintenance / On-demand admin trigger&lt;br&gt;&lt;b&gt;Functions:&lt;/b&gt;&lt;br&gt;1. Audits consistency between S3 Annotations, DynamoDB &amp;amp; OpenSearch&lt;br&gt;2. Detects drift or missed SQS indexing messages&lt;br&gt;3. Re-indexes OpenSearch projection directly from S3 authoritative state&lt;br&gt;4. Emits integrity metrics to CloudWatch&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#D35400;strokeWidth=1.5;align=left;spacingLeft=10;" vertex="1" parent="c_async_workers">
+          <mxGeometry x="75" y="405" width="440" height="175" as="geometry" />
+        </mxCell>
+
+        <!-- ==================== REGION COLUMN 3: STORAGE & STATE TIER ==================== -->
+        <mxCell id="c_storage_col" value="&lt;b&gt;Storage &amp;amp; State Tier&lt;/b&gt;" style="shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_security_group;strokeColor=#16A085;fillColor=#F2FBF9;verticalAlign=top;align=left;spacingLeft=30;fontColor=#0E6251;dashed=0;strokeWidth=1.5;html=1;" vertex="1" parent="c_aws_region">
+          <mxGeometry x="930" y="40" width="560" height="1335" as="geometry" />
+        </mxCell>
+
+        <!-- S3 Document Bucket -->
+        <mxCell id="shape_s3_docs" value="" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#569E3D;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.s3;" vertex="1" parent="c_storage_col">
+          <mxGeometry x="25" y="45" width="56" height="56" as="geometry" />
+        </mxCell>
+
+        <mxCell id="card_s3_docs" value="&lt;b style=&quot;color: #27AE60; font-size: 13px;&quot;&gt;Amazon S3: Document Storage Bucket&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot; color=&quot;#333333&quot;&gt;&lt;b&gt;Bucket:&lt;/b&gt; &lt;code&gt;doc-platform-mvp-docs-${account}-${region}&lt;/code&gt;&lt;br&gt;&lt;b&gt;S3 Object Key:&lt;/b&gt; &lt;code&gt;documents/{document_class}/{document_id}&lt;/code&gt;&lt;br&gt;&lt;b&gt;Content Immutability:&lt;/b&gt; Native S3 Object Versioning enforced (&lt;code&gt;VersionId&lt;/code&gt;)&lt;br&gt;&lt;b&gt;Authoritative Metadata:&lt;/b&gt; Single S3 Annotation (&lt;code&gt;document-metadata&lt;/code&gt;) attached to exact content VersionId&lt;br&gt;&lt;b&gt;Security &amp;amp; Encryption:&lt;/b&gt; SSE-KMS with Customer Managed Key, Enforce SSL, Block Public Access&lt;br&gt;&lt;b&gt;Deletion Guardrail:&lt;/b&gt; Bucket Policy explicitly DENIES &lt;code&gt;s3:DeleteObjectVersion&lt;/code&gt; to all principals&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#27AE60;strokeWidth=2;align=left;spacingLeft=12;" vertex="1" parent="c_storage_col">
+          <mxGeometry x="95" y="35" width="445" height="195" as="geometry" />
+        </mxCell>
+
+        <!-- S3 Annotation Deep-Dive Box -->
+        <mxCell id="card_s3_annotation" value="&lt;b style=&quot;color: #27AE60; font-size: 11.5px;&quot;&gt;S3 Annotation Structure (&lt;code&gt;document-metadata&lt;/code&gt;)&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size: 10px;&quot; color=&quot;#333333&quot;&gt;• &lt;b&gt;System Envelope:&lt;/b&gt; &lt;code&gt;document_id&lt;/code&gt;, &lt;code&gt;document_class&lt;/code&gt;, &lt;code&gt;application_version&lt;/code&gt;, &lt;code&gt;metadata_revision&lt;/code&gt;, &lt;code&gt;schema_version&lt;/code&gt;, &lt;code&gt;content_type&lt;/code&gt;, &lt;code&gt;content_length&lt;/code&gt;, &lt;code&gt;content_checksum&lt;/code&gt;, &lt;code&gt;created_at&lt;/code&gt;, &lt;code&gt;created_by&lt;/code&gt;&lt;br&gt;• &lt;b&gt;Business Schema Fields:&lt;/b&gt; &lt;code&gt;document_type&lt;/code&gt;, &lt;code&gt;customer_id&lt;/code&gt;, &lt;code&gt;loan_number&lt;/code&gt;, &lt;code&gt;loan_amount_minor_units&lt;/code&gt;, &lt;code&gt;currency&lt;/code&gt;, &lt;code&gt;loan_type&lt;/code&gt;, &lt;code&gt;branch_code&lt;/code&gt;, &lt;code&gt;signed_date&lt;/code&gt;&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F8F5;strokeColor=#27AE60;strokeWidth=1.2;align=left;spacingLeft=10;" vertex="1" parent="c_storage_col">
+          <mxGeometry x="25" y="245" width="515" height="115" as="geometry" />
+        </mxCell>
+
+        <!-- DynamoDB Control Plane Table -->
+        <mxCell id="shape_ddb" value="" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#3B48CC;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.dynamodb;" vertex="1" parent="c_storage_col">
+          <mxGeometry x="25" y="385" width="56" height="56" as="geometry" />
+        </mxCell>
+
+        <mxCell id="card_ddb" value="&lt;b style=&quot;color: #2980B9; font-size: 13px;&quot;&gt;Amazon DynamoDB: Control Plane Table&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot; color=&quot;#333333&quot;&gt;&lt;b&gt;Table:&lt;/b&gt; &lt;code&gt;doc-platform-mvp-control&lt;/code&gt; (Pay-Per-Request, PITR Enabled)&lt;br&gt;&lt;b&gt;Primary Keys:&lt;/b&gt; Partition Key: &lt;code&gt;pk&lt;/code&gt; (String), Sort Key: &lt;code&gt;sk&lt;/code&gt; (String)&lt;br&gt;&lt;b&gt;Item Patterns:&lt;/b&gt;&lt;br&gt;• &lt;b&gt;Current Document Pointer:&lt;/b&gt; &lt;code&gt;PK=DOC#{id}, SK=DOC&lt;/code&gt;&lt;br&gt;  Contains &lt;code&gt;current_application_version&lt;/code&gt;, &lt;code&gt;current_s3_version_id&lt;/code&gt;, &lt;code&gt;current_metadata_revision&lt;/code&gt;, &lt;code&gt;status (ACTIVE/SOFT_DELETED)&lt;/code&gt;&lt;br&gt;• &lt;b&gt;Version Registry Item:&lt;/b&gt; &lt;code&gt;PK=DOC#{id}, SK=VER#{version_padded}&lt;/code&gt;&lt;br&gt;  Maps application version to exact historical &lt;code&gt;s3_version_id&lt;/code&gt; &amp;amp; revision&lt;br&gt;• &lt;b&gt;Upload Session Item:&lt;/b&gt; &lt;code&gt;PK=UPLOAD#{upload_id}, SK=SESSION&lt;/code&gt;&lt;br&gt;• &lt;b&gt;Idempotency Record:&lt;/b&gt; &lt;code&gt;PK=IDEMP#{key}, SK=REQUEST&lt;/code&gt;&lt;br&gt;• &lt;b&gt;Event Log Item:&lt;/b&gt; &lt;code&gt;PK=EVENT#{shard}, SK={timestamp}#{id}&lt;/code&gt;&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#2980B9;strokeWidth=2;align=left;spacingLeft=12;" vertex="1" parent="c_storage_col">
+          <mxGeometry x="95" y="375" width="445" height="235" as="geometry" />
+        </mxCell>
+
+        <!-- DynamoDB Streams -->
+        <mxCell id="shape_ddb_stream" value="" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#3B48CC;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.dynamodb_streams;" vertex="1" parent="c_storage_col">
+          <mxGeometry x="25" y="635" width="56" height="56" as="geometry" />
+        </mxCell>
+
+        <mxCell id="card_ddb_stream" value="&lt;b style=&quot;color: #3498DB; font-size: 12.5px;&quot;&gt;DynamoDB Streams (Change Data Capture)&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot; color=&quot;#333333&quot;&gt;&lt;b&gt;Stream View Type:&lt;/b&gt; &lt;code&gt;NEW_AND_OLD_IMAGES&lt;/code&gt;&lt;br&gt;Emits ordered stream of state transitions for document creation, version upgrades, metadata updates, and soft-deletes with sub-second latency.&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EBF5FB;strokeColor=#3498DB;strokeWidth=1.5;dashed=1;align=left;spacingLeft=10;" vertex="1" parent="c_storage_col">
+          <mxGeometry x="95" y="625" width="445" height="85" as="geometry" />
+        </mxCell>
+
+        <!-- S3 Audit Trail Bucket -->
+        <mxCell id="shape_s3_audit" value="" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#569E3D;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.s3;" vertex="1" parent="c_storage_col">
+          <mxGeometry x="25" y="735" width="56" height="56" as="geometry" />
+        </mxCell>
+
+        <mxCell id="card_s3_audit" value="&lt;b style=&quot;color: #16A085; font-size: 13px;&quot;&gt;Amazon S3: Compliance Audit Bucket&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot; color=&quot;#333333&quot;&gt;&lt;b&gt;Bucket:&lt;/b&gt; &lt;code&gt;doc-platform-mvp-audit-${account}-${region}&lt;/code&gt;&lt;br&gt;&lt;b&gt;Key Hierarchy:&lt;/b&gt; &lt;code&gt;audit/{YYYY}/{MM}/{DD}/{doc_id}-{timestamp}.json&lt;/code&gt;&lt;br&gt;&lt;b&gt;Content:&lt;/b&gt; Immutable event records containing Actor, Action, Changed Fields, Prior &amp;amp; New Revision, Correlation ID, and Timestamp.&lt;br&gt;&lt;b&gt;Security:&lt;/b&gt; Dedicated KMS SSE encryption, Versioning enabled, Append-only.&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#16A085;strokeWidth=2;align=left;spacingLeft=12;" vertex="1" parent="c_storage_col">
+          <mxGeometry x="95" y="725" width="445" height="155" as="geometry" />
+        </mxCell>
+
+        <!-- Transactional & Concurrency Guarantees Card -->
+        <mxCell id="card_concurrency_box" value="&lt;b style=&quot;color: #0E6251; font-size: 12px;&quot;&gt;Data Integrity &amp;amp; Concurrency Guarantees&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size: 10.5px;&quot; color=&quot;#333333&quot;&gt;• &lt;b&gt;Optimistic Concurrency:&lt;/b&gt; Metadata updates verify &lt;code&gt;expected_metadata_revision == current_metadata_revision&lt;/code&gt;&lt;br&gt;• &lt;b&gt;Atomic Writes:&lt;/b&gt; Pointer updates &amp;amp; version additions executed via &lt;code&gt;TransactWriteItems&lt;/code&gt;&lt;br&gt;• &lt;b&gt;Idempotency:&lt;/b&gt; Client requests store hash-locked tokens in DynamoDB to prevent duplicate writes&lt;br&gt;• &lt;b&gt;Stale Event Protection:&lt;/b&gt; Background indexer validates SQS work item revision against current DDB state&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F8F5;strokeColor=#16A085;strokeWidth=1.2;align=left;spacingLeft=10;" vertex="1" parent="c_storage_col">
+          <mxGeometry x="25" y="900" width="515" height="145" as="geometry" />
+        </mxCell>
+
+        <!-- ==================== REGION COLUMN 4: ASYNC MESSAGING, SEARCH & OBSERVABILITY ==================== -->
+        <mxCell id="c_search_obs_col" value="&lt;b&gt;Async Messaging, Search &amp;amp; Observability&lt;/b&gt;" style="shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_security_group;strokeColor=#6C3483;fillColor=#FAF6FC;verticalAlign=top;align=left;spacingLeft=30;fontColor=#4A235A;dashed=0;strokeWidth=1.5;html=1;" vertex="1" parent="c_aws_region">
+          <mxGeometry x="1510" y="40" width="570" height="1335" as="geometry" />
+        </mxCell>
+
+        <!-- Amazon SQS Index Queue -->
+        <mxCell id="shape_sqs_queue" value="" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#E7157B;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.sqs;" vertex="1" parent="c_search_obs_col">
+          <mxGeometry x="25" y="45" width="56" height="56" as="geometry" />
+        </mxCell>
+
+        <mxCell id="card_sqs_queue" value="&lt;b style=&quot;color: #8E44AD; font-size: 13px;&quot;&gt;Amazon SQS: Indexing Queue&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot; color=&quot;#333333&quot;&gt;&lt;b&gt;Queue:&lt;/b&gt; &lt;code&gt;doc-platform-mvp-index-queue&lt;/code&gt;&lt;br&gt;&lt;b&gt;Role:&lt;/b&gt; Decouples DynamoDB Stream event capture from OpenSearch indexing&lt;br&gt;&lt;b&gt;Configuration:&lt;/b&gt; SSE-KMS encrypted, Visibility Timeout: 120s, Batch Size: 5&lt;br&gt;&lt;b&gt;Resilience:&lt;/b&gt; Retries failed jobs up to 3 times before dead-lettering&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#8E44AD;strokeWidth=1.5;align=left;spacingLeft=12;" vertex="1" parent="c_search_obs_col">
+          <mxGeometry x="95" y="35" width="455" height="115" as="geometry" />
+        </mxCell>
+
+        <!-- Amazon SQS Dead Letter Queue -->
+        <mxCell id="shape_sqs_dlq" value="" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#E7157B;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.sqs;" vertex="1" parent="c_search_obs_col">
+          <mxGeometry x="25" y="175" width="56" height="56" as="geometry" />
+        </mxCell>
+
+        <mxCell id="card_sqs_dlq" value="&lt;b style=&quot;color: #C0392B; font-size: 13px;&quot;&gt;Amazon SQS: Index Dead-Letter Queue (DLQ)&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot; color=&quot;#333333&quot;&gt;&lt;b&gt;Queue:&lt;/b&gt; &lt;code&gt;doc-platform-mvp-index-dlq&lt;/code&gt;&lt;br&gt;&lt;b&gt;Role:&lt;/b&gt; Isolates poison messages &amp;amp; indexing failures for forensic analysis&lt;br&gt;&lt;b&gt;Retention:&lt;/b&gt; 14 days | Encrypted with KMS CMK&lt;br&gt;&lt;b&gt;Alarm Trigger:&lt;/b&gt; Fires immediately when &lt;code&gt;MessagesVisible &amp;gt;= 1&lt;/code&gt;&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FDEDEC;strokeColor=#C0392B;strokeWidth=1.5;align=left;spacingLeft=12;" vertex="1" parent="c_search_obs_col">
+          <mxGeometry x="95" y="165" width="455" height="115" as="geometry" />
+        </mxCell>
+
+        <!-- OpenSearch Serverless Collection -->
+        <mxCell id="shape_opensearch" value="" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#8C4FFF;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.opensearch_service;" vertex="1" parent="c_search_obs_col">
+          <mxGeometry x="25" y="315" width="56" height="56" as="geometry" />
+        </mxCell>
+
+        <mxCell id="card_opensearch" value="&lt;b style=&quot;color: #6C3483; font-size: 13px;&quot;&gt;Amazon OpenSearch Serverless (AOSS)&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot; color=&quot;#333333&quot;&gt;&lt;b&gt;Collection:&lt;/b&gt; &lt;code&gt;documents-v1&lt;/code&gt; (Type: SEARCH)&lt;br&gt;&lt;b&gt;Projection Scope:&lt;/b&gt; Exactly one document per current active logical document&lt;br&gt;&lt;b&gt;Strict Mapping Properties:&lt;/b&gt;&lt;br&gt;• &lt;code&gt;document_id&lt;/code&gt; (keyword), &lt;code&gt;document_class&lt;/code&gt; (keyword)&lt;br&gt;• &lt;code&gt;customer_id&lt;/code&gt; (keyword), &lt;code&gt;document_type&lt;/code&gt; (keyword)&lt;br&gt;• &lt;code&gt;loan_number&lt;/code&gt; (keyword), &lt;code&gt;loan_type&lt;/code&gt; (keyword), &lt;code&gt;branch_code&lt;/code&gt; (keyword)&lt;br&gt;• &lt;code&gt;loan_amount_minor_units&lt;/code&gt; (long), &lt;code&gt;currency&lt;/code&gt; (keyword)&lt;br&gt;• &lt;code&gt;signed_date&lt;/code&gt; (date), &lt;code&gt;created_at&lt;/code&gt; (date), &lt;code&gt;updated_at&lt;/code&gt; (date)&lt;br&gt;• &lt;code&gt;status&lt;/code&gt; (keyword: ACTIVE), &lt;code&gt;metadata_revision&lt;/code&gt; (long)&lt;br&gt;&lt;b&gt;Projection Status:&lt;/b&gt; Derived index. Fully rebuildable from S3 &amp;amp; DDB.&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#6C3483;strokeWidth=2;align=left;spacingLeft=12;" vertex="1" parent="c_search_obs_col">
+          <mxGeometry x="95" y="300" width="455" height="235" as="geometry" />
+        </mxCell>
+
+        <!-- CloudWatch Observability Section -->
+        <mxCell id="shape_cw_logs" value="" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#E7157B;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.cloudwatch;" vertex="1" parent="c_search_obs_col">
+          <mxGeometry x="25" y="565" width="56" height="56" as="geometry" />
+        </mxCell>
+
+        <mxCell id="card_cw_logs" value="&lt;b style=&quot;color: #34495E; font-size: 12.5px;&quot;&gt;Amazon CloudWatch: Logs, Metrics &amp;amp; Alarms&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size: 10.5px;&quot; color=&quot;#333333&quot;&gt;• &lt;b&gt;Structured JSON Logging:&lt;/b&gt; Correlation ID &amp;amp; Document ID attached to every log line&lt;br&gt;• &lt;b&gt;Alarm:&lt;/b&gt; &lt;code&gt;doc-platform-mvp-dlq-messages&lt;/code&gt; (Visible &amp;gt;= 1 msg)&lt;br&gt;• &lt;b&gt;Alarm:&lt;/b&gt; &lt;code&gt;doc-platform-mvp-api-5xx&lt;/code&gt; (5XXError &amp;gt;= 5 in 5 mins)&lt;br&gt;• &lt;b&gt;Operational Dashboard:&lt;/b&gt; &lt;code&gt;doc-platform-mvp-dashboard&lt;/code&gt;&lt;br&gt;  Real-time visualization of API Requests, 4xx/5xx Errors, SQS &amp;amp; DLQ Depth&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#34495E;strokeWidth=1.5;align=left;spacingLeft=12;" vertex="1" parent="c_search_obs_col">
+          <mxGeometry x="95" y="555" width="455" height="155" as="geometry" />
+        </mxCell>
+
+        <!-- AWS CloudTrail -->
+        <mxCell id="shape_cloudtrail" value="" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#E7157B;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.cloudtrail;" vertex="1" parent="c_search_obs_col">
+          <mxGeometry x="25" y="740" width="56" height="56" as="geometry" />
+        </mxCell>
+
+        <mxCell id="card_cloudtrail" value="&lt;b style=&quot;color: #34495E; font-size: 12.5px;&quot;&gt;AWS CloudTrail &amp;amp; Governance&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size: 10.5px;&quot; color=&quot;#333333&quot;&gt;Audits AWS Management APIs, IAM privilege evaluations, and S3 data events to ensure regulatory compliance and forensic auditability.&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#34495E;strokeWidth=1.5;align=left;spacingLeft=12;" vertex="1" parent="c_search_obs_col">
+          <mxGeometry x="95" y="730" width="455" height="95" as="geometry" />
+        </mxCell>
+
+        <!-- Search Capabilities Card -->
+        <mxCell id="card_search_capabilities" value="&lt;b style=&quot;color: #4A235A; font-size: 12px;&quot;&gt;Search Capabilities &amp;amp; Guarantees&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size: 10.5px;&quot; color=&quot;#333333&quot;&gt;• &lt;b&gt;Multi-field Conjunctive Filtering:&lt;/b&gt; Combines any permitted metadata filters with Boolean MUST clauses&lt;br&gt;• &lt;b&gt;Numeric &amp;amp; Date Intervals:&lt;/b&gt; Native range queries for loan values and origination intervals&lt;br&gt;• &lt;b&gt;Deterministic Cursor Pagination:&lt;/b&gt; Stable sorting using &lt;code&gt;created_at&lt;/code&gt; and &lt;code&gt;document_id&lt;/code&gt;&lt;br&gt;• &lt;b&gt;High Availability:&lt;/b&gt; Direct document queries by ID succeed even if search cluster experiences temporary degradation&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F4ECF7;strokeColor=#8E44AD;strokeWidth=1.2;align=left;spacingLeft=10;" vertex="1" parent="c_search_obs_col">
+          <mxGeometry x="25" y="850" width="525" height="145" as="geometry" />
+        </mxCell>
+
+        <!-- ==================== FLOW CONNECTORS & NUMBERED EDGES ==================== -->
+
+        <!-- 1. AUTHENTICATION FLOW: User/Client -> Cognito -->
+        <mxCell id="flow_auth" value="&lt;b&gt;1. Authenticate (SRP / OAuth)&lt;/b&gt;&lt;br&gt;Obtain JWT Bearer Token with group claims" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#DD3522;strokeWidth=2.5;fontColor=#DD3522;fontSize=10.5;" edge="1" parent="1" source="card_client_ui" target="card_cognito">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="205" y="885" />
+              <mxPoint x="205" y="885" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 2. CLIENT TO API GATEWAY: REST Request + JWT -->
+        <mxCell id="flow_client_to_apigw" value="&lt;b&gt;2. REST API Request + JWT Token&lt;/b&gt;&lt;br&gt;HTTPS Ingress via /v1 routes" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#0277BD;strokeWidth=2.5;fontColor=#0277BD;fontSize=11;" edge="1" parent="1" source="card_client_sdk" target="card_apigw">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="390" y="270" />
+              <mxPoint x="390" y="215" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 3. DIRECT S3 UPLOAD/DOWNLOAD DATA CHANNEL -->
+        <mxCell id="flow_client_s3_direct" value="&lt;b&gt;Direct S3 Single-PUT (&amp;gt;4MB) / Presigned GET Content Download&lt;/b&gt;" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#2E7D32;strokeWidth=2.5;dashed=1;fontColor=#2E7D32;fontSize=11;" edge="1" parent="1" source="card_direct_s3" target="card_s3_docs">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="380" y="360" />
+              <mxPoint x="380" y="90" />
+              <mxPoint x="1560" y="90" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- API GATEWAY -> COMMAND LAMBDAS -->
+        <mxCell id="flow_gw_to_cmd" value="Route Command API" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#8C4FFF;strokeWidth=2;fontSize=10.5;" edge="1" parent="c_aws_region" source="card_apigw" target="card_cmd_lambdas">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="325" y="150" />
+              <mxPoint x="325" y="150" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- API GATEWAY -> QUERY LAMBDAS -->
+        <mxCell id="flow_gw_to_query" value="Route Query API" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#8C4FFF;strokeWidth=2;fontSize=10.5;" edge="1" parent="c_aws_region" source="card_apigw" target="card_query_lambdas">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="335" y="160" />
+              <mxPoint x="335" y="385" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- API GATEWAY -> SEARCH LAMBDA -->
+        <mxCell id="flow_gw_to_search" value="Route Search API" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#8C4FFF;strokeWidth=2;fontSize=10.5;" edge="1" parent="c_aws_region" source="card_apigw" target="card_search_lambda">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="335" y="160" />
+              <mxPoint x="335" y="580" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- COMMAND LAMBDAS -> S3 (Write Content & Authoritative Annotation) -->
+        <mxCell id="flow_cmd_to_s3" value="&lt;b&gt;3. Put Object &amp;amp; S3 Annotation&lt;/b&gt;&lt;br&gt;Attach &lt;code&gt;document-metadata&lt;/code&gt; JSON to VersionId" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#27AE60;strokeWidth=2.5;fontColor=#27AE60;fontSize=10.5;" edge="1" parent="c_aws_region" source="card_cmd_lambdas" target="card_s3_docs">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="900" y="155" />
+              <mxPoint x="900" y="155" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- COMMAND LAMBDAS -> DYNAMODB (Transactional Pointers & Locks) -->
+        <mxCell id="flow_cmd_to_ddb" value="&lt;b&gt;4. Put Pointer, Locks &amp;amp; Version Item&lt;/b&gt;&lt;br&gt;Execute &lt;code&gt;TransactWriteItems&lt;/code&gt; with optimistic lock" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#2980B9;strokeWidth=2.5;fontColor=#2980B9;fontSize=10.5;" edge="1" parent="c_aws_region" source="card_cmd_lambdas" target="card_ddb">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="905" y="240" />
+              <mxPoint x="905" y="490" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- QUERY LAMBDAS -> DYNAMODB (Read Current Pointer & Version Registry) -->
+        <mxCell id="flow_query_to_ddb" value="Read Current Pointer &amp;amp; Version Items" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#2980B9;strokeWidth=2;fontSize=10.5;" edge="1" parent="c_aws_region" source="card_query_lambdas" target="card_ddb">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="900" y="440" />
+              <mxPoint x="900" y="440" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- QUERY LAMBDAS -> S3 (Read S3 Annotation / Generate Presigned GET) -->
+        <mxCell id="flow_query_to_s3" value="Get Authoritative S3 Annotation / Presigned GET" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#27AE60;strokeWidth=2;fontSize=10.5;" edge="1" parent="c_aws_region" source="card_query_lambdas" target="card_s3_docs">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="900" y="330" />
+              <mxPoint x="900" y="200" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- DYNAMODB -> DYNAMODB STREAMS -->
+        <mxCell id="flow_ddb_to_stream" value="Emit CDC Item Modifications (&lt;code&gt;NEW_AND_OLD_IMAGES&lt;/code&gt;)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#3498DB;strokeWidth=2;fontSize=10;" edge="1" parent="c_aws_region" source="card_ddb" target="card_ddb_stream">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- DYNAMODB STREAMS -> BACKGROUND STREAM PROCESSOR LAMBDA -->
+        <mxCell id="flow_stream_to_worker" value="&lt;b&gt;5. CDC Event Ingestion&lt;/b&gt;&lt;br&gt;Trigger Stream Processor Lambda" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#D35400;strokeWidth=2.5;fontColor=#D35400;fontSize=10.5;" edge="1" parent="c_aws_region" source="card_ddb_stream" target="card_stream_worker">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="905" y="695" />
+              <mxPoint x="905" y="790" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- BACKGROUND STREAM PROCESSOR -> SQS INDEX QUEUE -->
+        <mxCell id="flow_worker_to_sqs" value="&lt;b&gt;6. Enqueue Index Task&lt;/b&gt;&lt;br&gt;Buffered SQS Message" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#8E44AD;strokeWidth=2.5;fontColor=#8E44AD;fontSize=10.5;" edge="1" parent="c_aws_region" source="card_stream_worker" target="card_sqs_queue">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="905" y="730" />
+              <mxPoint x="905" y="680" />
+              <mxPoint x="1500" y="680" />
+              <mxPoint x="1500" y="130" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- BACKGROUND STREAM PROCESSOR -> S3 AUDIT BUCKET -->
+        <mxCell id="flow_worker_to_audit" value="&lt;b&gt;7. Write Immutable Audit Log&lt;/b&gt;&lt;br&gt;JSON payload with change diff &amp;amp; actor" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#16A085;strokeWidth=2.5;fontColor=#16A085;fontSize=10.5;" edge="1" parent="c_aws_region" source="card_stream_worker" target="card_s3_audit">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="900" y="810" />
+              <mxPoint x="900" y="810" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- SQS INDEX QUEUE -> DLQ (Failure on 3 Retries) -->
+        <mxCell id="flow_sqs_to_dlq" value="Max Retries Exceeded (3x)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#C0392B;strokeWidth=1.5;dashed=1;fontColor=#C0392B;fontSize=10;" edge="1" parent="c_aws_region" source="card_sqs_queue" target="card_sqs_dlq">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- SQS INDEX QUEUE -> SQS INDEXER LAMBDA -->
+        <mxCell id="flow_sqs_to_indexer" value="&lt;b&gt;8. Batch Dispatch Index Messages (Batch: 5)&lt;/b&gt;" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#8E44AD;strokeWidth=2.5;fontColor=#8E44AD;fontSize=10.5;" edge="1" parent="c_aws_region" source="card_sqs_queue" target="card_indexer_worker">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="2060" y="110" />
+              <mxPoint x="2060" y="1360" />
+              <mxPoint x="600" y="1360" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- SQS INDEXER LAMBDA -> S3 DOCUMENTS (Fetch Authoritative Annotation) -->
+        <mxCell id="flow_indexer_to_s3" value="Fetch Authoritative S3 Annotation" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#27AE60;strokeWidth=1.5;dashed=1;fontSize=10;" edge="1" parent="c_aws_region" source="card_indexer_worker" target="card_s3_docs">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="915" y="960" />
+              <mxPoint x="915" y="210" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- SQS INDEXER LAMBDA -> OPENSEARCH SERVERLESS (Upsert / Delete Index Record) -->
+        <mxCell id="flow_indexer_to_opensearch" value="&lt;b&gt;9. Upsert / Remove Current Document Projection&lt;/b&gt;" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#6C3483;strokeWidth=2.5;fontColor=#6C3483;fontSize=11;" edge="1" parent="c_aws_region" source="card_indexer_worker" target="card_opensearch">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="915" y="1000" />
+              <mxPoint x="915" y="650" />
+              <mxPoint x="1500" y="650" />
+              <mxPoint x="1500" y="450" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- SEARCH LAMBDA -> OPENSEARCH SERVERLESS (Search Query DSL) -->
+        <mxCell id="flow_search_to_opensearch" value="&lt;b&gt;10. Query DSL Search Request &amp;amp; Cursor Pagination&lt;/b&gt;" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#6C3483;strokeWidth=2.5;fontColor=#6C3483;fontSize=11;" edge="1" parent="c_aws_region" source="card_search_lambda" target="card_opensearch">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="900" y="580" />
+              <mxPoint x="900" y="20" />
+              <mxPoint x="1750" y="20" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- OBSERVABILITY CONNECTIONS: DLQ -> CloudWatch Alarm -->
+        <mxCell id="flow_dlq_to_cw" value="Triggers Alarm on Depth &amp;gt; 0" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#E7157B;strokeWidth=1.5;dashed=1;fontSize=10;fontColor=#E7157B;" edge="1" parent="c_aws_region" source="card_sqs_dlq" target="card_cw_logs">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- API GATEWAY -> CloudWatch Logs -->
+        <mxCell id="flow_apigw_to_cw" value="Access &amp;amp; Execution Logs" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#34495E;strokeWidth=1.5;dashed=1;fontSize=10;fontColor=#34495E;" edge="1" parent="c_aws_region" source="card_apigw" target="card_cw_logs">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="180" y="1360" />
+              <mxPoint x="1730" y="1360" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ==================== ARCHITECTURE LEGEND ==================== -->
+        <mxCell id="legend_box" value="&lt;b style=&quot;font-size: 12px; color: #232F3E;&quot;&gt;Workflow Legend &amp;amp; Color Code&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size: 10.5px;&quot;&gt;&lt;span style=&quot;color: #DD3522;&quot;&gt;■&lt;/span&gt; &lt;b&gt;Red:&lt;/b&gt; Auth &amp;amp; Security (Cognito/KMS)&amp;nbsp;&amp;nbsp;|&amp;nbsp;&amp;nbsp;&lt;span style=&quot;color: #0277BD;&quot;&gt;■&lt;/span&gt; &lt;b&gt;Blue:&lt;/b&gt; Client REST Requests&amp;nbsp;&amp;nbsp;|&amp;nbsp;&amp;nbsp;&lt;span style=&quot;color: #27AE60;&quot;&gt;■&lt;/span&gt; &lt;b&gt;Green:&lt;/b&gt; S3 Storage &amp;amp; Annotations&amp;nbsp;&amp;nbsp;|&amp;nbsp;&amp;nbsp;&lt;span style=&quot;color: #2980B9;&quot;&gt;■&lt;/span&gt; &lt;b&gt;Dark Blue:&lt;/b&gt; DynamoDB State &amp;amp; Streams&amp;nbsp;&amp;nbsp;|&amp;nbsp;&amp;nbsp;&lt;span style=&quot;color: #D35400;&quot;&gt;■&lt;/span&gt; &lt;b&gt;Orange:&lt;/b&gt; Lambda Compute &amp;amp; CDC Events&amp;nbsp;&amp;nbsp;|&amp;nbsp;&amp;nbsp;&lt;span style=&quot;color: #6C3483;&quot;&gt;■&lt;/span&gt; &lt;b&gt;Purple:&lt;/b&gt; SQS &amp;amp; OpenSearch Serverless Search Pipeline&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#D5DBDB;strokeWidth=1;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="410" y="1575" width="2150" height="40" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
