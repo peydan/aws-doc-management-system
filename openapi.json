@@ -1,0 +1,1187 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "AWS Document Management Platform MVP API",
+    "description": "REST API specification for the AWS Document Management Platform MVP. Supports multi-path document uploads, versioning, authoritative S3 metadata annotations, optimistic concurrency updates, OpenSearch metadata discovery, soft-delete, and Cognito RBAC.\n",
+    "version": "0.1.0",
+    "contact": {
+      "name": "Engineering Team"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://{api-id}.execute-api.us-east-1.amazonaws.com/v1",
+      "description": "AWS API Gateway v1 Environment",
+      "variables": {
+        "api-id": {
+          "default": "doc-platform-api"
+        }
+      }
+    }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "Health Check",
+        "description": "Returns operational health status of the API service.",
+        "operationId": "getHealth",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Service is healthy.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "HEALTHY"
+                    },
+                    "service": {
+                      "type": "string",
+                      "example": "aws-document-management-platform"
+                    },
+                    "version": {
+                      "type": "string",
+                      "example": "0.1.0"
+                    },
+                    "timestamp": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/documents": {
+      "post": {
+        "summary": "Inline Document Upload",
+        "description": "Uploads a raw binary document file up to 4 MiB directly through API Gateway and Lambda. Requires `Document.Writer` or `Document.Admin` role.\n",
+        "operationId": "uploadInlineDocument",
+        "security": [
+          {
+            "CognitoAuth": []
+          }
+        ],
+        "headers": {
+          "Idempotency-Key": {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Unique idempotency key for mutation safety."
+          },
+          "X-Content-SHA256": {
+            "schema": {
+              "type": "string"
+            },
+            "description": "SHA-256 checksum of raw payload bytes."
+          },
+          "X-Document-Metadata": {
+            "schema": {
+              "type": "string"
+            },
+            "description": "Base64-encoded or raw JSON envelope of document metadata."
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "description": "Raw binary document bytes (PDF, TIFF, JPEG, Office).",
+          "content": {
+            "application/pdf": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            },
+            "image/jpeg": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            },
+            "image/tiff": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            },
+            "application/octet-stream": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Document created successfully.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentCreatedResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/401AuthenticationError"
+          },
+          "403": {
+            "$ref": "#/components/responses/403AuthorizationError"
+          },
+          "409": {
+            "$ref": "#/components/responses/409IdempotencyConflict"
+          },
+          "413": {
+            "$ref": "#/components/responses/413InlineLimitExceeded"
+          }
+        }
+      }
+    },
+    "/documents/uploads": {
+      "post": {
+        "summary": "Initiate Direct Presigned Upload",
+        "description": "Initiates a direct S3 single-PUT presigned upload for files above 4 MiB. Requires `Document.Writer` or `Document.Admin` role.\n",
+        "operationId": "initiateDirectUpload",
+        "security": [
+          {
+            "CognitoAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DirectUploadInitRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Upload session initiated successfully.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DirectUploadInitResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400ValidationError"
+          }
+        }
+      }
+    },
+    "/uploads/{upload_id}/complete": {
+      "post": {
+        "summary": "Complete Direct Presigned Upload",
+        "description": "Completes and activates a direct S3 upload after binary upload finishes. Creates authoritative S3 metadata annotation and DynamoDB registry records.\n",
+        "operationId": "completeDirectUpload",
+        "security": [
+          {
+            "CognitoAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "upload_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Unique upload session identifier."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Direct upload completed and document activated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentCreatedResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/404NotFound"
+          }
+        }
+      }
+    },
+    "/uploads/{upload_id}": {
+      "delete": {
+        "summary": "Cancel Direct Upload Session",
+        "description": "Aborts an active upload session.",
+        "operationId": "cancelDirectUpload",
+        "security": [
+          {
+            "CognitoAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "upload_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Upload session cancelled."
+          }
+        }
+      }
+    },
+    "/documents/{document_id}": {
+      "get": {
+        "summary": "Get Document Summary & Metadata",
+        "description": "Retrieves document control pointer, latest metadata, and download URL.",
+        "operationId": "getDocument",
+        "security": [
+          {
+            "CognitoAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "document_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Document details retrieved successfully.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/404NotFound"
+          }
+        }
+      }
+    },
+    "/documents/{document_id}/versions": {
+      "get": {
+        "summary": "List Document Content Versions",
+        "description": "Retrieves version history list for a logical document (newest first).",
+        "operationId": "listVersions",
+        "security": [
+          {
+            "CognitoAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "document_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of application versions.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "document_id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "versions": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/VersionItem"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create New Content Version",
+        "description": "Uploads a new binary content version for an existing document.",
+        "operationId": "createVersion",
+        "security": [
+          {
+            "CognitoAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "document_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/pdf": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            },
+            "application/octet-stream": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "New application version created."
+          }
+        }
+      }
+    },
+    "/documents/{document_id}/versions/{version}": {
+      "get": {
+        "summary": "Get Specific Historical Version",
+        "description": "Retrieves details and download URL for a specific historical version.",
+        "operationId": "getVersion",
+        "security": [
+          {
+            "CognitoAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "document_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "version",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Version details retrieved."
+          }
+        }
+      }
+    },
+    "/documents/{document_id}/metadata": {
+      "get": {
+        "summary": "Get Authoritative Metadata",
+        "description": "Retrieves current authoritative metadata annotation from S3.",
+        "operationId": "getMetadata",
+        "security": [
+          {
+            "CognitoAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "document_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Metadata retrieved."
+          }
+        }
+      },
+      "patch": {
+        "summary": "Update Metadata (Optimistic Concurrency)",
+        "description": "Updates mutable metadata fields without creating a new content version. Enforces optimistic concurrency checking against `expected_metadata_revision`.\n",
+        "operationId": "updateMetadata",
+        "security": [
+          {
+            "CognitoAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "document_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MetadataUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Metadata revision updated successfully.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetadataUpdateResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "$ref": "#/components/responses/409MetadataConflict"
+          }
+        }
+      }
+    },
+    "/documents/{document_id}/download": {
+      "get": {
+        "summary": "Get Presigned Download URL",
+        "description": "Generates a short-lived S3 presigned URL for downloading document content.",
+        "operationId": "getDownloadUrl",
+        "security": [
+          {
+            "CognitoAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "document_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "version",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Optional historical application version number."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Download presigned URL generated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "document_id": {
+                      "type": "string"
+                    },
+                    "s3_version_id": {
+                      "type": "string"
+                    },
+                    "download_url": {
+                      "type": "string",
+                      "format": "uri"
+                    },
+                    "expires_at": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/documents/{document_id}/soft-delete": {
+      "post": {
+        "summary": "Soft Delete Document",
+        "description": "Marks document status as SOFT_DELETED and removes it from OpenSearch index. Requires `Document.Admin`.",
+        "operationId": "softDeleteDocument",
+        "security": [
+          {
+            "CognitoAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "document_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Document soft deleted."
+          }
+        }
+      }
+    },
+    "/documents/{document_id}/restore": {
+      "post": {
+        "summary": "Restore Document",
+        "description": "Restores a soft-deleted document to ACTIVE status and re-indexes in OpenSearch. Requires `Document.Admin`.",
+        "operationId": "restoreDocument",
+        "security": [
+          {
+            "CognitoAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "document_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Document restored."
+          }
+        }
+      }
+    },
+    "/search": {
+      "post": {
+        "summary": "Search Active Documents",
+        "description": "Performs structured metadata search over current active documents in OpenSearch Serverless.",
+        "operationId": "searchDocuments",
+        "security": [
+          {
+            "CognitoAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SearchRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Search results.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/503SearchUnavailable"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "CognitoAuth": {
+        "type": "apiKey",
+        "name": "Authorization",
+        "in": "header",
+        "description": "Bearer JWT token issued by AWS Cognito User Pool."
+      }
+    },
+    "responses": {
+      "400ValidationError": {
+        "description": "Request validation error.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "401AuthenticationError": {
+        "description": "Invalid or expired JWT token.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "403AuthorizationError": {
+        "description": "Insufficient application role permissions.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "404NotFound": {
+        "description": "Requested document or resource not found.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "409IdempotencyConflict": {
+        "description": "Idempotency key reused with different payload.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "409MetadataConflict": {
+        "description": "Stale metadata revision update conflict.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/MetadataConflictErrorEnvelope"
+            }
+          }
+        }
+      },
+      "413InlineLimitExceeded": {
+        "description": "Inline payload exceeds 4 MiB maximum limit.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "503SearchUnavailable": {
+        "description": "OpenSearch service is temporarily unavailable.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "DocumentCreatedResponse": {
+        "type": "object",
+        "properties": {
+          "document_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "application_version": {
+            "type": "integer",
+            "example": 1
+          },
+          "s3_version_id": {
+            "type": "string"
+          },
+          "metadata_revision": {
+            "type": "integer",
+            "example": 1
+          },
+          "status": {
+            "type": "string",
+            "example": "ACTIVE"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "DocumentResponse": {
+        "type": "object",
+        "properties": {
+          "document_id": {
+            "type": "string"
+          },
+          "document_class": {
+            "type": "string",
+            "example": "loan_agreement"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "SOFT_DELETED"
+            ]
+          },
+          "current_application_version": {
+            "type": "integer"
+          },
+          "current_s3_version_id": {
+            "type": "string"
+          },
+          "current_metadata_revision": {
+            "type": "integer"
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/LoanAgreementMetadata"
+          },
+          "download_url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "download_url_expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string"
+          }
+        }
+      },
+      "VersionItem": {
+        "type": "object",
+        "properties": {
+          "application_version": {
+            "type": "integer"
+          },
+          "s3_version_id": {
+            "type": "string"
+          },
+          "metadata_revision": {
+            "type": "integer"
+          },
+          "checksum": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          }
+        }
+      },
+      "DirectUploadInitRequest": {
+        "type": "object",
+        "required": [
+          "filename",
+          "content_length",
+          "checksum",
+          "metadata"
+        ],
+        "properties": {
+          "document_class": {
+            "type": "string",
+            "default": "loan_agreement"
+          },
+          "filename": {
+            "type": "string",
+            "example": "loan_LN-2026-88821.pdf"
+          },
+          "content_type": {
+            "type": "string",
+            "default": "application/pdf"
+          },
+          "content_length": {
+            "type": "integer",
+            "example": 7340032
+          },
+          "checksum": {
+            "type": "string",
+            "example": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/LoanAgreementMetadata"
+          }
+        }
+      },
+      "DirectUploadInitResponse": {
+        "type": "object",
+        "properties": {
+          "upload_id": {
+            "type": "string"
+          },
+          "document_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "upload_method": {
+            "type": "string",
+            "example": "SINGLE_PUT"
+          },
+          "upload_url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "required_headers": {
+            "type": "object"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "MetadataUpdateRequest": {
+        "type": "object",
+        "required": [
+          "expected_metadata_revision",
+          "changes"
+        ],
+        "properties": {
+          "expected_metadata_revision": {
+            "type": "integer",
+            "example": 1
+          },
+          "reason": {
+            "type": "string",
+            "example": "CORRECTION"
+          },
+          "changes": {
+            "type": "object",
+            "properties": {
+              "branch_code": {
+                "type": "string",
+                "example": "TLV-05"
+              },
+              "loan_amount_minor_units": {
+                "type": "integer",
+                "example": 95000000
+              }
+            }
+          }
+        }
+      },
+      "MetadataUpdateResponse": {
+        "type": "object",
+        "properties": {
+          "document_id": {
+            "type": "string"
+          },
+          "metadata_revision": {
+            "type": "integer",
+            "example": 2
+          },
+          "updated_at": {
+            "type": "string"
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/LoanAgreementMetadata"
+          }
+        }
+      },
+      "SearchRequest": {
+        "type": "object",
+        "properties": {
+          "filters": {
+            "type": "object",
+            "properties": {
+              "document_class": {
+                "type": "string",
+                "example": "loan_agreement"
+              },
+              "customer_id": {
+                "type": "string",
+                "example": "IL-4492817"
+              },
+              "document_type": {
+                "type": "string",
+                "example": "SIGNED_AGREEMENT"
+              },
+              "loan_type": {
+                "type": "string",
+                "example": "MORTGAGE"
+              },
+              "branch_code": {
+                "type": "string",
+                "example": "TLV-04"
+              },
+              "created_from": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "created_to": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "loan_amount_min_minor_units": {
+                "type": "integer"
+              },
+              "loan_amount_max_minor_units": {
+                "type": "integer"
+              }
+            }
+          },
+          "sort": {
+            "type": "object",
+            "properties": {
+              "field": {
+                "type": "string",
+                "enum": [
+                  "created_at",
+                  "updated_at"
+                ]
+              },
+              "direction": {
+                "type": "string",
+                "enum": [
+                  "asc",
+                  "desc"
+                ]
+              }
+            }
+          },
+          "page_size": {
+            "type": "integer",
+            "maximum": 100,
+            "default": 20
+          },
+          "cursor": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "SearchResponse": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LoanAgreementMetadata"
+            }
+          },
+          "next_cursor": {
+            "type": "array",
+            "nullable": true,
+            "items": {
+              "type": "string"
+            }
+          },
+          "total": {
+            "type": "integer"
+          }
+        }
+      },
+      "LoanAgreementMetadata": {
+        "type": "object",
+        "required": [
+          "customer_id",
+          "loan_number",
+          "loan_amount_minor_units",
+          "currency",
+          "loan_type",
+          "branch_code"
+        ],
+        "properties": {
+          "annotation_schema": {
+            "type": "string",
+            "example": "bank.document-metadata/1"
+          },
+          "document_id": {
+            "type": "string"
+          },
+          "document_class": {
+            "type": "string",
+            "example": "loan_agreement"
+          },
+          "application_version": {
+            "type": "integer"
+          },
+          "metadata_revision": {
+            "type": "integer"
+          },
+          "schema_version": {
+            "type": "integer",
+            "example": 1
+          },
+          "document_type": {
+            "type": "string",
+            "enum": [
+              "SIGNED_AGREEMENT",
+              "APPLICATION",
+              "DISCLOSURE",
+              "PROMISSORY_NOTE"
+            ]
+          },
+          "customer_id": {
+            "type": "string",
+            "example": "IL-4492817"
+          },
+          "loan_number": {
+            "type": "string",
+            "example": "LN-2026-88821"
+          },
+          "loan_amount_minor_units": {
+            "type": "integer",
+            "example": 90000000
+          },
+          "currency": {
+            "type": "string",
+            "example": "ILS"
+          },
+          "loan_type": {
+            "type": "string",
+            "enum": [
+              "MORTGAGE",
+              "PERSONAL",
+              "COMMERCIAL",
+              "AUTO"
+            ]
+          },
+          "branch_code": {
+            "type": "string",
+            "example": "TLV-04"
+          },
+          "signed_date": {
+            "type": "string",
+            "example": "2026-07-15"
+          },
+          "content_type": {
+            "type": "string",
+            "example": "application/pdf"
+          },
+          "content_length": {
+            "type": "integer",
+            "example": 204800
+          },
+          "content_checksum": {
+            "type": "string"
+          },
+          "filename": {
+            "type": "string",
+            "example": "loan_LN-2026-88821.pdf"
+          }
+        }
+      },
+      "ErrorEnvelope": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "example": "VALIDATION_ERROR"
+              },
+              "message": {
+                "type": "string",
+                "example": "Required field customer_id is missing."
+              },
+              "correlation_id": {
+                "type": "string",
+                "example": "req-123e4567-e89b-12d3-a456-426614174000"
+              },
+              "retryable": {
+                "type": "boolean",
+                "example": false
+              }
+            }
+          }
+        }
+      },
+      "MetadataConflictErrorEnvelope": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "example": "METADATA_CONFLICT"
+              },
+              "message": {
+                "type": "string",
+                "example": "Metadata changed after the supplied revision."
+              },
+              "correlation_id": {
+                "type": "string"
+              },
+              "retryable": {
+                "type": "boolean",
+                "example": false
+              },
+              "expected_revision": {
+                "type": "integer",
+                "example": 1
+              },
+              "current_revision": {
+                "type": "integer",
+                "example": 2
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

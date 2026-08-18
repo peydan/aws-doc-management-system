@@ -1,0 +1,49 @@
+# Environment & Secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.cert
+*.pfx
+
+# Streamlit Local Configurations & Secrets
+.streamlit/secrets.toml
+.streamlit/credentials.toml
+
+# AWS CDK Output & Context
+cdk.out/
+.cdk.staging/
+*.template.json
+
+# Node & TypeScript Build Outputs
+node_modules/
+dist/
+*.tsbuildinfo
+bin/*.js
+bin/*.d.ts
+lib/*.js
+lib/*.d.ts
+scripts/*.js
+scripts/*.d.ts
+src/**/*.js
+src/**/*.d.ts
+test/**/*.js
+test/**/*.d.ts
+
+# Python & Virtual Environments
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.venv/
+venv/
+env/
+
+# Operating System & IDE Files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+.agents/
+*.log
