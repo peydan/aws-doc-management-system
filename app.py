@@ -375,7 +375,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-tab_auth, tab_health, tab_upload, tab_doc, tab_metadata, tab_search, tab_admin, tab_inspector = st.tabs(
+tab_auth, tab_health, tab_upload, tab_doc, tab_metadata, tab_search, tab_admin, tab_inspector, tab_cost = st.tabs(
     [
         "🔐 Authentication & Roles",
         "🟢 System Health",
@@ -385,6 +385,7 @@ tab_auth, tab_health, tab_upload, tab_doc, tab_metadata, tab_search, tab_admin, 
         "🔍 OpenSearch Query",
         "🛡️ Lifecycle Management",
         "⚡ Live Request Inspector",
+        "💰 Israel Region Cost Calculator",
     ]
 )
 
@@ -1055,3 +1056,278 @@ with tab_inspector:
             st.json(selected_log["response"])
     else:
         st.info("No requests executed yet in this session.")
+
+# ==============================================================================
+# TAB 8: ISRAEL REGION COST CALCULATOR & TCO
+# ==============================================================================
+with tab_cost:
+    st.header("💰 AWS Israel Region (il-central-1) Cost Calculator & TCO")
+    st.markdown(
+        "Estimate full-scale operational expenses and 5-year Total Cost of Ownership (TCO) for the AWS Document Management Platform running on **AWS Region `il-central-1` (Tel Aviv)**."
+    )
+
+    # Preset Quick-select bar
+    st.markdown("##### ⚡ Architecture Workload Sizing Presets")
+    col_p1, col_p2, col_p3, col_p4 = st.columns(4)
+    
+    # Session state for calculator inputs
+    if "calc_ingest" not in st.session_state:
+        st.session_state.calc_ingest = 250000
+    if "calc_size_mb" not in st.session_state:
+        st.session_state.calc_size_mb = 1.0
+    if "calc_total_docs" not in st.session_state:
+        st.session_state.calc_total_docs = 1500000
+    if "calc_downloads" not in st.session_state:
+        st.session_state.calc_downloads = 1000000
+    if "calc_searches" not in st.session_state:
+        st.session_state.calc_searches = 500000
+    if "calc_patches" not in st.session_state:
+        st.session_state.calc_patches = 150000
+    if "calc_ocu" not in st.session_state:
+        st.session_state.calc_ocu = 2.0
+    if "calc_currency" not in st.session_state:
+        st.session_state.calc_currency = "USD ($)"
+    if "calc_fx_rate" not in st.session_state:
+        st.session_state.calc_fx_rate = 3.70
+    if "calc_use_ia" not in st.session_state:
+        st.session_state.calc_use_ia = False
+
+    with col_p1:
+        if st.button("🧪 POC / Pilot\n10k docs · 50 GB", use_container_width=True):
+            st.session_state.calc_ingest = 10000
+            st.session_state.calc_size_mb = 1.0
+            st.session_state.calc_total_docs = 50000
+            st.session_state.calc_downloads = 50000
+            st.session_state.calc_searches = 25000
+            st.session_state.calc_patches = 10000
+            st.session_state.calc_ocu = 1.0
+            st.session_state.calc_use_ia = False
+            st.rerun()
+
+    with col_p2:
+        if st.button("🏢 Mid-Market (Default)\n250k docs · 1.5 TB", use_container_width=True, type="primary"):
+            st.session_state.calc_ingest = 250000
+            st.session_state.calc_size_mb = 1.0
+            st.session_state.calc_total_docs = 1500000
+            st.session_state.calc_downloads = 1000000
+            st.session_state.calc_searches = 500000
+            st.session_state.calc_patches = 150000
+            st.session_state.calc_ocu = 2.0
+            st.session_state.calc_use_ia = False
+            st.rerun()
+
+    with col_p3:
+        if st.button("🏦 Bank Enterprise\n2M docs · 15 TB", use_container_width=True):
+            st.session_state.calc_ingest = 2000000
+            st.session_state.calc_size_mb = 1.0
+            st.session_state.calc_total_docs = 15000000
+            st.session_state.calc_downloads = 10000000
+            st.session_state.calc_searches = 5000000
+            st.session_state.calc_patches = 1000000
+            st.session_state.calc_ocu = 4.0
+            st.session_state.calc_use_ia = True
+            st.rerun()
+
+    with col_p4:
+        if st.button("🏛️ Massive Archive\n10M docs · 100 TB", use_container_width=True):
+            st.session_state.calc_ingest = 10000000
+            st.session_state.calc_size_mb = 1.0
+            st.session_state.calc_total_docs = 100000000
+            st.session_state.calc_downloads = 50000000
+            st.session_state.calc_searches = 25000000
+            st.session_state.calc_patches = 5000000
+            st.session_state.calc_ocu = 8.0
+            st.session_state.calc_use_ia = True
+            st.rerun()
+
+    st.markdown("---")
+
+    col_ctrl, col_viz = st.columns([1, 1], gap="large")
+
+    with col_ctrl:
+        st.subheader("⚙️ Workload Parameters")
+
+        # Currency and FX
+        col_c1, col_c2 = st.columns(2)
+        with col_c1:
+            currency_sel = st.radio("Display Currency", ["USD ($)", "ILS (₪)"], horizontal=True, key="calc_curr_radio")
+            is_ils = currency_sel == "ILS (₪)"
+        with col_c2:
+            fx_rate = st.number_input("Exchange Rate (ILS per 1 USD)", min_value=2.0, max_value=6.0, value=float(st.session_state.calc_fx_rate), step=0.05)
+            st.session_state.calc_fx_rate = fx_rate
+
+        curr_sym = "₪" if is_ils else "$"
+        multiplier = fx_rate if is_ils else 1.0
+
+        ingest_val = st.slider("Monthly Document Ingestion (uploads)", min_value=1000, max_value=10000000, value=int(st.session_state.calc_ingest), step=5000, format="%d")
+        size_mb_val = st.slider("Average Document Size (MB)", min_value=0.1, max_value=15.0, value=float(st.session_state.calc_size_mb), step=0.1)
+        total_docs_val = st.slider("Cumulative Stored Documents", min_value=10000, max_value=100000000, value=int(st.session_state.calc_total_docs), step=50000, format="%d")
+
+        calculated_gb = (total_docs_val * size_mb_val) / 1024.0
+        st.caption(f"📦 Total Active S3 Storage: **{calculated_gb:,.1f} GB ({calculated_gb/1024.0:,.2f} TB)**")
+
+        st.markdown("##### Query & Access Patterns")
+        downloads_val = st.slider("Monthly Reads / Downloads", min_value=5000, max_value=50000000, value=int(st.session_state.calc_downloads), step=10000, format="%d")
+        searches_val = st.slider("Monthly OpenSearch Queries", min_value=5000, max_value=25000000, value=int(st.session_state.calc_searches), step=10000, format="%d")
+        patches_val = st.slider("Monthly Metadata OCC Updates", min_value=0, max_value=5000000, value=int(st.session_state.calc_patches), step=10000, format="%d")
+
+        st.markdown("##### Architecture Levers")
+        ocu_options = {1.0: "1.0 OCU (Dev/POC) — $187/mo", 2.0: "2.0 OCUs (Standard HA) — $374/mo", 4.0: "4.0 OCUs (High Throughput) — $749/mo", 8.0: "8.0 OCUs (Peak Scale) — $1,498/mo"}
+        ocu_val = st.selectbox("OpenSearch Serverless (AOSS) Capacity", options=list(ocu_options.keys()), index=list(ocu_options.keys()).index(st.session_state.calc_ocu), format_func=lambda x: ocu_options[x])
+        use_ia_val = st.checkbox("Enable S3 Intelligent-Tiering / Standard-IA (>90d)", value=st.session_state.calc_use_ia)
+
+    # Unit rates in il-central-1 (USD)
+    R_S3_STD = 0.0250
+    R_S3_IA = 0.0135
+    R_S3_PUT = 0.0055 / 1000.0
+    R_S3_GET = 0.00044 / 1000.0
+    R_DDB_WRU = 0.625 / 1000000.0
+    R_DDB_RRU = 0.125 / 1000000.0
+    R_DDB_GB = 0.275
+    R_AOSS_OCU_HR = 0.260
+    R_AOSS_GB = 0.260
+    R_LAMBDA_INV = 0.20 / 1000000.0
+    R_LAMBDA_GBS = 0.0000133334  # ARM64 Graviton
+    R_APIGW = 3.80 / 1000000.0
+    R_SQS = 0.40 / 1000000.0
+    R_KMS_KEY = 1.00
+    R_KMS_OP = 0.03 / 10000.0
+    R_CW_LOG_GB = 0.55
+    R_EGRESS_GB = 0.090
+
+    # Computations
+    s3_storage_rate = (R_S3_STD * 0.3 + R_S3_IA * 0.7) if use_ia_val else R_S3_STD
+    cost_s3_storage = calculated_gb * s3_storage_rate
+    cost_s3_requests = ((ingest_val * 2 + patches_val) * R_S3_PUT) + (downloads_val * R_S3_GET)
+    cost_s3_total = cost_s3_storage + cost_s3_requests
+
+    ddb_wru = (ingest_val * 4) + (patches_val * 2)
+    ddb_rru = downloads_val + searches_val
+    cost_ddb = (ddb_wru * R_DDB_WRU) + (ddb_rru * R_DDB_RRU) + (total_docs_val * 0.0000025 * R_DDB_GB) + ((ingest_val + patches_val) / 100000.0 * 0.02)
+
+    cost_aoss_compute = 730 * ocu_val * R_AOSS_OCU_HR
+    cost_aoss_storage = max(1.0, calculated_gb * 0.03) * R_AOSS_GB
+    cost_aoss_total = cost_aoss_compute + cost_aoss_storage
+
+    lambda_invs = (ingest_val * 3) + downloads_val + searches_val + patches_val
+    cost_lambda = (lambda_invs * R_LAMBDA_INV) + (lambda_invs * 0.150 * 0.512 * R_LAMBDA_GBS)
+
+    total_api_ops = ingest_val + downloads_val + searches_val + patches_val
+    cost_apigw = total_api_ops * R_APIGW
+
+    kms_ops = (ingest_val * 4) + (downloads_val * 2)
+    cost_kms = R_KMS_KEY + (kms_ops * R_KMS_OP)
+    cost_sqs = (ingest_val + patches_val) * R_SQS
+    cw_log_gb = max(5.0, (total_api_ops * 0.000004))
+    cost_cw = (cw_log_gb * R_CW_LOG_GB) + 5.0
+    cost_obs_total = cost_kms + cost_sqs + cost_cw
+
+    egress_gb = max(0.0, ((downloads_val * size_mb_val * 0.25) / 1024.0) - 100.0)
+    cost_egress = egress_gb * R_EGRESS_GB
+
+    total_monthly_usd = cost_s3_total + cost_ddb + cost_aoss_total + cost_lambda + cost_apigw + cost_obs_total + cost_egress
+    total_monthly_curr = total_monthly_usd * multiplier
+
+    unit_ingest_usd = (total_monthly_usd - cost_s3_storage - cost_aoss_compute) / max(1, ingest_val)
+    unit_storage_usd = cost_s3_storage / max(1, total_docs_val)
+
+    with col_viz:
+        st.subheader("📊 Cost Summary & Analysis")
+
+        k1, k2 = st.columns(2)
+        with k1:
+            st.metric("Total Monthly AWS Cost", f"{curr_sym}{total_monthly_curr:,.2f}", delta=f"≈ {'$' if is_ils else '₪'}{total_monthly_usd * (1.0 if is_ils else fx_rate):,.2f}")
+        with k2:
+            st.metric("Cost per Ingested Document", f"{curr_sym}{unit_ingest_usd * multiplier:,.6f}")
+
+        k3, k4 = st.columns(2)
+        with k3:
+            st.metric("Cost per Stored Doc / Month", f"{curr_sym}{unit_storage_usd * multiplier:,.6f}")
+        with k4:
+            st.metric("Estimated 3-Yr TCO", f"{curr_sym}{total_cost * 36:,.0f}", delta=f"{curr_sym}{total_cost:,.2f} / month")
+
+        # Service Breakdown Chart
+        breakdown_data = {
+            "Service": [
+                "OpenSearch Serverless",
+                "Amazon S3 & Annotations",
+                "Observability (KMS/CW/SQS)",
+                "AWS Lambda Compute",
+                "Data Transfer Egress",
+                "Amazon API Gateway",
+                "Amazon DynamoDB",
+            ],
+            "Monthly Cost": [
+                cost_aoss_total * multiplier,
+                cost_s3_total * multiplier,
+                cost_obs_total * multiplier,
+                cost_lambda * multiplier,
+                cost_egress * multiplier,
+                cost_apigw * multiplier,
+                cost_ddb * multiplier,
+            ],
+        }
+        df_breakdown = pd.DataFrame(breakdown_data)
+        st.bar_chart(df_breakdown.set_index("Service"), use_container_width=True)
+
+    # Detailed Table
+    st.markdown("---")
+    st.subheader("📑 Itemized Subsystem Breakdown (`il-central-1`)")
+
+    table_data = [
+        {
+            "AWS Subsystem": "Amazon OpenSearch Serverless (AOSS)",
+            "Israel Unit Rate": "$0.260 / OCU-hr + $0.260 / GB-mo",
+            "Monthly Units": f"{ocu_val} OCUs (730 hrs) + {max(1.0, calculated_gb * 0.03):,.0f} GB index",
+            f"Monthly Cost ({curr_sym})": f"{curr_sym}{cost_aoss_total * multiplier:,.2f}",
+            "Share (%)": f"{(cost_aoss_total / total_monthly_usd * 100):.1f}%",
+        },
+        {
+            "AWS Subsystem": "Amazon S3 (Binaries + S3 Annotations)",
+            "Israel Unit Rate": f"${s3_storage_rate:.4f} / GB-mo + $0.0055/1k PUT",
+            "Monthly Units": f"{calculated_gb:,.0f} GB storage + {((ingest_val * 2) + patches_val):,} PUTs",
+            f"Monthly Cost ({curr_sym})": f"{curr_sym}{cost_s3_total * multiplier:,.2f}",
+            "Share (%)": f"{(cost_s3_total / total_monthly_usd * 100):.1f}%",
+        },
+        {
+            "AWS Subsystem": "AWS KMS & CloudWatch Observability",
+            "Israel Unit Rate": "$1.00 / CMK + $0.55 / GB log",
+            "Monthly Units": f"1 CMK + {cw_log_gb:,.0f} GB logs + Alarms",
+            f"Monthly Cost ({curr_sym})": f"{curr_sym}{cost_obs_total * multiplier:,.2f}",
+            "Share (%)": f"{(cost_obs_total / total_monthly_usd * 100):.1f}%",
+        },
+        {
+            "AWS Subsystem": "AWS Lambda (Graviton ARM64)",
+            "Israel Unit Rate": "$0.20 / 1M req + $0.0000133 / GB-s",
+            "Monthly Units": f"{lambda_invs:,} invocations ({lambda_invs * 0.15 * 0.512:,.0f} GB-s)",
+            f"Monthly Cost ({curr_sym})": f"{curr_sym}{cost_lambda * multiplier:,.2f}",
+            "Share (%)": f"{(cost_lambda / total_monthly_usd * 100):.1f}%",
+        },
+        {
+            "AWS Subsystem": "Data Transfer Out (Egress)",
+            "Israel Unit Rate": "$0.090 / GB (First 100 GB Free)",
+            "Monthly Units": f"{egress_gb:,.0f} billable GB egress",
+            f"Monthly Cost ({curr_sym})": f"{curr_sym}{cost_egress * multiplier:,.2f}",
+            "Share (%)": f"{(cost_egress / total_monthly_usd * 100):.1f}%",
+        },
+        {
+            "AWS Subsystem": "Amazon API Gateway (REST API)",
+            "Israel Unit Rate": "$3.80 / 1,000,000 requests",
+            "Monthly Units": f"{total_api_ops:,} API requests",
+            f"Monthly Cost ({curr_sym})": f"{curr_sym}{cost_apigw * multiplier:,.2f}",
+            "Share (%)": f"{(cost_apigw / total_monthly_usd * 100):.1f}%",
+        },
+        {
+            "AWS Subsystem": "Amazon DynamoDB (On-Demand Control Table)",
+            "Israel Unit Rate": "$0.625 / 1M WRU + $0.125 / 1M RRU",
+            "Monthly Units": f"{ddb_wru:,} WRUs + {ddb_rru:,} RRUs",
+            f"Monthly Cost ({curr_sym})": f"{curr_sym}{cost_ddb * multiplier:,.2f}",
+            "Share (%)": f"{(cost_ddb / total_monthly_usd * 100):.1f}%",
+        },
+    ]
+    st.dataframe(pd.DataFrame(table_data), use_container_width=True)
+
+    st.info(
+        "💡 **Full Architecture Specification & Standalone HTML Tool:** A complete design document is available in `COST_ANALYSIS_AND_ESTIMATION_ISRAEL_REGION.md` and the interactive standalone calculator can be opened in `cost_calculator.html`."
+    )
+

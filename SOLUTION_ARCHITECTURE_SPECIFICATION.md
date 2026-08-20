@@ -37,7 +37,7 @@
 
 ## 1. Executive Summary & Solution Overview
 
-The **AWS Document Management Platform** is an enterprise-grade, cloud-native document management solution built entirely on AWS managed and serverless services. Designed as a modern, decoupled alternative to legacy ECM platforms (such as EMC Documentum), the system provides high-performance document ingestion, strict immutable content versioning, authoritative metadata management with optimistic concurrency control, multi-attribute search indexing, and role-based access governance.
+The **AWS Document Management Platform** is an enterprise-grade, cloud-native document management solution built entirely on AWS managed and serverless services. Designed as a modern, decoupled enterprise architecture, the system provides high-performance document ingestion, strict immutable content versioning, authoritative metadata management with optimistic concurrency control, multi-attribute search indexing, and role-based access governance.
 
 ```text
 +----------------------------------------------------------------------------------------------------+

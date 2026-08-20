@@ -4,7 +4,7 @@
 [![Serverless](https://img.shields.io/badge/Architecture-Serverless-red.svg)](https://aws.amazon.com/serverless/)
 [![TypeScript](https://img.shields.io/badge/Language-TypeScript%20%7C%20Python-blue.svg)](https://www.typescriptlang.org/)
 
-An enterprise-grade, cloud-native document management platform built entirely on AWS managed and serverless services. Designed as a modern, decoupled, scalable replacement for legacy ECM platforms (such as EMC Documentum / OpenText).
+An enterprise-grade, cloud-native document management platform built entirely on AWS managed and serverless services. Designed as a modern, decoupled, scalable enterprise content management solution.
 
 ---
 
@@ -123,6 +123,6 @@ npm run gui
 ## 📖 Key Documentation & Deliverables
 
 - 📄 [Solution Architecture Specification](SOLUTION_ARCHITECTURE_SPECIFICATION.md): Exhaustive breakdown of authority models, API sequence diagrams, consistency patterns, and security matrices.
-- 💰 [Israel Region Cost Analysis](COST_ANALYSIS_AND_ESTIMATION_ISRAEL_REGION.md): Capacity planning, TCO comparison vs legacy ECM, and monthly cost forecasts in `il-central-1`.
+- 💰 [Israel Region Cost Analysis](COST_ANALYSIS_AND_ESTIMATION_ISRAEL_REGION.md): Capacity planning, multi-year TCO projections, and monthly cost forecasts in `il-central-1`.
 - 📊 [Interactive Cost Calculator](cost_calculator.html): Browser-based dynamic sizing and pricing tool.
 - 📑 [OpenAPI 3.0 Specification](openapi.yaml): Full REST contract for all 15 platform operations.
