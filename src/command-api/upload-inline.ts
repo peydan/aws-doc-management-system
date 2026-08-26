@@ -2,7 +2,7 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { v4 as uuidv4 } from 'uuid';
 import * as crypto from 'crypto';
 import { authenticateRequest, authorizeRoles } from '../shared/auth';
-import { validateMetadataSchema } from '../shared/validator';
+import { validateMetadataSchema, buildFullMetadata } from '../shared/validator';
 import { S3Manager } from '../shared/s3';
 import { DynamoManager } from '../shared/dynamo';
 import { Logger } from '../shared/logger';
@@ -12,6 +12,7 @@ import {
   InlineUploadLimitExceededError,
   ChecksumMismatchError,
 } from '../shared/errors';
+import { CORS_HEADERS } from '../shared/headers';
 
 const INLINE_MAX_BYTES = parseInt(process.env.INLINE_UPLOAD_MAX_BYTES || '4194304', 10);
 
@@ -60,32 +61,19 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     const documentId = uuidv4();
     const documentClass = metadataRaw.document_class || 'loan_agreement';
-    const now = new Date().toISOString();
+    const contentType = event.headers['Content-Type'] || event.headers['content-type'] || 'application/pdf';
+    const filename = metadataRaw.filename || `document_${documentId}.pdf`;
 
-    const fullMetadata: Record<string, any> = {
-      annotation_schema: 'bank.document-metadata/1',
-      document_id: documentId,
-      document_class: documentClass,
-      application_version: 1,
-      metadata_revision: 1,
-      schema_version: 1,
-      document_type: metadataRaw.document_type || 'SIGNED_AGREEMENT',
-      customer_id: metadataRaw.customer_id,
-      loan_number: metadataRaw.loan_number,
-      loan_amount_minor_units: metadataRaw.loan_amount_minor_units,
-      currency: metadataRaw.currency || 'ILS',
-      loan_type: metadataRaw.loan_type || 'MORTGAGE',
-      branch_code: metadataRaw.branch_code,
-      signed_date: metadataRaw.signed_date || now.substring(0, 10),
-      content_type: event.headers['Content-Type'] || event.headers['content-type'] || 'application/pdf',
-      content_length: bodyBuffer.length,
-      content_checksum: `sha256:${calculatedSha256}`,
-      filename: metadataRaw.filename || `document_${documentId}.pdf`,
-      created_at: now,
-      created_by: user.userId,
-      metadata_updated_at: now,
-      metadata_updated_by: user.userId,
-    };
+    const fullMetadata = buildFullMetadata({
+      documentId,
+      documentClass,
+      filename,
+      contentType,
+      contentLength: bodyBuffer.length,
+      checksum: calculatedSha256,
+      userId: user.userId,
+      clientMetadata: metadataRaw,
+    });
 
     validateMetadataSchema(fullMetadata);
 
@@ -120,28 +108,28 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     return {
       statusCode: 201,
-      headers: { 'Content-Type': 'application/json' },
+      headers: CORS_HEADERS,
       body: JSON.stringify({
         document_id: documentId,
         application_version: 1,
         s3_version_id: contentResult.versionId,
         metadata_revision: 1,
         status: 'ACTIVE',
-        created_at: now,
+        created_at: fullMetadata.created_at,
       }),
     };
   } catch (err: any) {
     if (err instanceof PlatformError) {
       return {
         statusCode: err.statusCode,
-        headers: { 'Content-Type': 'application/json' },
+        headers: CORS_HEADERS,
         body: JSON.stringify(err.toResponse(correlationId)),
       };
     }
     Logger.error('Unhandled error in inline upload handler', err, { correlationId });
     return {
       statusCode: 500,
-      headers: { 'Content-Type': 'application/json' },
+      headers: CORS_HEADERS,
       body: JSON.stringify({
         error: {
           code: 'INTERNAL_ERROR',

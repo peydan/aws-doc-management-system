@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AWS Document Management Platform — Serverless Portal</title>
+  <link rel="stylesheet" href="styles.css?v=3" />
+</head>
+<body class="unauthenticated">
+
+  <!-- ================= VIEW 1: STRICT AUTHENTICATION GATE ================= -->
+  <div id="view-login" class="login-view">
+    <div class="login-container">
+      
+      <div class="login-header-block">
+        <div class="login-logo">📄</div>
+        <h1 class="login-title">
+          AWS Document Management Platform
+          <span class="brand-badge">100% Serverless</span>
+        </h1>
+        <p class="login-subtitle">
+          Secure Enterprise Document Repository • AWS Israel Region (<span style="color: var(--aws-orange);">il-central-1</span>)
+        </p>
+      </div>
+
+      <div class="grid-2">
+        <!-- Quick Personas -->
+        <div class="card" style="margin-bottom: 0;">
+          <div class="card-header">
+            <div>
+              <div class="card-title">⚡ Instant Evaluation Personas</div>
+              <div class="card-subtitle">One-click sign in with pre-configured Cognito test roles</div>
+            </div>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 10px;">
+            <button class="persona-btn" onclick="loginPersona('admin-user', 'DemoPassword123!')">
+              <div>
+                <strong>👑 admin-user</strong>
+                <div style="font-size: 0.75rem; color: var(--text-muted);">Full Superuser Access (All APIs)</div>
+              </div>
+              <span class="badge badge-info">Document.Admin</span>
+            </button>
+
+            <button class="persona-btn" onclick="loginPersona('writer-user', 'DemoPassword123!')">
+              <div>
+                <strong>✍️ writer-user</strong>
+                <div style="font-size: 0.75rem; color: var(--text-muted);">Ingestion, Uploads & Versioning</div>
+              </div>
+              <span class="badge badge-success">Document.Writer</span>
+            </button>
+
+            <button class="persona-btn" onclick="loginPersona('editor-user', 'DemoPassword123!')">
+              <div>
+                <strong>✏️ editor-user</strong>
+                <div style="font-size: 0.75rem; color: var(--text-muted);">S3 Annotation & Metadata Edits</div>
+              </div>
+              <span class="badge badge-warning">Document.MetadataEditor</span>
+            </button>
+
+            <button class="persona-btn" onclick="loginPersona('reader-user', 'DemoPassword123!')">
+              <div>
+                <strong>👁️ reader-user</strong>
+                <div style="font-size: 0.75rem; color: var(--text-muted);">Search, View & Download Only</div>
+              </div>
+              <span class="badge badge-role">Document.Reader</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Custom Login -->
+        <div class="card" style="margin-bottom: 0;">
+          <div class="card-header">
+            <div>
+              <div class="card-title">🔑 Custom Cognito Credentials</div>
+              <div class="card-subtitle">Sign in with username/password against User Pool</div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Cognito Username / Email</label>
+            <input type="text" id="login-username" class="form-control" placeholder="e.g. admin-user" value="admin-user" />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Password</label>
+            <input type="password" id="login-password" class="form-control" placeholder="••••••••••••" value="DemoPassword123!" />
+          </div>
+
+          <button id="btn-login-submit" class="btn btn-primary btn-block" style="margin-top: 1.5rem;" onclick="handleCustomLogin()">
+            🚀 Authenticate & Enter Portal
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ================= VIEW 2: AUTHENTICATED WORKSPACE ================= -->
+  <div id="view-app" class="app-view">
+
+    <!-- Top Header -->
+    <header class="header">
+      <div class="brand">
+        <span class="brand-icon">📄</span>
+        <div>
+          <div class="brand-title">
+            AWS Document Management Platform
+            <span class="brand-badge">100% Serverless</span>
+          </div>
+          <div style="font-size: 0.75rem; color: var(--text-muted);">
+            AWS Israel Region (<span style="color: var(--aws-orange);">il-central-1</span>) • CloudFront + S3 + API Gateway
+          </div>
+        </div>
+      </div>
+
+      <div class="header-meta">
+        <div id="auth-status-badge" class="badge badge-success">
+          <span>🔓</span> <span id="current-user-name">admin-user</span>
+        </div>
+        <div id="user-role-badge" class="badge badge-role">
+          <span>🛡️</span> <span id="current-user-role">Document.Admin</span>
+        </div>
+        <div id="health-indicator" class="badge badge-info">
+          <span>⚡</span> <span id="health-text">Online</span>
+        </div>
+        <button class="btn btn-danger btn-sm" onclick="signOut()">
+          🚪 Sign Out
+        </button>
+      </div>
+    </header>
+
+    <!-- Navigation Tabs -->
+    <nav class="tabs-bar">
+      <button class="tab-btn active" data-tab="tab-viewer">📂 Document Viewer</button>
+      <button class="tab-btn" data-tab="tab-upload">📤 Ingestion & Upload</button>
+      <button class="tab-btn" data-tab="tab-search">🔍 OpenSearch Explorer</button>
+      <button class="tab-btn" data-tab="tab-metadata">✏️ Metadata & Concurrency</button>
+      <button class="tab-btn" data-tab="tab-admin">🛡️ Admin & Lifecycle</button>
+      <button class="tab-btn" data-tab="tab-health">🩺 System Health</button>
+      <button class="tab-btn" data-tab="tab-session">📋 Active Session & JWT</button>
+      <button class="tab-btn" data-tab="tab-audit">📊 Audit Inspector</button>
+      <button class="tab-btn" data-tab="tab-cost">💰 Cost Calculator</button>
+    </nav>
+
+    <!-- Main Workspace Container -->
+    <main class="main-container">
+
+      <!-- ================= TAB: DOCUMENT VIEWER & VERSIONS ================= -->
+      <section id="tab-viewer" class="tab-content active">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">🔍 Fetch & Inspect Document</div>
+          </div>
+
+          <div style="display: flex; gap: 12px; align-items: flex-end;">
+            <div class="form-group" style="flex: 1; margin-bottom: 0;">
+              <label class="form-label">Document ID (UUID)</label>
+              <input type="text" id="viewer-doc-id" class="form-control" placeholder="Enter Document ID (e.g. 550e8400-e29b-41d4-a716-446655440000)" />
+            </div>
+            <button class="btn btn-primary" onclick="fetchDocumentDetails()">Fetch Document</button>
+          </div>
+        </div>
+
+        <div id="viewer-details-section" style="display: none;">
+          <div class="grid-4" style="margin-bottom: 1.5rem;">
+            <div class="stat-card">
+              <div class="stat-label">Document Status</div>
+              <div id="view-status-badge" class="stat-value" style="font-size: 1.25rem;">ACTIVE</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">App Version</div>
+              <div id="view-app-version" class="stat-value">v1</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Metadata Revision</div>
+              <div id="view-meta-revision" class="stat-value">rev 1</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Document Class</div>
+              <div id="view-doc-class" class="stat-value" style="font-size: 1.1rem; color: #38bdf8;">loan_agreement</div>
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <!-- Document Preview -->
+            <div class="card">
+              <div class="card-header">
+                <div class="card-title">📄 In-Browser Document Preview</div>
+                <a id="btn-download-file" href="#" target="_blank" class="btn btn-secondary btn-sm">⬇️ Open Download Link</a>
+              </div>
+
+              <div id="doc-preview-container">
+                <iframe id="doc-preview-iframe" class="doc-preview-frame" src="about:blank"></iframe>
+              </div>
+            </div>
+
+            <!-- Metadata & Versions -->
+            <div>
+              <div class="card">
+                <div class="card-header">
+                  <div class="card-title">🏷️ S3 Annotations & Full Metadata</div>
+                </div>
+                <div id="viewer-metadata-box" class="code-box" style="max-height: 240px; overflow-y: auto;"></div>
+              </div>
+
+              <div class="card">
+                <div class="card-header">
+                  <div class="card-title">🕒 Application Version History</div>
+                  <button class="btn btn-secondary btn-sm" onclick="fetchVersionHistory()">🔄 Refresh</button>
+                </div>
+                <div class="table-container">
+                  <table id="versions-table">
+                    <thead>
+                      <tr>
+                        <th>Version</th>
+                        <th>S3 Version ID</th>
+                        <th>Checksum</th>
+                        <th>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody id="versions-tbody">
+                      <tr><td colspan="4" style="text-align: center; color: var(--text-dim);">No versions loaded</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= TAB: INGESTION & UPLOAD ================= -->
+      <section id="tab-upload" class="tab-content">
+        <div class="grid-2">
+          <!-- Direct S3 Presigned Upload (Recommended) -->
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <div class="card-title">🚀 Direct S3 Presigned Upload</div>
+                <div class="card-subtitle">Direct client-to-S3 streaming (Zero Lambda execution overhead for bytes)</div>
+              </div>
+              <span class="badge badge-success">Recommended</span>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Document Class</label>
+              <select id="direct-doc-class" class="form-select" onchange="onDirectClassChange(this.value)">
+                <option value="loan_agreement">loan_agreement (Loan Agreement)</option>
+                <option value="compliance_retention">compliance_retention (Compliance & Retention Ledger)</option>
+                <option value="security_classification">security_classification (Security Classification Record)</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Select File (PDF, DOCX, TIFF, Images, etc.)</label>
+              <div id="direct-dropzone" class="dropzone" onclick="document.getElementById('direct-file-input').click()">
+                <div class="dropzone-icon">📁</div>
+                <div style="font-weight: 600;">Click or Drag & Drop Document</div>
+                <div id="direct-file-info" style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">
+                  Supports up to 500 MB (Presigned PUT directly into Amazon S3)
+                </div>
+              </div>
+              <input type="file" id="direct-file-input" style="display: none;" onchange="handleDirectFileSelect(this)" />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Custom Metadata (JSON Key-Value Pairs)</label>
+              <textarea id="direct-metadata" class="form-control code-area" rows="5">{
+  "customer_id": "IL-4492817",
+  "loan_number": "LN-2026-88821",
+  "loan_amount_minor_units": 150000000,
+  "currency": "ILS",
+  "loan_type": "MORTGAGE",
+  "document_type": "SIGNED_AGREEMENT",
+  "branch_code": "TLV-01"
+}</textarea>
+            </div>
+
+            <div id="direct-progress-container" style="display: none;">
+              <div style="display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--text-muted);">
+                <span id="direct-progress-status">Uploading directly to S3...</span>
+                <span id="direct-progress-percent">0%</span>
+              </div>
+              <div class="progress-bar-container">
+                <div id="direct-progress-bar" class="progress-bar"></div>
+              </div>
+            </div>
+
+            <button id="btn-direct-upload" class="btn btn-primary btn-block" onclick="executeDirectUpload()">
+              Initiate & Upload Directly to S3
+            </button>
+          </div>
+
+          <!-- Inline Base64 Upload (Small Files) -->
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <div class="card-title">📦 Inline API Upload</div>
+                <div class="card-subtitle">Synchronous Base64 payload (&lt; 4 MB via API Gateway)</div>
+              </div>
+              <span class="badge badge-warning">&lt; 4 MB</span>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Document Class</label>
+              <select id="inline-doc-class" class="form-select" onchange="onInlineClassChange(this.value)">
+                <option value="loan_agreement">loan_agreement</option>
+                <option value="compliance_retention">compliance_retention</option>
+                <option value="security_classification">security_classification</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Select File</label>
+              <input type="file" id="inline-file-input" class="form-control" onchange="handleInlineFileSelect(this)" />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Custom Metadata (JSON)</label>
+              <textarea id="inline-metadata" class="form-control code-area" rows="5">{
+  "customer_id": "IL-7788990",
+  "loan_number": "LN-2026-99001",
+  "loan_amount_minor_units": 75000000,
+  "currency": "USD",
+  "loan_type": "MORTGAGE",
+  "document_type": "SIGNED_AGREEMENT",
+  "branch_code": "NYC-04"
+}</textarea>
+            </div>
+
+            <button id="btn-inline-upload" class="btn btn-secondary btn-block" onclick="executeInlineUpload()">
+              Upload via Inline API
+            </button>
+          </div>
+        </div>
+
+        <!-- Ingestion Result -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">📥 Upload Execution Response</div>
+            <button class="btn btn-secondary btn-sm" onclick="loadUploadedDocToViewer()">📂 Open in Viewer</button>
+          </div>
+          <div id="upload-result-box" class="code-box">Upload a document to view transaction confirmation.</div>
+        </div>
+      </section>
+
+      <!-- ================= TAB: OPENSEARCH SEARCH ================= -->
+      <section id="tab-search" class="tab-content">
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">🔍 OpenSearch Serverless Document Explorer</div>
+              <div class="card-subtitle">High-speed multi-attribute querying over indexed document projections</div>
+            </div>
+            <span class="badge badge-info">OpenSearch Serverless (AOSS)</span>
+          </div>
+
+          <!-- Quick Presets -->
+          <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 1.25rem;">
+            <span style="font-size: 0.8rem; color: var(--text-dim); display: flex; align-items: center;">Quick Filters:</span>
+            <button class="btn btn-secondary btn-sm" onclick="applySearchPreset('all')">🌐 All Active Docs</button>
+            <button class="btn btn-secondary btn-sm" onclick="applySearchPreset('customer', 'IL-4492817')">👤 Customer IL-4492817</button>
+            <button class="btn btn-secondary btn-sm" onclick="applySearchPreset('class', 'loan_agreement')">📑 Loan Agreements</button>
+            <button class="btn btn-secondary btn-sm" onclick="applySearchPreset('class', 'compliance_retention')">⚖️ Compliance Records</button>
+            <button class="btn btn-secondary btn-sm" onclick="applySearchPreset('class', 'security_classification')">🔒 Security Records</button>
+          </div>
+
+          <div class="grid-3">
+            <div class="form-group">
+              <label class="form-label">Document Class</label>
+              <select id="search-doc-class" class="form-select">
+                <option value="">All Document Classes</option>
+                <option value="loan_agreement">loan_agreement</option>
+                <option value="compliance_retention">compliance_retention</option>
+                <option value="security_classification">security_classification</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Customer ID</label>
+              <input type="text" id="search-customer-id" class="form-control" placeholder="e.g. IL-4492817" />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Document Type</label>
+              <input type="text" id="search-doc-type" class="form-control" placeholder="e.g. SIGNED_AGREEMENT, FINANCIAL_LEDGER" />
+            </div>
+          </div>
+
+          <div class="grid-3">
+            <div class="form-group">
+              <label class="form-label">Loan Number</label>
+              <input type="text" id="search-loan-number" class="form-control" placeholder="e.g. LN-2026-88821" />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Status Filter</label>
+              <select id="search-status" class="form-select">
+                <option value="ACTIVE" selected>ACTIVE Only</option>
+                <option value="SOFT_DELETED">SOFT_DELETED Only</option>
+                <option value="ALL">ALL (Active + Soft Deleted)</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Page Size</label>
+              <select id="search-page-size" class="form-select">
+                <option value="10">10 records</option>
+                <option value="20" selected>20 records</option>
+                <option value="50">50 records</option>
+              </select>
+            </div>
+          </div>
+
+          <div style="display: flex; gap: 12px; margin-top: 8px;">
+            <button class="btn btn-primary" onclick="executeSearch()">🔍 Execute Search Query</button>
+            <button class="btn btn-secondary" onclick="resetAndSearchAll()">🔄 Reset & View All</button>
+          </div>
+        </div>
+
+        <!-- Query Diagnostics / Status -->
+        <div id="search-diagnostics-box" style="display: none; margin-bottom: 1.5rem;" class="card">
+          <div class="card-header">
+            <div class="card-title" style="font-size: 0.9rem;">📡 Search Execution Diagnostics</div>
+          </div>
+          <pre id="search-diagnostics-content" class="code-box" style="margin: 0; font-size: 0.8rem;"></pre>
+        </div>
+
+        <!-- Search Results Table -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">📑 Search Results (<span id="search-total-count">0</span> items)</div>
+            <button class="btn btn-secondary btn-sm" onclick="executeSearch()">🔄 Refresh</button>
+          </div>
+
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Document ID</th>
+                  <th>Class</th>
+                  <th>Customer / Type</th>
+                  <th>Status</th>
+                  <th>Version</th>
+                  <th>Created Date</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="search-results-tbody">
+                <tr><td colspan="7" style="text-align: center; color: var(--text-dim); padding: 1.5rem;">Click "Execute Search Query" or a preset above to load documents.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= TAB: METADATA & CONCURRENCY ================= -->
+      <section id="tab-metadata" class="tab-content">
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">✏️ Optimistic Locking Metadata Editor</div>
+              <div class="card-subtitle">Mutates S3 Annotations atomically with DynamoDB revision matching</div>
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <div>
+              <div class="form-group">
+                <label class="form-label">Document ID</label>
+                <input type="text" id="meta-edit-doc-id" class="form-control" placeholder="Target Document UUID" />
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Expected Metadata Revision (Atomic OCC Check)</label>
+                <input type="number" id="meta-edit-expected-rev" class="form-control" value="1" min="1" />
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Metadata Changes (JSON Object with fields to update/add)</label>
+                <textarea id="meta-edit-changes" class="form-control code-area" rows="6">{
+  "approval_status": "APPROVED",
+  "underwriter_id": "UW-4029",
+  "approved_amount": 1450000,
+  "notes": "Fast-tracked corporate loan underwriter approval."
+}</textarea>
+              </div>
+
+              <div style="display: flex; gap: 12px;">
+                <button class="btn btn-primary" style="flex: 1;" onclick="executeMetadataPatch()">
+                  Apply Metadata Patch (PATCH)
+                </button>
+                <button class="btn btn-secondary" onclick="simulateConflict()">
+                  ⚠️ Simulate Conflict (409)
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <div class="form-group">
+                <label class="form-label">Live Operation Response</label>
+                <div id="metadata-patch-result" class="code-box" style="height: 320px; overflow-y: auto;">
+                  Submit a patch to observe atomic revision increments.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= TAB: ADMIN & LIFECYCLE ================= -->
+      <section id="tab-admin" class="tab-content">
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">🛡️ Document Lifecycle Operations</div>
+              <div class="card-subtitle">Enforces RBAC (Requires <strong>Document.Admin</strong> role)</div>
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <!-- Soft Delete -->
+            <div class="card" style="border-color: rgba(239, 68, 68, 0.4);">
+              <div class="card-title" style="color: #f87171;">🗑️ Soft Delete Document</div>
+              <div class="card-subtitle" style="margin-bottom: 1rem;">
+                Marks document as SOFT_DELETED and purges from OpenSearch active index.
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Document ID</label>
+                <input type="text" id="admin-delete-doc-id" class="form-control" placeholder="UUID to soft-delete" />
+              </div>
+
+              <button class="btn btn-danger btn-block" onclick="executeSoftDelete()">
+                Soft Delete Document
+              </button>
+            </div>
+
+            <!-- Restore -->
+            <div class="card" style="border-color: rgba(16, 185, 129, 0.4);">
+              <div class="card-title" style="color: #34d399;">♻️ Restore Document</div>
+              <div class="card-subtitle" style="margin-bottom: 1rem;">
+                Restores document status to ACTIVE and re-indexes into OpenSearch.
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Document ID</label>
+                <input type="text" id="admin-restore-doc-id" class="form-control" placeholder="UUID to restore" />
+              </div>
+
+              <button class="btn btn-success btn-block" onclick="executeRestore()">
+                Restore Document
+              </button>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Admin Execution Result</label>
+            <div id="admin-result-box" class="code-box">Admin operation output will be displayed here.</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= TAB: SYSTEM HEALTH ================= -->
+      <section id="tab-health" class="tab-content">
+        <div class="grid-3">
+          <div class="stat-card">
+            <div class="stat-label">Platform Status</div>
+            <div id="health-card-status" class="stat-value" style="color: var(--color-success);">HEALTHY</div>
+            <div class="stat-desc">REST API Gateway + Lambda</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Round-Trip Latency</div>
+            <div id="health-card-latency" class="stat-value">-- ms</div>
+            <div class="stat-desc">Browser to API Gateway</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Target AWS Region</div>
+            <div class="stat-value" style="color: var(--aws-orange);" id="health-card-region">us-east-1</div>
+            <div class="stat-desc">CloudFront Edge Origin</div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top: 1.5rem;">
+          <div class="card-header">
+            <div class="card-title">🩺 Health Endpoint Diagnostics (GET /health)</div>
+            <button class="btn btn-secondary btn-sm" onclick="checkHealth()">🔄 Re-check Health</button>
+          </div>
+          <div id="health-raw-output" class="code-box">Loading health status...</div>
+        </div>
+      </section>
+
+      <!-- ================= TAB: ACTIVE SESSION & JWT ================= -->
+      <section id="tab-session" class="tab-content">
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">📋 Active Session JWT Claims & Persona</div>
+              <div class="card-subtitle">Decoded from active Cognito ID/Access token</div>
+            </div>
+            <button class="btn btn-secondary btn-sm" onclick="copyToken()">📋 Copy Token</button>
+          </div>
+
+          <div id="jwt-claims-container" class="code-box">Loading session...</div>
+        </div>
+      </section>
+
+      <!-- ================= TAB: AUDIT INSPECTOR ================= -->
+      <section id="tab-audit" class="tab-content">
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">📊 Session API Request & Audit Log</div>
+              <div class="card-subtitle">Every API call made by this single-page app with generated cURL commands</div>
+            </div>
+            <button class="btn btn-secondary btn-sm" onclick="clearAuditLog()">Clear Log</button>
+          </div>
+
+          <div id="audit-log-container" style="display: flex; flex-direction: column; gap: 12px;">
+            <div style="color: var(--text-dim); text-align: center; padding: 2rem;">No API calls logged in this session yet.</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= TAB: COST CALCULATOR ================= -->
+      <section id="tab-cost" class="tab-content">
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">💰 AWS Israel Region (<span style="color: var(--aws-orange);">il-central-1</span>) Cost Calculator</div>
+              <div class="card-subtitle">Interactive TCO calculation model based on Tel Aviv region pricing</div>
+            </div>
+
+            <div style="display: flex; gap: 8px;">
+              <button id="btn-currency-usd" class="btn btn-primary btn-sm" onclick="setCurrency('USD')">USD ($)</button>
+              <button id="btn-currency-ils" class="btn btn-secondary btn-sm" onclick="setCurrency('ILS')">ILS (₪ 3.70)</button>
+            </div>
+          </div>
+
+          <div class="grid-4" style="margin-bottom: 1.5rem;">
+            <div class="stat-card">
+              <div class="stat-label">Total Monthly AWS Cost</div>
+              <div id="calc-total-cost" class="stat-value" style="color: var(--aws-orange);">$418.50</div>
+              <div id="calc-total-cost-sub" class="stat-desc">₪1,548.45 ILS / month</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Cost per Managed Doc</div>
+              <div id="calc-unit-cost" class="stat-value" style="color: #34d399;">$0.0083</div>
+              <div class="stat-desc">Zero server idle waste</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Cumulative Storage</div>
+              <div id="calc-total-storage" class="stat-value">50 GB</div>
+              <div class="stat-desc">S3 Standard + Annotations</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Active OpenSearch OCUs</div>
+              <div id="calc-ocu-count" class="stat-value">2.0 OCU</div>
+              <div class="stat-desc">1.0 Index + 1.0 Search</div>
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <!-- Sliders -->
+            <div>
+              <div class="form-group">
+                <label class="form-label">Monthly Document Ingestion Count: <strong id="slider-val-docs" style="color: #ffffff;">10,000 docs</strong></label>
+                <input type="range" id="slider-docs" min="1000" max="2000000" step="5000" value="10000" class="form-control" oninput="updateCalculator()" />
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Average Document File Size: <strong id="slider-val-size" style="color: #ffffff;">1.0 MB</strong></label>
+                <input type="range" id="slider-size" min="0.2" max="10.0" step="0.2" value="1.0" class="form-control" oninput="updateCalculator()" />
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Cumulative Documents Stored: <strong id="slider-val-cumulative" style="color: #ffffff;">50,000 docs</strong></label>
+                <input type="range" id="slider-cumulative" min="5000" max="15000000" step="25000" value="50000" class="form-control" oninput="updateCalculator()" />
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Monthly Read & Search Queries: <strong id="slider-val-queries" style="color: #ffffff;">50,000 queries</strong></label>
+                <input type="range" id="slider-queries" min="5000" max="5000000" step="25000" value="50000" class="form-control" oninput="updateCalculator()" />
+              </div>
+            </div>
+
+            <!-- Service Cost Breakdown -->
+            <div class="card" style="margin-bottom: 0;">
+              <div class="card-title" style="font-size: 1rem; margin-bottom: 1rem;">Detailed Service Cost Breakdown</div>
+              <div class="table-container">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>AWS Service</th>
+                      <th>Billing Dimension</th>
+                      <th style="text-align: right;">Estimated Cost</th>
+                    </tr>
+                  </thead>
+                  <tbody id="calc-breakdown-tbody">
+                    <!-- Filled dynamically -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container"></div>
+
+  <script src="app.js?v=3"></script>
+</body>
+</html>

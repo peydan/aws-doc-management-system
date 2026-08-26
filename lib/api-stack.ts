@@ -40,6 +40,24 @@ export class ApiStack extends cdk.Stack {
       },
     });
 
+    this.api.addGatewayResponse('Default4XXResponse', {
+      type: apigateway.ResponseType.DEFAULT_4XX,
+      responseHeaders: {
+        'Access-Control-Allow-Origin': "'*'",
+        'Access-Control-Allow-Headers': "'Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent,X-Document-Metadata,X-Content-SHA256,x-correlation-id'",
+        'Access-Control-Allow-Methods': "'GET,POST,PATCH,DELETE,OPTIONS'",
+      },
+    });
+
+    this.api.addGatewayResponse('Default5XXResponse', {
+      type: apigateway.ResponseType.DEFAULT_5XX,
+      responseHeaders: {
+        'Access-Control-Allow-Origin': "'*'",
+        'Access-Control-Allow-Headers': "'Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent,X-Document-Metadata,X-Content-SHA256,x-correlation-id'",
+        'Access-Control-Allow-Methods': "'GET,POST,PATCH,DELETE,OPTIONS'",
+      },
+    });
+
     const cognitoAuthorizer = new apigateway.CognitoUserPoolsAuthorizer(this, 'CognitoAuthorizer', {
       cognitoUserPools: [props.userPool],
       authorizerName: 'CognitoAuthorizer',
@@ -100,9 +118,13 @@ export class ApiStack extends cdk.Stack {
     const s3AnnotationWritePolicy = new iam.PolicyStatement({
       actions: [
         's3:PutObjectAnnotation',
+        's3:PutObjectVersionAnnotation',
         's3:GetObjectAnnotation',
+        's3:GetObjectVersionAnnotation',
         's3:DeleteObjectAnnotation',
+        's3:DeleteObjectVersionAnnotation',
         's3:ListObjectAnnotations',
+        's3:ListObjectVersionAnnotations',
       ],
       resources: [`${props.documentBucket.bucketArn}/*`],
     });
@@ -110,7 +132,9 @@ export class ApiStack extends cdk.Stack {
     const s3AnnotationReadPolicy = new iam.PolicyStatement({
       actions: [
         's3:GetObjectAnnotation',
+        's3:GetObjectVersionAnnotation',
         's3:ListObjectAnnotations',
+        's3:ListObjectVersionAnnotations',
       ],
       resources: [`${props.documentBucket.bucketArn}/*`],
     });
@@ -160,11 +184,27 @@ export class ApiStack extends cdk.Stack {
       })
     );
 
+    const corsLambda = createHandlerLambda('CorsLambdaHandler', '../src/shared/cors-handler.ts');
+    const corsIntegration = new apigateway.LambdaIntegration(corsLambda);
+
+    const addCors = (resource: apigateway.IResource) => {
+      resource.addMethod('OPTIONS', corsIntegration);
+    };
+
     // API Routes (attached to root since stageName is already 'v1')
+    addCors(this.api.root);
+
     const documents = this.api.root.addResource('documents');
+    addCors(documents);
+
     const uploads = this.api.root.addResource('uploads');
+    addCors(uploads);
+
     const search = this.api.root.addResource('search');
+    addCors(search);
+
     const health = this.api.root.addResource('health');
+    addCors(health);
 
     // Health
     health.addMethod('GET', new apigateway.LambdaIntegration(healthLambda));
@@ -177,41 +217,51 @@ export class ApiStack extends cdk.Stack {
 
     // /v1/documents/uploads
     const docUploads = documents.addResource('uploads');
+    addCors(docUploads);
     docUploads.addMethod('POST', new apigateway.LambdaIntegration(uploadDirectInitLambda), authOptions);
 
     // /v1/uploads/{upload_id}/complete & /v1/uploads/{upload_id}
     const uploadIdRes = uploads.addResource('{upload_id}');
+    addCors(uploadIdRes);
     uploadIdRes.addMethod('DELETE', new apigateway.LambdaIntegration(uploadCancelLambda), authOptions);
     const uploadCompleteRes = uploadIdRes.addResource('complete');
+    addCors(uploadCompleteRes);
     uploadCompleteRes.addMethod('POST', new apigateway.LambdaIntegration(uploadDirectCompleteLambda), authOptions);
 
     // /v1/documents/{document_id}
     const docIdRes = documents.addResource('{document_id}');
+    addCors(docIdRes);
     docIdRes.addMethod('GET', new apigateway.LambdaIntegration(getDocLambda), authOptions);
 
     // /v1/documents/{document_id}/versions
     const docVersions = docIdRes.addResource('versions');
+    addCors(docVersions);
     docVersions.addMethod('GET', new apigateway.LambdaIntegration(listVersionsLambda), authOptions);
     docVersions.addMethod('POST', new apigateway.LambdaIntegration(versionCreateLambda), authOptions);
 
     // /v1/documents/{document_id}/versions/{version}
     const docVersionIdRes = docVersions.addResource('{version}');
+    addCors(docVersionIdRes);
     docVersionIdRes.addMethod('GET', new apigateway.LambdaIntegration(getVersionLambda), authOptions);
 
     // /v1/documents/{document_id}/metadata
     const docMetadataRes = docIdRes.addResource('metadata');
+    addCors(docMetadataRes);
     docMetadataRes.addMethod('GET', new apigateway.LambdaIntegration(getMetadataLambda), authOptions);
     docMetadataRes.addMethod('PATCH', new apigateway.LambdaIntegration(metadataUpdateLambda), authOptions);
 
     // /v1/documents/{document_id}/download
     const docDownloadRes = docIdRes.addResource('download');
+    addCors(docDownloadRes);
     docDownloadRes.addMethod('GET', new apigateway.LambdaIntegration(getDownloadUrlLambda), authOptions);
 
     // /v1/documents/{document_id}/soft-delete & /v1/documents/{document_id}/restore
     const softDeleteRes = docIdRes.addResource('soft-delete');
+    addCors(softDeleteRes);
     softDeleteRes.addMethod('POST', new apigateway.LambdaIntegration(softDeleteLambda), authOptions);
 
     const restoreRes = docIdRes.addResource('restore');
+    addCors(restoreRes);
     restoreRes.addMethod('POST', new apigateway.LambdaIntegration(restoreLambda), authOptions);
   }
 }

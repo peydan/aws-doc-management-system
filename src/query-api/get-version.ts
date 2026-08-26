@@ -3,6 +3,7 @@ import { authenticateRequest, authorizeRoles } from '../shared/auth';
 import { DynamoManager } from '../shared/dynamo';
 import { S3Manager } from '../shared/s3';
 import { PlatformError, ValidationError } from '../shared/errors';
+import { CORS_HEADERS } from '../shared/headers';
 
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   const correlationId = event.requestContext.requestId;
@@ -27,7 +28,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     return {
       statusCode: 200,
-      headers: { 'Content-Type': 'application/json' },
+      headers: CORS_HEADERS,
       body: JSON.stringify({
         document_id: documentId,
         application_version: ver.application_version,
@@ -42,13 +43,13 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     if (err instanceof PlatformError) {
       return {
         statusCode: err.statusCode,
-        headers: { 'Content-Type': 'application/json' },
+        headers: CORS_HEADERS,
         body: JSON.stringify(err.toResponse(correlationId)),
       };
     }
     return {
       statusCode: 500,
-      headers: { 'Content-Type': 'application/json' },
+      headers: CORS_HEADERS,
       body: JSON.stringify({
         error: {
           code: 'INTERNAL_ERROR',

@@ -6,6 +6,7 @@ import { DynamoManager, dynamoDocClient, VersionItem } from '../shared/dynamo';
 import { UpdateCommand, TransactWriteCommand } from '@aws-sdk/lib-dynamodb';
 import { Logger } from '../shared/logger';
 import { PlatformError, ValidationError } from '../shared/errors';
+import { CORS_HEADERS } from '../shared/headers';
 
 const TABLE_NAME = process.env.DYNAMODB_TABLE_NAME || 'doc-platform-mvp-control';
 
@@ -37,7 +38,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     const calculatedSha256 = crypto.createHash('sha256').update(bodyBuffer).digest('hex');
     const s3Key = currentDoc.current_s3_key;
-    const contentType = event.headers['Content-Type'] || event.headers['content-type'] || currentDoc.current_s3_key.endsWith('.pdf') ? 'application/pdf' : 'application/octet-stream';
+    const contentType = event.headers['Content-Type'] || event.headers['content-type'] || (currentDoc.current_s3_key.endsWith('.pdf') ? 'application/pdf' : 'application/octet-stream');
 
     const contentResult = await S3Manager.putContent(s3Key, bodyBuffer, contentType, calculatedSha256);
 
@@ -120,7 +121,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     return {
       statusCode: 201,
-      headers: { 'Content-Type': 'application/json' },
+      headers: CORS_HEADERS,
       body: JSON.stringify({
         document_id: documentId,
         application_version: nextAppVersion,
@@ -133,14 +134,14 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     if (err instanceof PlatformError) {
       return {
         statusCode: err.statusCode,
-        headers: { 'Content-Type': 'application/json' },
+        headers: CORS_HEADERS,
         body: JSON.stringify(err.toResponse(correlationId)),
       };
     }
     Logger.error('Unhandled error in version create handler', err, { correlationId });
     return {
       statusCode: 500,
-      headers: { 'Content-Type': 'application/json' },
+      headers: CORS_HEADERS,
       body: JSON.stringify({
         error: {
           code: 'INTERNAL_ERROR',

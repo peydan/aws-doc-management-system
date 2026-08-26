@@ -55,6 +55,25 @@ async function ensureIndexExists(client: Client): Promise<void> {
               created_at: { type: 'date' },
               updated_at: { type: 'date' },
               projection_timestamp: { type: 'date' },
+              // Compliance & Retention Properties
+              retention_schedule_code: { type: 'keyword' },
+              retention_period_years: { type: 'integer' },
+              regulatory_framework: { type: 'keyword' },
+              retention_start_date: { type: 'date', format: 'yyyy-MM-dd||strict_date_optional_time||epoch_millis' },
+              retention_expiry_date: { type: 'date', format: 'yyyy-MM-dd||strict_date_optional_time||epoch_millis' },
+              legal_hold_active: { type: 'boolean' },
+              legal_hold_case_id: { type: 'keyword' },
+              disposal_action: { type: 'keyword' },
+              compliance_officer_id: { type: 'keyword' },
+              // Security & Privacy Classification Properties
+              confidentiality_tier: { type: 'keyword' },
+              contains_pii: { type: 'boolean' },
+              pii_categories: { type: 'keyword' },
+              minimum_clearance_role: { type: 'keyword' },
+              encryption_requirement: { type: 'keyword' },
+              data_residency_jurisdiction: { type: 'keyword' },
+              export_restricted: { type: 'boolean' },
+              classification_owner: { type: 'keyword' },
             },
           },
         },
@@ -157,16 +176,17 @@ export class OpenSearchManager {
     const sortField = params.sort?.field || 'created_at';
     const sortDir = params.sort?.direction || 'desc';
 
-    const mustFilters: any[] = [{ term: { status: 'ACTIVE' } }];
+    const mustFilters: any[] = [];
 
     if (params.filters) {
-      const f = params.filters;
-      if (f.document_class) mustFilters.push({ term: { document_class: f.document_class } });
-      if (f.filename) mustFilters.push({ term: { filename: f.filename } });
-      if (f.customer_id) mustFilters.push({ term: { customer_id: f.customer_id } });
-      if (f.document_type) mustFilters.push({ term: { document_type: f.document_type } });
-      if (f.loan_type) mustFilters.push({ term: { loan_type: f.loan_type } });
-      if (f.branch_code) mustFilters.push({ term: { branch_code: f.branch_code } });
+      const f: any = params.filters;
+
+      // Status filter (default ACTIVE unless specified or ALL)
+      if (f.status && f.status !== 'ALL') {
+        mustFilters.push({ term: { status: f.status } });
+      } else if (!f.status) {
+        mustFilters.push({ term: { status: 'ACTIVE' } });
+      }
 
       if (f.created_from || f.created_to) {
         const range: any = {};
@@ -181,6 +201,18 @@ export class OpenSearchManager {
         if (f.loan_amount_max_minor_units !== undefined) range.lte = f.loan_amount_max_minor_units;
         mustFilters.push({ range: { loan_amount_minor_units: range } });
       }
+
+      for (const [key, value] of Object.entries(f)) {
+        if (['status', 'created_from', 'created_to', 'loan_amount_min_minor_units', 'loan_amount_max_minor_units'].includes(key)) {
+          continue;
+        }
+        if (value !== undefined && value !== null && value !== '') {
+          const cleanKey = key.replace(/^metadata\./, '');
+          mustFilters.push({ term: { [cleanKey]: value } });
+        }
+      }
+    } else {
+      mustFilters.push({ term: { status: 'ACTIVE' } });
     }
 
     const queryBody: any = {

@@ -9,49 +9,49 @@
         <!-- ========================================== -->
         <!-- HEADER / TITLE BANNER                      -->
         <!-- ========================================== -->
-        <mxCell id="title_banner" value="&lt;b style=&quot;font-size: 22px; color: #1E293B;&quot;&gt;AWS Document Management Platform — UI Application &amp;amp; Backend Integration Architecture&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size: 13px; color: #64748B;&quot;&gt;Production ECS Fargate Streamlit Portal &amp;bull; Amazon Cognito Direct Auth &amp;bull; API Gateway REST Tier &amp;bull; Direct S3 Presigned Uploads &amp;bull; DynamoDB OCC &amp;bull; OpenSearch Serverless&lt;/span&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#CBD5E1;strokeWidth=1.5;align=left;spacingLeft=25;verticalAlign=middle;" vertex="1" parent="1">
+        <mxCell id="title_banner" value="&lt;b style=&quot;font-size: 22px; color: #1E293B;&quot;&gt;AWS Document Management Platform — UI Application &amp;amp; Backend Integration Architecture&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size: 13px; color: #64748B;&quot;&gt;Production Serverless Web Portal &amp;bull; Amazon CloudFront Edge CDN &amp;bull; Amazon S3 SPA Bucket &amp;bull; Amazon Cognito Direct Auth &amp;bull; API Gateway REST Tier &amp;bull; Direct S3 Presigned Uploads &amp;bull; DynamoDB OCC &amp;bull; OpenSearch Serverless&lt;/span&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#CBD5E1;strokeWidth=1.5;align=left;spacingLeft=25;verticalAlign=middle;" vertex="1" parent="1">
           <mxGeometry x="40" y="20" width="2320" height="70" as="geometry" />
         </mxCell>
 
         <!-- ========================================== -->
         <!-- DOMAIN 1: CLIENT & PRESENTATION TIER       -->
         <!-- ========================================== -->
-        <mxCell id="domain_ui" value="Presentation &amp;amp; Frontend Tier (DocPlatformFrontendStack)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F0F9FF;strokeColor=#0284C7;strokeWidth=2;verticalAlign=top;align=left;spacingLeft=18;spacingTop=14;fontColor=#0369A1;fontSize=14;fontStyle=1;" vertex="1" parent="1">
+        <mxCell id="domain_ui" value="Presentation &amp;amp; Frontend Tier (DocPlatformServerlessFrontendStack)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F0F9FF;strokeColor=#0284C7;strokeWidth=2;verticalAlign=top;align=left;spacingLeft=18;spacingTop=14;fontColor=#0369A1;fontSize=14;fontStyle=1;" vertex="1" parent="1">
           <mxGeometry x="40" y="110" width="460" height="880" as="geometry" />
         </mxCell>
 
         <!-- User Persona Node -->
-        <mxCell id="node_user" value="&lt;b&gt;Enterprise User&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#475569&quot; size=&quot;1&quot;&gt;Web Browser&lt;br&gt;Admin / Writer / Editor / Reader&lt;/font&gt;" style="sketch=0;outlineConnect=0;fontColor=#1E293B;gradientColor=none;fillColor=#0284C7;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;aspect=fixed;spacingTop=6;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.user;" vertex="1" parent="1">
+        <mxCell id="node_user" value="&lt;b&gt;Enterprise User&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#475569&quot; size=&quot;1&quot;&gt;Web Browser&lt;br&gt;Admin / Writer / Editor / Reader&lt;/font&gt;" style="sketch=0;outlineConnect=0;fontColor=#1E293B;gradientColor=none;fillColor=#0277BD;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;aspect=fixed;spacingTop=6;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.user;" vertex="1" parent="1">
           <mxGeometry x="70" y="180" width="60" height="60" as="geometry" />
         </mxCell>
 
-        <!-- Application Load Balancer -->
-        <mxCell id="node_alb" value="&lt;b&gt;Application Load Balancer&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#475569&quot; size=&quot;1&quot;&gt;Internet-Facing ALB (Port 80)&lt;br&gt;&amp;bull; Health Check: /_stcore/health&lt;br&gt;&amp;bull; 1-Hr Sticky Cookie: AWSALB&lt;br&gt;&amp;bull; HTTP 101 WebSocket Upgrade&lt;/font&gt;" style="sketch=0;outlineConnect=0;fontColor=#1E293B;gradientColor=none;fillColor=#8C4FFF;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;aspect=fixed;spacingTop=6;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.application_load_balancer;" vertex="1" parent="1">
+        <!-- CloudFront Edge Distribution -->
+        <mxCell id="node_alb" value="&lt;b&gt;Amazon CloudFront&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#475569&quot; size=&quot;1&quot;&gt;Global Edge CDN&lt;br&gt;&amp;bull; HTTPS / HTTP/2 &amp; HTTP/3&lt;br&gt;&amp;bull; Origin Access Control (OAC)&lt;br&gt;&amp;bull; Global Edge Caching&lt;/font&gt;" style="sketch=0;outlineConnect=0;fontColor=#1E293B;gradientColor=none;fillColor=#8C4FFF;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;aspect=fixed;spacingTop=6;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.cloudfront;" vertex="1" parent="1">
           <mxGeometry x="200" y="180" width="60" height="60" as="geometry" />
         </mxCell>
 
-        <!-- ECS Fargate Container Group -->
-        <mxCell id="box_fargate_task" value="&lt;b&gt;AWS ECS Fargate Task&lt;/b&gt; (0.25 vCPU, 512 MiB RAM)&lt;br&gt;&lt;font color=&quot;#64748B&quot;&gt;Public Subnet ($0 NAT Gateways) &amp;bull; Non-Root user: appuser (UID 10001)&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0284C7;strokeWidth=1.5;dashed=1;verticalAlign=top;align=left;spacingLeft=14;spacingTop=10;fontColor=#0369A1;fontSize=12;" vertex="1" parent="1">
+        <!-- S3 Serverless Hosting Container -->
+        <mxCell id="box_fargate_task" value="&lt;b&gt;Amazon S3 SPA Bucket&lt;/b&gt; (Zero Idle Cost)&lt;br&gt;&lt;font color=&quot;#64748B&quot;&gt;Private Static Web Asset Store &amp;bull; OAC Restricted IAM Policy&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0284C7;strokeWidth=1.5;dashed=1;verticalAlign=top;align=left;spacingLeft=14;spacingTop=10;fontColor=#0369A1;fontSize=12;" vertex="1" parent="1">
           <mxGeometry x="70" y="320" width="400" height="640" as="geometry" />
         </mxCell>
 
-        <!-- Streamlit App UI Component -->
-        <mxCell id="node_streamlit_ui" value="&lt;b&gt;Streamlit Frontend App&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#334155&quot;&gt;&lt;i&gt;app_for_deployment.py&lt;/i&gt;&lt;/font&gt;&lt;br&gt;&lt;hr style=&quot;margin:4px 0;&quot;&gt;&lt;div style=&quot;text-align:left; font-size:10px; color:#475569;&quot;&gt;&amp;bull; &lt;b&gt;Gated Cognito Login:&lt;/b&gt; Role persona switcher&lt;br&gt;&amp;bull; &lt;b&gt;Tab 1: Direct S3 Upload&lt;/b&gt; (Presigned PUT)&lt;br&gt;&amp;bull; &lt;b&gt;Tab 2: Full-Text Search&lt;/b&gt; (OpenSearch DSL)&lt;br&gt;&amp;bull; &lt;b&gt;Tab 3: OCC Metadata Editor&lt;/b&gt; (Version locking)&lt;br&gt;&amp;bull; &lt;b&gt;Tab 4: Version Lineage&lt;/b&gt; (Immutable history)&lt;br&gt;&amp;bull; &lt;b&gt;Tab 5: Lifecycle:&lt;/b&gt; Soft-delete &amp;amp; Restore&lt;br&gt;&amp;bull; &lt;b&gt;Tab 6: System Status &amp;amp; Health&lt;/b&gt;&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F8FAFC;strokeColor=#0284C7;strokeWidth=1;align=center;verticalAlign=top;spacing=8;fontSize=11;" vertex="1" parent="1">
+        <!-- Serverless SPA Web App Component -->
+        <mxCell id="node_streamlit_ui" value="&lt;b&gt;Serverless Web Portal (SPA)&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#334155&quot;&gt;&lt;i&gt;index.html / app.js / styles.css&lt;/i&gt;&lt;/font&gt;&lt;br&gt;&lt;hr style=&quot;margin:4px 0;&quot;&gt;&lt;div style=&quot;text-align:left; font-size:10px; color:#475569;&quot;&gt;&amp;bull; &lt;b&gt;Gated Cognito Login:&lt;/b&gt; 1-click role persona switcher&lt;br&gt;&amp;bull; &lt;b&gt;Tab 1: Direct S3 Upload&lt;/b&gt; (Presigned PUT + SHA256)&lt;br&gt;&amp;bull; &lt;b&gt;Tab 2: OpenSearch Explorer&lt;/b&gt; (Faceted search)&lt;br&gt;&amp;bull; &lt;b&gt;Tab 3: Document Viewer&lt;/b&gt; (Metadata &amp; revisions)&lt;br&gt;&amp;bull; &lt;b&gt;Tab 4: Version Lineage&lt;/b&gt; (Immutable history)&lt;br&gt;&amp;bull; &lt;b&gt;Tab 5: Lifecycle:&lt;/b&gt; Soft-delete &amp;amp; Restore&lt;br&gt;&amp;bull; &lt;b&gt;Tab 6: System Status &amp;amp; Health&lt;/b&gt;&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F8FAFC;strokeColor=#0284C7;strokeWidth=1;align=center;verticalAlign=top;spacing=8;fontSize=11;" vertex="1" parent="1">
           <mxGeometry x="90" y="370" width="360" height="170" as="geometry" />
         </mxCell>
 
-        <!-- Streamlit Deployment API Client -->
-        <mxCell id="node_api_client" value="&lt;b&gt;Secure API Client Layer&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#334155&quot;&gt;&lt;i&gt;api_client_for_deployment.py&lt;/i&gt;&lt;/font&gt;&lt;br&gt;&lt;hr style=&quot;margin:4px 0;&quot;&gt;&lt;div style=&quot;text-align:left; font-size:10px; color:#475569;&quot;&gt;&amp;bull; &lt;b&gt;Bearer JWT Injection:&lt;/b&gt; Authorization header&lt;br&gt;&amp;bull; &lt;b&gt;SSRF Protection:&lt;/b&gt; S3 domain whitelist regex&lt;br&gt;&amp;bull; &lt;b&gt;TLS Enforcement:&lt;/b&gt; CA certificate validation&lt;br&gt;&amp;bull; &lt;b&gt;Chunked Presigned Streaming:&lt;/b&gt; Memory efficient&lt;br&gt;&amp;bull; &lt;b&gt;No Dev Headers:&lt;/b&gt; X-Mock-Roles stripped&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F8FAFC;strokeColor=#0284C7;strokeWidth=1;align=center;verticalAlign=top;spacing=8;fontSize=11;" vertex="1" parent="1">
+        <!-- Browser API Client -->
+        <mxCell id="node_api_client" value="&lt;b&gt;Browser Client SDK Layer&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#334155&quot;&gt;&lt;i&gt;Web Crypto &amp; Fetch API&lt;/i&gt;&lt;/font&gt;&lt;br&gt;&lt;hr style=&quot;margin:4px 0;&quot;&gt;&lt;div style=&quot;text-align:left; font-size:10px; color:#475569;&quot;&gt;&amp;bull; &lt;b&gt;Bearer JWT Injection:&lt;/b&gt; Authorization header&lt;br&gt;&amp;bull; &lt;b&gt;Client-Side Hashing:&lt;/b&gt; SHA-256 Web Crypto digest&lt;br&gt;&amp;bull; &lt;b&gt;XHR Upload Progress:&lt;/b&gt; Real-time streaming bar&lt;br&gt;&amp;bull; &lt;b&gt;Dynamic Schema Switching:&lt;/b&gt; Loan, Compliance, Security&lt;br&gt;&amp;bull; &lt;b&gt;CORS Support:&lt;/b&gt; Dedicated Lambda Preflight&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F8FAFC;strokeColor=#0284C7;strokeWidth=1;align=center;verticalAlign=top;spacing=8;fontSize=11;" vertex="1" parent="1">
           <mxGeometry x="90" y="560" width="360" height="140" as="geometry" />
         </mxCell>
 
-        <!-- Container Environment Variables -->
-        <mxCell id="node_env_vars" value="&lt;b&gt;Container Injected Environment&lt;/b&gt;&lt;br&gt;&lt;div style=&quot;text-align:left; font-size:10px; font-family:monospace; color:#334155;&quot;&gt;API_URL = https://k0urmbeen9.execute-api...&lt;br&gt;COGNITO_CLIENT_ID = 3fcn104kkvrb642f33khd5c0p6&lt;br&gt;COGNITO_USER_POOL_ID = us-east-1_aMUcSBi6e&lt;br&gt;STREAMLIT_SERVER_PORT = 8501&lt;br&gt;STREAMLIT_SERVER_ENABLE_CORS = false&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F1F5F9;strokeColor=#94A3B8;strokeWidth=1;align=center;verticalAlign=top;spacing=6;fontSize=11;" vertex="1" parent="1">
+        <!-- Dynamic Config Variables -->
+        <mxCell id="node_env_vars" value="&lt;b&gt;Dynamic Portal Config (config.json)&lt;/b&gt;&lt;br&gt;&lt;div style=&quot;text-align:left; font-size:10px; font-family:monospace; color:#334155;&quot;&gt;apiUrl = https://k0urmbeen9.execute-api...&lt;br&gt;userPoolId = us-east-1_aMUcSBi6e&lt;br&gt;userPoolClientId = 3fcn104kkvrb642f33khd5c0p6&lt;br&gt;region = us-east-1&lt;br&gt;authFlow = USER_PASSWORD_AUTH&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F1F5F9;strokeColor=#94A3B8;strokeWidth=1;align=center;verticalAlign=top;spacing=6;fontSize=11;" vertex="1" parent="1">
           <mxGeometry x="90" y="720" width="360" height="110" as="geometry" />
         </mxCell>
 
-        <!-- ECR Repo Reference -->
-        <mxCell id="node_ecr" value="&lt;b&gt;Amazon ECR&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#475569&quot; size=&quot;1&quot;&gt;streamlit-app:latest&lt;br&gt;(linux/amd64)&lt;/font&gt;" style="sketch=0;outlineConnect=0;fontColor=#1E293B;gradientColor=none;fillColor=#ED7100;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;aspect=fixed;spacingTop=6;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.elastic_container_registry;" vertex="1" parent="1">
+        <!-- S3 SPA Bucket Icon -->
+        <mxCell id="node_ecr" value="&lt;b&gt;Amazon S3 Bucket&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#475569&quot; size=&quot;1&quot;&gt;doc-platform-serverless-ui&lt;br&gt;(Static Web Assets)&lt;/font&gt;" style="sketch=0;outlineConnect=0;fontColor=#1E293B;gradientColor=none;fillColor=#7AA116;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;aspect=fixed;spacingTop=6;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.s3;" vertex="1" parent="1">
           <mxGeometry x="240" y="850" width="60" height="60" as="geometry" />
         </mxCell>
 
@@ -212,16 +212,17 @@
         <!-- ========================================== -->
 
         <!-- 1. Browser to ALB -->
-        <mxCell id="flow_user_to_alb" value="&lt;b&gt;1. HTTPS / WS Upgrade&lt;/b&gt;&lt;br&gt;Port 80/443 &amp;bull; /_stcore/stream" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#0284C7;strokeWidth=2;fontColor=#0369A1;fontSize=10;" edge="1" parent="1" source="node_user" target="node_alb">
+        <!-- 1. User to CloudFront -->
+        <mxCell id="flow_user_to_alb" value="&lt;b&gt;1. HTTPS (Edge Ingress)&lt;/b&gt;&lt;br&gt;Port 443 &amp;bull; Global Edge CDN" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#0284C7;strokeWidth=2;fontColor=#0369A1;fontSize=10;" edge="1" parent="1" source="node_user" target="node_alb">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
 
-        <!-- 2. ALB to Streamlit Fargate -->
-        <mxCell id="flow_alb_to_fargate" value="&lt;b&gt;HTTP 101 WebSocket&lt;/b&gt;&lt;br&gt;Port 8501 (Sticky session)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#0284C7;strokeWidth=2;fontColor=#0369A1;fontSize=10;" edge="1" parent="1" source="node_alb" target="node_streamlit_ui">
+        <!-- 2. CloudFront to S3 SPA Bucket -->
+        <mxCell id="flow_alb_to_fargate" value="&lt;b&gt;OAC Restrict S3 Fetch&lt;/b&gt;&lt;br&gt;index.html / app.js" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#0284C7;strokeWidth=2;fontColor=#0369A1;fontSize=10;" edge="1" parent="1" source="node_alb" target="node_streamlit_ui">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
 
-        <!-- 3. Direct Cognito Auth from Streamlit -->
+        <!-- 3. Direct Cognito Auth from Browser SPA -->
         <mxCell id="flow_ui_to_cognito" value="&lt;b&gt;2. InitiateAuth (USER_PASSWORD_AUTH)&lt;/b&gt;&lt;br&gt;Returns IdToken (JWT) + AccessToken" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#C026D3;strokeWidth=2;fontColor=#A21CAF;fontSize=10;" edge="1" parent="1" source="node_streamlit_ui" target="node_cognito">
           <mxGeometry relative="1" as="geometry">
             <Array as="points">
@@ -384,7 +385,7 @@
         <!-- ========================================== -->
         <!-- ARCHITECTURAL LEGEND & ANNOTATIONS BOX     -->
         <!-- ========================================== -->
-        <mxCell id="box_legend" value="&lt;b style=&quot;font-size:13px; color:#1E293B;&quot;&gt;Architectural Patterns &amp;amp; Core Data Flows&lt;/b&gt;&lt;br&gt;&lt;hr style=&quot;margin:6px 0;&quot;&gt;&lt;div style=&quot;text-align:left; font-size:11px; color:#334155; line-height:1.4;&quot;&gt;&lt;b style=&quot;color:#0284C7;&quot;&gt;① Presentation Tier:&lt;/b&gt; Browser client establishes full-duplex HTTP 101 WebSocket to Streamlit on AWS ECS Fargate via ALB with sticky cookies.&lt;br&gt;&lt;b style=&quot;color:#C026D3;&quot;&gt;② Identity &amp;amp; Auth:&lt;/b&gt; Streamlit UI initiates direct Cognito &lt;code&gt;InitiateAuth&lt;/code&gt;; acquires &lt;code&gt;IdToken&lt;/code&gt; and injects standard Bearer JWT across all API Gateway calls.&lt;br&gt;&lt;b style=&quot;color:#16A34A;&quot;&gt;③ Direct S3 Ingestion:&lt;/b&gt; Multi-gigabyte binaries stream directly from client to S3 using Presigned PUT URLs, bypassing Lambda payload limits (6 MB).&lt;br&gt;&lt;b style=&quot;color:#2563EB;&quot;&gt;④ Optimistic Concurrency (OCC):&lt;/b&gt; DynamoDB enforces conditional updates on &lt;code&gt;version_id&lt;/code&gt; to guarantee atomic, collision-free metadata edits.&lt;br&gt;&lt;b style=&quot;color:#D97706;&quot;&gt;⑤ Event-Driven Async Indexing:&lt;/b&gt; DynamoDB Streams CDC events are queued in SQS and asynchronously synced to OpenSearch Serverless with DLQ isolation.&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F8FAFC;strokeColor=#CBD5E1;strokeWidth=1.5;align=left;verticalAlign=top;spacing=12;" vertex="1" parent="1">
+        <mxCell id="box_legend" value="&lt;b style=&quot;font-size:13px; color:#1E293B;&quot;&gt;Architectural Patterns &amp;amp; Core Data Flows&lt;/b&gt;&lt;br&gt;&lt;hr style=&quot;margin:6px 0;&quot;&gt;&lt;div style=&quot;text-align:left; font-size:11px; color:#334155; line-height:1.4;&quot;&gt;&lt;b style=&quot;color:#0284C7;&quot;&gt;① Presentation Tier:&lt;/b&gt; Browser client securely fetches static SPA assets (HTML/JS/CSS) from Amazon CloudFront Global Edge CDN backed by Amazon S3 ($0 idle cost).&lt;br&gt;&lt;b style=&quot;color:#C026D3;&quot;&gt;② Identity &amp;amp; Auth:&lt;/b&gt; Client SPA initiates direct Cognito &lt;code&gt;InitiateAuth&lt;/code&gt;; acquires &lt;code&gt;IdToken&lt;/code&gt; and injects standard Bearer JWT across all API Gateway calls.&lt;br&gt;&lt;b style=&quot;color:#16A34A;&quot;&gt;③ Direct S3 Ingestion:&lt;/b&gt; Multi-gigabyte binaries stream directly from client to S3 using Presigned PUT URLs, bypassing Lambda payload limits (6 MB).&lt;br&gt;&lt;b style=&quot;color:#2563EB;&quot;&gt;④ Optimistic Concurrency (OCC):&lt;/b&gt; DynamoDB enforces conditional updates on &lt;code&gt;version_id&lt;/code&gt; to guarantee atomic, collision-free metadata edits.&lt;br&gt;&lt;b style=&quot;color:#D97706;&quot;&gt;⑤ Event-Driven Async Indexing:&lt;/b&gt; DynamoDB Streams CDC events are queued in SQS and asynchronously synced to OpenSearch Serverless with DLQ isolation.&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F8FAFC;strokeColor=#CBD5E1;strokeWidth=1.5;align=left;verticalAlign=top;spacing=12;" vertex="1" parent="1">
           <mxGeometry x="40" y="1020" width="2320" height="150" as="geometry" />
         </mxCell>
 

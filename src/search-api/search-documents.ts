@@ -4,6 +4,7 @@ import { parseJsonBody } from '../shared/validator';
 import { OpenSearchManager } from '../shared/opensearch';
 import { Logger } from '../shared/logger';
 import { PlatformError, SearchUnavailableError } from '../shared/errors';
+import { CORS_HEADERS } from '../shared/headers';
 
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   const correlationId = event.requestContext.requestId;
@@ -29,7 +30,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
       return {
         statusCode: 200,
-        headers: { 'Content-Type': 'application/json' },
+        headers: CORS_HEADERS,
         body: JSON.stringify({
           items: searchResult.items,
           next_cursor: searchResult.next_cursor,
@@ -40,7 +41,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       if (osErr instanceof SearchUnavailableError) {
         return {
           statusCode: 503,
-          headers: { 'Content-Type': 'application/json' },
+          headers: CORS_HEADERS,
           body: JSON.stringify({
             error: {
               code: 'SEARCH_UNAVAILABLE',
@@ -57,14 +58,14 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     if (err instanceof PlatformError) {
       return {
         statusCode: err.statusCode,
-        headers: { 'Content-Type': 'application/json' },
+        headers: CORS_HEADERS,
         body: JSON.stringify(err.toResponse(correlationId)),
       };
     }
     Logger.error('Unhandled error in search handler', err, { correlationId });
     return {
       statusCode: 500,
-      headers: { 'Content-Type': 'application/json' },
+      headers: CORS_HEADERS,
       body: JSON.stringify({
         error: {
           code: 'INTERNAL_ERROR',

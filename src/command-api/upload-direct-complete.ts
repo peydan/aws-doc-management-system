@@ -5,6 +5,7 @@ import { DynamoManager, dynamoDocClient } from '../shared/dynamo';
 import { UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { Logger } from '../shared/logger';
 import { PlatformError, ValidationError } from '../shared/errors';
+import { CORS_HEADERS } from '../shared/headers';
 
 const TABLE_NAME = process.env.DYNAMODB_TABLE_NAME || 'doc-platform-mvp-control';
 
@@ -57,7 +58,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     return {
       statusCode: 201,
-      headers: { 'Content-Type': 'application/json' },
+      headers: CORS_HEADERS,
       body: JSON.stringify({
         document_id: session.document_id,
         application_version: 1,
@@ -71,14 +72,14 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     if (err instanceof PlatformError) {
       return {
         statusCode: err.statusCode,
-        headers: { 'Content-Type': 'application/json' },
+        headers: CORS_HEADERS,
         body: JSON.stringify(err.toResponse(correlationId)),
       };
     }
     Logger.error('Unhandled error in direct upload complete handler', err, { correlationId });
     return {
       statusCode: 500,
-      headers: { 'Content-Type': 'application/json' },
+      headers: CORS_HEADERS,
       body: JSON.stringify({
         error: {
           code: 'INTERNAL_ERROR',

@@ -14,9 +14,9 @@
     "demo": "ts-node scripts/run-demo-scenario.ts",
     "migrate:annotations": "ts-node scripts/migrate-s3-annotations.ts",
     "reload": "ts-node scripts/reload-documents.ts",
-    "gui": "streamlit run app.py",
-    "gui:deploy": "streamlit run app_for_deployment.py",
-    "test:python": "python3 test_client_for_deployment.py"
+    "gui:local": "npx serve frontend/dist -l 3000",
+    "gui": "npx serve frontend/dist -l 3000",
+    "deploy:frontend-assets": "ts-node scripts/deploy-serverless-frontend.ts"
   },
   "dependencies": {
     "@aws-sdk/client-cognito-identity-provider": "^3.600.0",

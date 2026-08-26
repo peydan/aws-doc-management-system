@@ -3,6 +3,7 @@ import { authenticateRequest, authorizeRoles } from '../shared/auth';
 import { DynamoManager, dynamoDocClient } from '../shared/dynamo';
 import { UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { PlatformError, ValidationError } from '../shared/errors';
+import { CORS_HEADERS } from '../shared/headers';
 
 const TABLE_NAME = process.env.DYNAMODB_TABLE_NAME || 'doc-platform-mvp-control';
 
@@ -31,20 +32,20 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     return {
       statusCode: 200,
-      headers: { 'Content-Type': 'application/json' },
+      headers: CORS_HEADERS,
       body: JSON.stringify({ upload_id: uploadId, status: 'ABORTED' }),
     };
   } catch (err: any) {
     if (err instanceof PlatformError) {
       return {
         statusCode: err.statusCode,
-        headers: { 'Content-Type': 'application/json' },
+        headers: CORS_HEADERS,
         body: JSON.stringify(err.toResponse(correlationId)),
       };
     }
     return {
       statusCode: 500,
-      headers: { 'Content-Type': 'application/json' },
+      headers: CORS_HEADERS,
       body: JSON.stringify({
         error: {
           code: 'INTERNAL_ERROR',

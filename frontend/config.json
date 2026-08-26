@@ -1,0 +1,7 @@
+{
+  "apiUrl": "https://k0urmbeen9.execute-api.us-east-1.amazonaws.com/v1",
+  "userPoolId": "us-east-1_aMUcSBi6e",
+  "userPoolClientId": "3fcn104kkvrb642f33khd5c0p6",
+  "region": "us-east-1",
+  "authFlow": "USER_PASSWORD_AUTH"
+}

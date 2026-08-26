@@ -5,6 +5,7 @@ import { S3Manager } from '../shared/s3';
 import { DynamoManager } from '../shared/dynamo';
 import { Logger } from '../shared/logger';
 import { PlatformError, ValidationError, MetadataConflictError } from '../shared/errors';
+import { CORS_HEADERS } from '../shared/headers';
 
 const IMMUTABLE_FIELDS = new Set([
   'document_id',
@@ -93,7 +94,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     return {
       statusCode: 200,
-      headers: { 'Content-Type': 'application/json' },
+      headers: CORS_HEADERS,
       body: JSON.stringify({
         document_id: documentId,
         metadata_revision: nextRevision,
@@ -105,14 +106,14 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     if (err instanceof PlatformError) {
       return {
         statusCode: err.statusCode,
-        headers: { 'Content-Type': 'application/json' },
+        headers: CORS_HEADERS,
         body: JSON.stringify(err.toResponse(correlationId)),
       };
     }
     Logger.error('Unhandled error in metadata update handler', err, { correlationId });
     return {
       statusCode: 500,
-      headers: { 'Content-Type': 'application/json' },
+      headers: CORS_HEADERS,
       body: JSON.stringify({
         error: {
           code: 'INTERNAL_ERROR',

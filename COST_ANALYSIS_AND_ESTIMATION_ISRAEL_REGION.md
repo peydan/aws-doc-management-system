@@ -201,4 +201,4 @@ To maximize ROI and minimize ongoing AWS operational expense, implement the foll
 
 An interactive, visual cost calculator with real-time currency conversion (USD/ILS), dynamic sliders, tier presets, and visual breakdowns is provided at:
 - **Local / Deployment Web App:** `cost_calculator.html`
-- **Streamlit Interactive UI:** Accessible via the **"💰 Cost Calculator"** tab in the main application.
+- **Serverless Web Portal:** Integrated interactive calculator accessible via `cost_calculator.html` and CloudFront portal.

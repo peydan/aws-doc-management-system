@@ -1,0 +1,2443 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>פלטפורמת ניהול מסמכים ב-AWS - מטא-דאטה, גרסאות, תבניות ומגבלות</title>
+  
+  <!-- Google Fonts: Assistant & Rubik for Hebrew, JetBrains Mono for Code -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@300;400;500;600;700;800&family=Rubik:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --bg-primary: #0a0f1d;
+      --bg-secondary: #111827;
+      --bg-card: #1a2234;
+      --bg-card-hover: #222d44;
+      --bg-glass: rgba(26, 34, 52, 0.92);
+      --border-color: #2a364f;
+      --border-accent: #38bdf8;
+      --text-primary: #f8fafc;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+      --accent-blue: #38bdf8;
+      --accent-indigo: #818cf8;
+      --accent-emerald: #34d399;
+      --accent-amber: #fbbf24;
+      --accent-rose: #f43f5e;
+      --accent-purple: #c084fc;
+      --aws-orange: #ff9900;
+      --code-bg: #0d1321;
+      --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.3);
+      --font-sans: "Assistant", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --font-heading: "Rubik", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --font-mono: "JetBrains Mono", "SFMono-Regular", Consolas, Menlo, monospace;
+    }
+
+    [data-theme="light"] {
+      --bg-primary: #f8fafc;
+      --bg-secondary: #f1f5f9;
+      --bg-card: #ffffff;
+      --bg-card-hover: #f8fafc;
+      --bg-glass: rgba(255, 255, 255, 0.95);
+      --border-color: #e2e8f0;
+      --border-accent: #0284c7;
+      --text-primary: #0f172a;
+      --text-secondary: #475569;
+      --text-muted: #94a3b8;
+      --accent-blue: #0284c7;
+      --accent-indigo: #4f46e5;
+      --accent-emerald: #059669;
+      --accent-amber: #d97706;
+      --accent-rose: #e11d48;
+      --accent-purple: #9333ea;
+      --aws-orange: #d97706;
+      --code-bg: #f1f5f9;
+      --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+      line-height: 1.6;
+      overflow-x: hidden;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      transition: background-color 0.3s ease, color 0.3s ease;
+      direction: rtl;
+    }
+
+    /* Top Navigation Bar */
+    header.top-nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: var(--bg-glass);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.75rem 2rem;
+    }
+
+    .nav-brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-family: var(--font-heading);
+      font-weight: 700;
+      font-size: 1.15rem;
+      color: var(--text-primary);
+    }
+
+    .badge-aws {
+      background: linear-gradient(135deg, #ff9900 0%, #ff5500 100%);
+      color: #000;
+      font-size: 0.75rem;
+      font-weight: 800;
+      padding: 0.2rem 0.6rem;
+      border-radius: 4px;
+      letter-spacing: 0.5px;
+    }
+
+    .badge-spec {
+      background: rgba(56, 189, 248, 0.15);
+      color: var(--accent-blue);
+      border: 1px solid var(--accent-blue);
+      font-size: 0.75rem;
+      font-weight: 700;
+      padding: 0.2rem 0.6rem;
+      border-radius: 9999px;
+    }
+
+    .nav-controls {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+    }
+
+    .slide-counter {
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: var(--text-secondary);
+      background: var(--bg-card);
+      padding: 0.4rem 0.9rem;
+      border-radius: 6px;
+      border: 1px solid var(--border-color);
+      min-width: 110px;
+      text-align: center;
+      direction: ltr;
+    }
+
+    .btn {
+      background: var(--bg-card);
+      color: var(--text-primary);
+      border: 1px solid var(--border-color);
+      padding: 0.45rem 0.9rem;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      font-family: var(--font-sans);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      transition: all 0.2s ease;
+    }
+
+    .btn:hover {
+      background: var(--bg-card-hover);
+      border-color: var(--accent-blue);
+      color: var(--accent-blue);
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent-blue) 0%, var(--accent-indigo) 100%);
+      color: #fff;
+      border: none;
+    }
+
+    .btn-primary:hover {
+      opacity: 0.92;
+      color: #fff;
+      transform: translateY(-1px);
+    }
+
+    /* Progress bar */
+    .progress-bar-container {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent-blue), var(--accent-indigo));
+      width: 7.69%;
+      transition: width 0.3s ease;
+    }
+
+    /* Main Container */
+    main.presentation-container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      padding: 1.75rem 2rem 3rem 2rem;
+      max-width: 1540px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    /* Slides */
+    .slide {
+      display: none;
+      animation: fadeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+      width: 100%;
+    }
+
+    .slide.active {
+      display: block;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(8px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    /* Slide Header */
+    .slide-header {
+      margin-bottom: 1.5rem;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 1rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 1rem;
+    }
+
+    .slide-title-group h1 {
+      font-family: var(--font-heading);
+      font-size: 2rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      background: linear-gradient(135deg, var(--text-primary) 0%, var(--text-secondary) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 0.25rem;
+    }
+
+    .slide-title-group p {
+      font-size: 1.05rem;
+      color: var(--text-secondary);
+      font-weight: 400;
+    }
+
+    .slide-tag {
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--accent-indigo);
+      background: rgba(129, 140, 248, 0.12);
+      border: 1px solid rgba(129, 140, 248, 0.25);
+      padding: 0.35rem 0.8rem;
+      border-radius: 9999px;
+      white-space: nowrap;
+    }
+
+    /* Layout Grids */
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1.5rem;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1.25rem;
+    }
+
+    .grid-4 {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1rem;
+    }
+
+    .grid-1-2 {
+      display: grid;
+      grid-template-columns: 1fr 2fr;
+      gap: 1.5rem;
+    }
+
+    .grid-2-1 {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 1.5rem;
+    }
+
+    /* Cards */
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 1.35rem;
+      box-shadow: var(--shadow-lg);
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.2s ease, border-color 0.2s ease;
+    }
+
+    .card:hover {
+      border-color: rgba(56, 189, 248, 0.4);
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 0.9rem;
+    }
+
+    .card-title {
+      font-family: var(--font-heading);
+      font-size: 1.15rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      color: var(--text-primary);
+    }
+
+    .card-subtitle {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-top: -0.5rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .icon-badge {
+      width: 34px;
+      height: 34px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.1rem;
+      background: rgba(56, 189, 248, 0.12);
+      color: var(--accent-blue);
+      flex-shrink: 0;
+    }
+
+    .icon-badge.orange { background: rgba(255, 153, 0, 0.15); color: var(--aws-orange); }
+    .icon-badge.emerald { background: rgba(52, 211, 153, 0.15); color: var(--accent-emerald); }
+    .icon-badge.purple { background: rgba(192, 132, 252, 0.15); color: var(--accent-purple); }
+    .icon-badge.rose { background: rgba(244, 63, 94, 0.15); color: var(--accent-rose); }
+    .icon-badge.indigo { background: rgba(129, 140, 248, 0.15); color: var(--accent-indigo); }
+
+    /* Lists inside cards */
+    ul.feature-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.65rem;
+    }
+
+    ul.feature-list li {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.6rem;
+      font-size: 0.95rem;
+      color: var(--text-secondary);
+      line-height: 1.45;
+    }
+
+    ul.feature-list li strong {
+      color: var(--text-primary);
+    }
+
+    .check-icon {
+      color: var(--accent-emerald);
+      font-weight: bold;
+      flex-shrink: 0;
+    }
+
+    .cross-icon {
+      color: var(--accent-rose);
+      font-weight: bold;
+      flex-shrink: 0;
+    }
+
+    .arrow-icon {
+      color: var(--accent-blue);
+      font-weight: bold;
+      flex-shrink: 0;
+    }
+
+    /* Tables */
+    .table-container {
+      width: 100%;
+      overflow-x: auto;
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      background: var(--bg-card);
+    }
+
+    table.data-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+      text-align: right;
+    }
+
+    table.data-table th {
+      background: rgba(0, 0, 0, 0.25);
+      color: var(--text-primary);
+      font-family: var(--font-heading);
+      font-weight: 700;
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    [data-theme="light"] table.data-table th {
+      background: rgba(0, 0, 0, 0.04);
+    }
+
+    table.data-table td {
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid var(--border-color);
+      color: var(--text-secondary);
+      vertical-align: middle;
+    }
+
+    table.data-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    table.data-table tr:hover td {
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    /* Badges & Pills */
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      padding: 0.2rem 0.55rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      font-family: var(--font-mono);
+      direction: ltr;
+    }
+
+    .pill-emerald { background: rgba(52, 211, 153, 0.15); color: var(--accent-emerald); border: 1px solid rgba(52, 211, 153, 0.3); }
+    .pill-rose { background: rgba(244, 63, 94, 0.15); color: var(--accent-rose); border: 1px solid rgba(244, 63, 94, 0.3); }
+    .pill-amber { background: rgba(251, 191, 36, 0.15); color: var(--accent-amber); border: 1px solid rgba(251, 191, 36, 0.3); }
+    .pill-blue { background: rgba(56, 189, 248, 0.15); color: var(--accent-blue); border: 1px solid rgba(56, 189, 248, 0.3); }
+    .pill-purple { background: rgba(192, 132, 252, 0.15); color: var(--accent-purple); border: 1px solid rgba(192, 132, 252, 0.3); }
+
+    /* Code Blocks */
+    .code-box {
+      background: var(--code-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 1rem;
+      font-family: var(--font-mono);
+      font-size: 0.84rem;
+      color: #e2e8f0;
+      direction: ltr;
+      text-align: left;
+      overflow-x: auto;
+      line-height: 1.5;
+    }
+
+    [data-theme="light"] .code-box {
+      color: #0f172a;
+    }
+
+    .code-box .token-key { color: var(--accent-blue); }
+    .code-box .token-str { color: var(--accent-emerald); }
+    .code-box .token-num { color: var(--accent-amber); }
+    .code-box .token-comment { color: var(--text-muted); font-style: italic; }
+    .code-box .token-type { color: var(--accent-purple); font-weight: 600; }
+
+    /* Architecture Visual Blocks */
+    .flow-diagram {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    .flow-steps {
+      display: flex;
+      align-items: stretch;
+      gap: 1rem;
+      justify-content: space-between;
+    }
+
+    .flow-step {
+      flex: 1;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+      position: relative;
+    }
+
+    .flow-step-num {
+      position: absolute;
+      top: -10px;
+      right: -10px;
+      width: 24px;
+      height: 24px;
+      background: var(--accent-blue);
+      color: #000;
+      font-weight: 800;
+      font-size: 0.75rem;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .flow-step-title {
+      font-family: var(--font-heading);
+      font-weight: 700;
+      font-size: 0.95rem;
+      color: var(--text-primary);
+    }
+
+    .flow-step-desc {
+      font-size: 0.82rem;
+      color: var(--text-secondary);
+      line-height: 1.35;
+    }
+
+    /* Tabs Component */
+    .tab-nav {
+      display: flex;
+      gap: 0.5rem;
+      border-bottom: 1px solid var(--border-color);
+      margin-bottom: 1rem;
+    }
+
+    .tab-btn {
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      padding: 0.5rem 1rem;
+      color: var(--text-secondary);
+      font-family: var(--font-heading);
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .tab-btn:hover {
+      color: var(--text-primary);
+    }
+
+    .tab-btn.active {
+      color: var(--accent-blue);
+      border-bottom-color: var(--accent-blue);
+    }
+
+    .tab-pane {
+      display: none;
+    }
+
+    .tab-pane.active {
+      display: block;
+      animation: fadeIn 0.2s ease;
+    }
+
+    /* Interactive Simulator */
+    .sim-panel {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    .sim-controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      align-items: center;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .sim-state-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1rem;
+    }
+
+    .sim-state-box {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 1rem;
+    }
+
+    .sim-state-header {
+      font-family: var(--font-heading);
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: var(--accent-blue);
+      margin-bottom: 0.6rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .sim-log {
+      max-height: 120px;
+      overflow-y: auto;
+      background: var(--code-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 0.6rem;
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      direction: ltr;
+      text-align: left;
+    }
+
+    .log-item {
+      margin-bottom: 0.25rem;
+      padding-bottom: 0.25rem;
+      border-bottom: 1px dashed rgba(255,255,255,0.08);
+    }
+    .log-item.info { color: var(--accent-blue); }
+    .log-item.success { color: var(--accent-emerald); }
+    .log-item.warn { color: var(--accent-amber); }
+    .log-item.error { color: var(--accent-rose); }
+
+    /* Overview Modal / Grid */
+    .overview-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(10, 15, 29, 0.85);
+      backdrop-filter: blur(8px);
+      z-index: 200;
+      display: none;
+      padding: 2rem;
+      overflow-y: auto;
+    }
+
+    .overview-modal.active {
+      display: block;
+    }
+
+    .overview-content {
+      max-width: 1300px;
+      margin: 0 auto;
+    }
+
+    .overview-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.5rem;
+    }
+
+    .overview-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 1.25rem;
+    }
+
+    .overview-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 1.2rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .overview-card:hover {
+      border-color: var(--accent-blue);
+      transform: translateY(-2px);
+      background: var(--bg-card-hover);
+    }
+
+    .overview-card.current {
+      border: 2px solid var(--accent-blue);
+    }
+
+    .overview-card-num {
+      font-size: 0.75rem;
+      font-weight: 800;
+      color: var(--accent-blue);
+      text-transform: uppercase;
+    }
+
+    .overview-card-title {
+      font-family: var(--font-heading);
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .overview-card-desc {
+      font-size: 0.82rem;
+      color: var(--text-secondary);
+      line-height: 1.4;
+    }
+
+    /* Key Shortcuts Help Footer */
+    footer.bottom-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: var(--bg-glass);
+      backdrop-filter: blur(10px);
+      border-top: 1px solid var(--border-color);
+      padding: 0.4rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      z-index: 90;
+    }
+
+    .kbd-list {
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+    }
+
+    kbd {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      padding: 0.15rem 0.4rem;
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      color: var(--text-secondary);
+    }
+
+    /* Responsive */
+    @media (max-width: 1024px) {
+      .grid-2, .grid-3, .grid-4, .grid-1-2, .grid-2-1, .sim-state-grid {
+        grid-template-columns: 1fr;
+      }
+      .flow-steps {
+        flex-direction: column;
+      }
+      main.presentation-container {
+        padding: 1rem 1rem 4rem 1rem;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Navigation -->
+  <header class="top-nav">
+    <div class="nav-brand">
+      <span class="badge-aws">AWS</span>
+      <span>פלטפורמת ניהול מסמכים ארגונית</span>
+      <span class="badge-spec">ארכיטקטורה, מטא-דאטה וגרסאות</span>
+    </div>
+
+    <div class="nav-controls">
+      <button class="btn" id="btnPrev" title="שקף קודם (חץ ימינה / מקש רווח + Shift)">
+        <span>&#8594;</span> הקודם
+      </button>
+      <div class="slide-counter" id="slideCounter">שקף 1 / 13</div>
+      <button class="btn btn-primary" id="btnNext" title="שקף הבא (חץ שמאלה / מקש רווח)">
+        הבא <span>&#8592;</span>
+      </button>
+      <button class="btn" id="btnOverview" title="סקירת כל השקפים (מקש O)">
+        ☰ סקירה
+      </button>
+      <button class="btn" id="btnTheme" title="החלפת ערכת נושא (מקש T)">
+        🌓
+      </button>
+      <button class="btn" id="btnFullscreen" title="מסך מלא (מקש F)">
+        ⛶
+      </button>
+    </div>
+
+    <div class="progress-bar-container">
+      <div class="progress-bar" id="progressBar"></div>
+    </div>
+  </header>
+
+  <!-- Presentation Main Area -->
+  <main class="presentation-container">
+
+    <!-- SLIDE 1: Cover & Architecture Overview -->
+    <section class="slide active" data-slide="1">
+      <div class="slide-header">
+        <div class="slide-title-group">
+          <h1>פלטפורמת ניהול מסמכים ב-AWS</h1>
+          <p>מודל מטא-דאטה מבוסס S3 Annotations, גרסאות דו-ערוציות, תבניות סכמה (Templates) ומגבלות הפתרון</p>
+        </div>
+        <div class="slide-tag">סקירת ארכיטקטורה עסקית וטכנולוגית</div>
+      </div>
+
+      <div class="grid-3" style="margin-bottom: 1.5rem;">
+        <div class="card" style="border-top: 4px solid var(--aws-orange);">
+          <div class="card-header">
+            <div class="card-title">
+              <span class="icon-badge orange">🗄️</span>
+              Amazon S3 Storage
+            </div>
+            <span class="pill pill-amber">Authoritative Store</span>
+          </div>
+          <p class="card-subtitle">מקור האמת הבלעדי לבינארי ומטא-דאטה</p>
+          <ul class="feature-list">
+            <li><span class="check-icon">✓</span> אחסון קבצים בינאריים בגרסאות בלתי ניתנות למחיקה (WORM).</li>
+            <li><span class="check-icon">✓</span> <strong>S3 Object Annotations:</strong> שכבת מטא-דאטה עשירה עד 1MB לגרסה ללא מגבלות ה-2KB של S3.</li>
+            <li><span class="check-icon">✓</span> עריכת מטא-דאטה ישירה ללא שכפול קובץ בינארי (Zero Copy).</li>
+          </ul>
+        </div>
+
+        <div class="card" style="border-top: 4px solid var(--accent-blue);">
+          <div class="card-header">
+            <div class="card-title">
+              <span class="icon-badge">⚡</span>
+              Amazon DynamoDB
+            </div>
+            <span class="pill pill-blue">Control Plane</span>
+          </div>
+          <p class="card-subtitle">שכבת הניהול והבקרות הטרנזקציוניות</p>
+          <ul class="feature-list">
+            <li><span class="check-icon">✓</span> <strong>Single-Table Design:</strong> ניהול מצביעים מהיר (DOC#) והיסטוריית גרסאות (VER#).</li>
+            <li><span class="check-icon">✓</span> נעילה אופטימית (OCC) למניעת התנגשויות בעריכת מטא-דאטה בו-זמנית.</li>
+            <li><span class="check-icon">✓</span> ניהול נעילות Idempotency וסשנים של העלאות קבצים ישירות.</li>
+          </ul>
+        </div>
+
+        <div class="card" style="border-top: 4px solid var(--accent-emerald);">
+          <div class="card-header">
+            <div class="card-title">
+              <span class="icon-badge emerald">🔍</span>
+              OpenSearch Serverless
+            </div>
+            <span class="pill pill-emerald">Search Projection</span>
+          </div>
+          <p class="card-subtitle">אינדקס חיפוש וסינון רב-ממדי מהיר</p>
+          <ul class="feature-list">
+            <li><span class="check-icon">✓</span> אינדוקס אסינכרוני מבוסס DynamoDB Streams & SQS Index Queue.</li>
+            <li><span class="check-icon">✓</span> שאילתות מורכבות: סינונים לפי שדות, טווחי סכומים ותאריכים.</li>
+            <li><span class="check-icon">✓</span> <strong>Derived Read Model:</strong> ניתן לבנייה מחדש מלאה (Rebuildable) מתוך S3 בכל עת.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <span class="icon-badge indigo">🎯</span>
+            תמצית מנהלים: עקרונות התכנון המרכזיים
+          </div>
+        </div>
+        <div class="grid-4" style="margin-top: 0.5rem;">
+          <div style="background: var(--bg-secondary); padding: 0.9rem; border-radius: 8px; border-right: 3px solid var(--accent-blue);">
+            <div style="font-weight: 700; color: var(--text-primary); margin-bottom: 0.2rem;">מודל גרסאות כפול</div>
+            <div style="font-size: 0.84rem; color: var(--text-secondary);">הפרדה מלאה בין גרסת קובץ (Application Version) לבין רוויזיית מטא-דאטה (Metadata Revision).</div>
+          </div>
+          <div style="background: var(--bg-secondary); padding: 0.9rem; border-radius: 8px; border-right: 3px solid var(--accent-emerald);">
+            <div style="font-weight: 700; color: var(--text-primary); margin-bottom: 0.2rem;">ולידציה הדוקה</div>
+            <div style="font-size: 0.84rem; color: var(--text-secondary);">אכיפת חוזי JSON Schema מחמירים עם אפס תוספת שדות (additionalProperties: false) ומהירות מתחת ל-1ms.</div>
+          </div>
+          <div style="background: var(--bg-secondary); padding: 0.9rem; border-radius: 8px; border-right: 3px solid var(--aws-orange);">
+            <div style="font-weight: 700; color: var(--text-primary); margin-bottom: 0.2rem;">בקרת גישה ו-WORM</div>
+            <div style="font-size: 0.84rem; color: var(--text-secondary);">איסור מחיקה ברמת Bucket Policy, הצפנת KMS CMK ייעודית, ובקרת הרשאות RBAC מבוססת Cognito JWT.</div>
+          </div>
+          <div style="background: var(--bg-secondary); padding: 0.9rem; border-radius: 8px; border-right: 3px solid var(--accent-purple);">
+            <div style="font-weight: 700; color: var(--text-primary); margin-bottom: 0.2rem;">עמידות ותיקון עצמי</div>
+            <div style="font-size: 0.84rem; color: var(--text-secondary);">מנגנון Background Reconciliation ותורי שגיאות (DLQ) להתאוששות אוטונומית מתקלות.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 2: Tripartite Architecture & Data Flow -->
+    <section class="slide" data-slide="2">
+      <div class="slide-header">
+        <div class="slide-title-group">
+          <h1>מקור האמת המשולש וזרימת הנתונים</h1>
+          <p>הפרדת תחומי אחריות מלאה בין אחסון מוסמך, שכבת בקרה טרנזקציונית ואינדקס חיפוש</p>
+        </div>
+        <div class="slide-tag">Core Storage Architecture</div>
+      </div>
+
+      <div class="grid-2-1" style="margin-bottom: 1.25rem;">
+        <div class="flow-diagram">
+          <div style="font-family: var(--font-heading); font-weight: 700; font-size: 1.05rem; margin-bottom: 0.5rem; color: var(--text-primary);">
+            זרימת תהליך כתיבה ואחסון (Ingestion & Metadata Pipeline)
+          </div>
+          <div class="flow-steps">
+            <div class="flow-step">
+              <div class="flow-step-num">1</div>
+              <div class="flow-step-title">API Gateway & Auth</div>
+              <div class="flow-step-desc">אימות JWT מול Cognito ובדיקת הרשאות RBAC מתאימות.</div>
+            </div>
+            <div class="flow-step">
+              <div class="flow-step-num">2</div>
+              <div class="flow-step-title">Lambda Validation</div>
+              <div class="flow-step-desc">אימות SHA256 וולידציית JSON Schema באמצעות Ajv בזיכרון.</div>
+            </div>
+            <div class="flow-step">
+              <div class="flow-step-num">3</div>
+              <div class="flow-step-title">S3 PutObject & Annotation</div>
+              <div class="flow-step-desc">שמירת הקובץ וחיבור מטא-דאטה מוסמך ב-Object Annotation.</div>
+            </div>
+            <div class="flow-step">
+              <div class="flow-step-num">4</div>
+              <div class="flow-step-title">DynamoDB Commit</div>
+              <div class="flow-step-desc">עדכון טרנזקציוני של מצביע המסמך (DOC#) ורשומת הגרסה (VER#).</div>
+            </div>
+            <div class="flow-step">
+              <div class="flow-step-num">5</div>
+              <div class="flow-step-title">Async Indexing</div>
+              <div class="flow-step-desc">DynamoDB Streams &larr; SQS &larr; עדכון OpenSearch Serverless.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="background: var(--bg-secondary);">
+          <div class="card-header">
+            <div class="card-title">
+              <span class="icon-badge purple">⚖️</span>
+              הצהרת מקור האמת
+            </div>
+          </div>
+          <div style="font-size: 0.92rem; color: var(--text-secondary); line-height: 1.6; border-right: 3px solid var(--accent-purple); padding-right: 0.75rem;">
+            ״גרסאות האובייקטים ב-<strong>Amazon S3</strong> וה-<strong>Object Annotations</strong> הצמודים אליהן הם מקור האמת המוסמך והמוחלט. <strong>DynamoDB</strong> מהווה את שכבת הבקרה הטרנזקציונית המהירה, בעוד <strong>OpenSearch</strong> הוא מודל קריאה נגזר שניתן לשחזור מלא בכל עת.״
+          </div>
+        </div>
+      </div>
+
+      <div class="table-container">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th style="width: 22%;">רכיב במערכת</th>
+              <th style="width: 20%;">תפקיד ארכיטקטוני</th>
+              <th style="width: 38%;">מידע המנוהל ברכיב</th>
+              <th style="width: 20%;">רמת עקביות (Consistency)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Amazon S3 Documents Bucket</strong></td>
+              <td>אחסון קבצים ומטא-דאטה מוסמך</td>
+              <td>קובצי PDF/תמונות בינאריים + <code>document-metadata</code> Annotation צמוד לכל גרסה</td>
+              <td><span class="pill pill-emerald">Strong Read-After-Write</span></td>
+            </tr>
+            <tr>
+              <td><strong>DynamoDB Table</strong> (Single-Table)</td>
+              <td>שכבת בקרה ונעילות (Control Plane)</td>
+              <td>מצביעי גרסה פעילה (DOC#), היסטוריית גרסאות (VER#), Idempotency locks (IDEMP#)</td>
+              <td><span class="pill pill-emerald">Strongly Consistent Reads</span></td>
+            </tr>
+            <tr>
+              <td><strong>OpenSearch Serverless</strong></td>
+              <td>אינדקס שאילתות וחיפוש עסקי</td>
+              <td>היטל מטא-דאטה מנורמל לחיפוש מהיר (customer_id, loan_amount, dates)</td>
+              <td><span class="pill pill-amber">Eventual (< 30s projection lag)</span></td>
+            </tr>
+            <tr>
+              <td><strong>Amazon S3 Audit Bucket</strong></td>
+              <td>תיעוד ביקורת בלתי מחיק (Audit Trail)</td>
+              <td>קובצי JSON חתומים המתעדים כל שינוי, יצירה או מחיקה רכה עם מזהה המשתמש</td>
+              <td><span class="pill pill-emerald">Append-Only Immutable</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- SLIDE 3: S3 Object Annotations Deep Dive -->
+    <section class="slide" data-slide="3">
+      <div class="slide-header">
+        <div class="slide-title-group">
+          <h1>מטא-דאטה מתקדם: פיצ'ר Amazon S3 Object Annotations</h1>
+          <p>פתרון מהפכני לאחסון מטא-דאטה עסקי עשיר ללא מגבלות ה-2KB וללא שכפול קבצים בינאריים</p>
+        </div>
+        <div class="slide-tag">S3 Object Annotations Feature</div>
+      </div>
+
+      <div class="grid-2" style="margin-bottom: 1.5rem;">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">
+              <span class="icon-badge rose">❌</span>
+              המגבלות בשיטות המסורתיות ב-S3
+            </div>
+          </div>
+          <ul class="feature-list">
+            <li>
+              <span class="cross-icon">✕</span>
+              <div>
+                <strong>S3 User Metadata Headers (<code>x-amz-meta-*</code>):</strong>
+                מוגבל ל-<strong>2 KB</strong> סך הכל לכל הכותרות. אינו מאפשר מבנה JSON עשיר, היררכיות או ולידציה מורכבת.
+              </div>
+            </li>
+            <li>
+              <span class="cross-icon">✕</span>
+              <div>
+                <strong>חוסר אפשרות לעדכון ישיר (Strict Immutability):</strong>
+                שינוי כותרת מטא-דאטה דורש ביצוע <code>CopyObject</code> מלא – פעולה שמשכפלת את כל הבייטים הבינאריים ויוצרת גרסת קובץ S3 חדשה ומיותרת!
+              </div>
+            </li>
+            <li>
+              <span class="cross-icon">✕</span>
+              <div>
+                <strong>Sidecar Files (<code>.metadata.json</code>):</strong>
+                יוצר ריבוי קבצים, חוסר סנכרון במחיקות/גרסאות ועלויות כפולות של קריאות S3 API.
+              </div>
+            </li>
+          </ul>
+        </div>
+
+        <div class="card" style="border: 2px solid var(--accent-emerald);">
+          <div class="card-header">
+            <div class="card-title">
+              <span class="icon-badge emerald">✨</span>
+              היתרונות של Amazon S3 Object Annotations
+            </div>
+            <span class="pill pill-emerald">Native AWS SDK API</span>
+          </div>
+          <ul class="feature-list">
+            <li>
+              <span class="check-icon">✓</span>
+              <div>
+                <strong>נפח של עד 1 MB לכל Annotation:</strong>
+                מאפשר אחסון מבני מטא-דאטה עשירים, רשימות חתימות, שדות עסקיים מורכבים והיסטוריית עריכות.
+              </div>
+            </li>
+            <li>
+              <span class="check-icon">✓</span>
+              <div>
+                <strong>עדכון ישיר (In-Place Mutation):</strong>
+                פקודת <code>PutObjectAnnotationCommand</code> מעדכנת את המטא-דאטה ישירות על גרסת ה-S3 הקיימת, ללא יצירת גרסה בינארית כפולה וללא שכפול בייטים!
+              </div>
+            </li>
+            <li>
+              <span class="check-icon">✓</span>
+              <div>
+                <strong>צימוד מוחלט לגרסת האובייקט (Bound to VersionId):</strong>
+                לכל גרסת תוכן בינארי יש אנוטציה ייעודית בשם <code>document-metadata</code> הצמודה ל-<code>s3_version_id</code> שלה.
+              </div>
+            </li>
+            <li>
+              <span class="check-icon">✓</span>
+              <div>
+                <strong>מוכנות ל-S3 Metadata Apache Iceberg & Athena:</strong>
+                האנוטציות זורמות באופן טבעי לטבלאות אנליטיקה ו-SQL בארגון.
+              </div>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <span class="icon-badge indigo">💻</span>
+            דוגמת קוד: קריאה וכתיבה של S3 Annotations ב-TypeScript SDK
+          </div>
+        </div>
+        <div class="code-box">
+<span class="token-comment">// 1. קריאת האנוטציה המוסמכת עבור גרסת המסמך</span>
+<span class="token-key">const</span> getAnnotationRes = <span class="token-key">await</span> s3Client.send(<span class="token-key">new</span> <span class="token-type">GetObjectAnnotationCommand</span>({
+  <span class="token-key">Bucket</span>: process.env.DOCUMENTS_BUCKET_NAME,
+  <span class="token-key">Key</span>: <span class="token-str">`documents/${docClass}/${documentId}`</span>,
+  <span class="token-key">VersionId</span>: s3VersionId,
+  <span class="token-key">AnnotationName</span>: <span class="token-str">'document-metadata'</span>,
+}));
+
+<span class="token-comment">// 2. עדכון האנוטציה ישירות (In-Place) ללא שכפול הקובץ הבינארי!</span>
+<span class="token-key">await</span> s3Client.send(<span class="token-key">new</span> <span class="token-type">PutObjectAnnotationCommand</span>({
+  <span class="token-key">Bucket</span>: process.env.DOCUMENTS_BUCKET_NAME,
+  <span class="token-key">Key</span>: <span class="token-str">`documents/${docClass}/${documentId}`</span>,
+  <span class="token-key">VersionId</span>: s3VersionId,
+  <span class="token-key">AnnotationName</span>: <span class="token-str">'document-metadata'</span>,
+  <span class="token-key">Annotation</span>: JSON.stringify(updatedMetadataEnvelope),
+}));
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 4: Metadata Structure & Mutability Matrix -->
+    <section class="slide" data-slide="4">
+      <div class="slide-header">
+        <div class="slide-title-group">
+          <h1>מבנה המטא-דאטה ומטריצת מוטביליות (Mutability)</h1>
+          <p>הפרדה קשיחה בין שדות מערכת מוגנים (System Envelope) לבין שדות עסקיים הניתנים לשינוי</p>
+        </div>
+        <div class="slide-tag">Data Governance & Immutability</div>
+      </div>
+
+      <div class="grid-2" style="margin-bottom: 1.25rem;">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">
+              <span class="icon-badge blue">🏛️</span>
+              מעטפת מערכתית (Base System Envelope)
+            </div>
+            <span class="pill pill-rose">Immutable / Monotonic</span>
+          </div>
+          <p style="font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 0.75rem;">
+            שדות תשתיתיים המשותפים לכל מחלקות המסמכים בארגון. נחסמים לשינוי ישיר ע״י לקוחות:
+          </p>
+          <ul class="feature-list">
+            <li><code>document_id</code> – מזהה ייחודי קבוע (UUID v4). <span class="pill pill-rose">קבוע לנצח</span></li>
+            <li><code>document_class</code> – סיווג המסמך (למשל <code>loan_agreement</code>). <span class="pill pill-rose">קבוע</span></li>
+            <li><code>application_version</code> – מספר גרסת הקובץ הבינארי. <span class="pill pill-blue">קבוע לגרסה</span></li>
+            <li><code>metadata_revision</code> – מונה גרסת מטא-דאטה אופטימי. <span class="pill pill-amber">מנוהל מערכתית</span></li>
+            <li><code>content_length</code> & <code>content_checksum</code> – גודל ו-SHA256 של הקובץ. <span class="pill pill-rose">מחושב בינארית</span></li>
+            <li><code>created_at</code> / <code>created_by</code> – נתוני יצירה וביקורת. <span class="pill pill-rose">בלתי מחיק</span></li>
+          </ul>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">
+              <span class="icon-badge emerald">💼</span>
+              שדות עסקיים (Business Attributes)
+            </div>
+            <span class="pill pill-emerald">Mutable via PATCH</span>
+          </div>
+          <p style="font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 0.75rem;">
+            שדות ספציפיים למחלקת המסמך המוגדרים בתבנית הסכמה וניתנים לעריכה ב-<code>PATCH</code>:
+          </p>
+          <ul class="feature-list">
+            <li><code>customer_id</code> – מזהה לקוח / ת.ז / ח.פ. <span class="pill pill-emerald">ניתן לעריכה</span></li>
+            <li><code>loan_number</code> – מספר הלוואה או חוזה. <span class="pill pill-emerald">ניתן לעריכה</span></li>
+            <li><code>loan_amount_minor_units</code> – סכום ההלוואה באגורות/סנטים. <span class="pill pill-emerald">ניתן לעריכה</span></li>
+            <li><code>currency</code> – מטבע (ISO-4217, למשל ILS, USD). <span class="pill pill-emerald">ניתן לעריכה</span></li>
+            <li><code>loan_type</code> – סוג הלוואה מתוך Enum (למשל <code>MORTGAGE</code>). <span class="pill pill-emerald">ניתן לעריכה</span></li>
+            <li><code>signed_date</code> – תאריך חתימה (ISO 8601 Date). <span class="pill pill-emerald">ניתן לעריכה</span></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="table-container">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>שם השדה במטא-דאטה</th>
+              <th>סיווג</th>
+              <th>כלל שינוי (Mutability Rule)</th>
+              <th>מנגנון עדכון והגנה</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>document_id</code>, <code>document_class</code></td>
+              <td>זהות מסמך</td>
+              <td><span class="pill pill-rose">Strictly Immutable</span></td>
+              <td>נקבע פעם אחת ביצירה. ניסיון עריכה ב-PATCH נדחה ב-<code>400 Bad Request</code>.</td>
+            </tr>
+            <tr>
+              <td><code>application_version</code>, <code>content_checksum</code></td>
+              <td>נתוני תוכן</td>
+              <td><span class="pill pill-blue">Immutable per Version</span></td>
+              <td>משתנה רק בעת העלאת קובץ בינארי חדש (<code>POST /versions</code>).</td>
+            </tr>
+            <tr>
+              <td><code>metadata_revision</code></td>
+              <td>בקרת מקביליות</td>
+              <td><span class="pill pill-amber">System Monotonic (N &rarr; N+1)</span></td>
+              <td>מקודם אוטומטית ע״י המערכת בכל עדכון מטא-דאטה תחת נעילה אופטימית.</td>
+            </tr>
+            <tr>
+              <td><code>branch_code</code>, <code>customer_id</code>, <code>loan_type</code></td>
+              <td>נתונים עסקיים</td>
+              <td><span class="pill pill-emerald">Mutable Business Data</span></td>
+              <td>מתעדכן ב-<code>PATCH /v1/documents/{id}/metadata</code> בכפוף ל-JSON Schema.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- SLIDE 5: Dual-Track Versioning Model -->
+    <section class="slide" data-slide="5">
+      <div class="slide-header">
+        <div class="slide-title-group">
+          <h1>מודל הגרסאות הדו-ערוצי (Dual-Track Versioning)</h1>
+          <p>הפרדה מוחלטת בין גרסת תוכן בינארי (Content Version) לבין רוויזיית מטא-דאטה (Metadata Revision)</p>
+        </div>
+        <div class="slide-tag">Dual-Track Versioning</div>
+      </div>
+
+      <div class="grid-2" style="margin-bottom: 1.25rem;">
+        <div class="card" style="border-top: 4px solid var(--accent-blue);">
+          <div class="card-header">
+            <div class="card-title">
+              <span class="icon-badge blue">📄</span>
+              ערוץ 1: גרסת תוכן בינארי (Content Version)
+            </div>
+            <span class="pill pill-blue">POST /documents/{id}/versions</span>
+          </div>
+          <p style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 0.75rem;">
+            מופעל כאשר מועלה קובץ PDF/תמונה פיזי חדש למסמך קיים (למשל מסמך חתום מחדש או נספח מתוקן):
+          </p>
+          <ul class="feature-list">
+            <li><span class="arrow-icon">&larr;</span> <strong>נוצרת גרסת S3 חדשה:</strong> מקבל <code>s3_version_id</code> ייחודי.</li>
+            <li><span class="arrow-icon">&larr;</span> <strong>קידום גרסה:</strong> <code>application_version</code> מקודם ($V \to V+1$).</li>
+            <li><span class="arrow-icon">&larr;</span> <strong>איפוס רוויזיה:</strong> <code>metadata_revision</code> מתאפס ל-<strong>1</strong> עבור הגרסה החדשה.</li>
+            <li><span class="arrow-icon">&larr;</span> <strong>חישוב מחדש:</strong> <code>content_length</code> ו-<code>content_checksum</code> (SHA256) מחושבים מחדש.</li>
+            <li><span class="arrow-icon">&larr;</span> <strong>רשומת היסטוריה ב-DynamoDB:</strong> נשמרת רשומה ייעודית <code>VER#000000000V</code> לשליפה בעתיד.</li>
+          </ul>
+        </div>
+
+        <div class="card" style="border-top: 4px solid var(--accent-emerald);">
+          <div class="card-header">
+            <div class="card-title">
+              <span class="icon-badge emerald">✏️</span>
+              ערוץ 2: רוויזיית מטא-דאטה (Metadata Revision)
+            </div>
+            <span class="pill pill-emerald">PATCH /documents/{id}/metadata</span>
+          </div>
+          <p style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 0.75rem;">
+            מופעל כאשר מעדכנים שדות עסקיים (למשל תיקון סכום, שינוי סטטוס, עדכון סניף) ללא שינוי בקובץ הפיזי:
+          </p>
+          <ul class="feature-list">
+            <li><span class="arrow-icon">&larr;</span> <strong>ללא גרסת S3 חדשה:</strong> הקובץ הבינארי וה-<code>application_version</code> אינם משתנים!</li>
+            <li><span class="arrow-icon">&larr;</span> <strong>קידום מונוטוני:</strong> <code>metadata_revision</code> מקודם ($N \to N+1$).</li>
+            <li><span class="arrow-icon">&larr;</span> <strong>עדכון ישיר באנוטציה:</strong> <code>PutObjectAnnotation</code> מעדכן את ה-JSON הצמוד ל-S3 VersionId הקיים.</li>
+            <li><span class="arrow-icon">&larr;</span> <strong>נעילה אופטימית (OCC):</strong> חובה לשלוח <code>expected_metadata_revision</code>. התנגשות תחזיר <code>409 METADATA_CONFLICT</code>.</li>
+            <li><span class="arrow-icon">&larr;</span> <strong>עלות ואחסון מינימליים:</strong> אפס שכפול בייטים בינאריים, מהירות ביצוע של פחות מ-800ms.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <span class="icon-badge amber">🛡️</span>
+            מנגנון הנעילה האופטימית (Optimistic Concurrency Control - OCC)
+          </div>
+        </div>
+        <div class="grid-3" style="font-size: 0.88rem;">
+          <div style="background: var(--bg-secondary); padding: 0.85rem; border-radius: 8px;">
+            <strong style="color: var(--text-primary);">1. בדיקת רוויזיה נוכחית:</strong>
+            <p style="color: var(--text-secondary); margin-top: 0.25rem;">הלקוח שולח <code>expected_metadata_revision: 2</code> בבקשת ה-PATCH.</p>
+          </div>
+          <div style="background: var(--bg-secondary); padding: 0.85rem; border-radius: 8px;">
+            <strong style="color: var(--text-primary);">2. התניה אטומית ב-DynamoDB:</strong>
+            <p style="color: var(--text-secondary); margin-top: 0.25rem;">פקודת <code>UpdateItem</code> מוודאת בטרנזקציה ש-<code>current_metadata_revision = 2</code>.</p>
+          </div>
+          <div style="background: var(--bg-secondary); padding: 0.85rem; border-radius: 8px;">
+            <strong style="color: var(--text-primary);">3. טיפול בהתנגשות (409 Conflict):</strong>
+            <p style="color: var(--text-secondary); margin-top: 0.25rem;">אם תהליך אחר כבר שינה את הרוויזיה ל-3, הבקשה נחסמת מיד ללא דריסת נתונים (Lost Update Prevention).</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 6: Interactive Simulator -->
+    <section class="slide" data-slide="6">
+      <div class="slide-header">
+        <div class="slide-title-group">
+          <h1>סימולטור אינטראקטיבי: מודל הגרסאות בפעולה</h1>
+          <p>התנסות חיה: עריכת מטא-דאטה (PATCH) לעומת העלאת גרסת קובץ חדשה (POST Version)</p>
+        </div>
+        <div class="slide-tag">Live Interactive Demo</div>
+      </div>
+
+      <div class="sim-panel">
+        <div class="sim-controls">
+          <button class="btn btn-primary" id="simBtnCreate">1. יצירת מסמך ראשוני (v1, rev1)</button>
+          <button class="btn" id="simBtnPatch">2. עדכון מטא-דאטה (PATCH &rarr; rev2)</button>
+          <button class="btn" id="simBtnConflict">3. סימולציית התנגשות מקבילית (409 Conflict)</button>
+          <button class="btn" id="simBtnNewVer">4. העלאת גרסת תוכן בינארי (POST &rarr; v2, rev1)</button>
+          <button class="btn" id="simBtnReset" style="margin-right: auto;">איפוס סימולטור</button>
+        </div>
+
+        <div class="sim-state-grid">
+          <!-- DynamoDB State Box -->
+          <div class="sim-state-box">
+            <div class="sim-state-header">
+              <span>DynamoDB Pointer (DOC#)</span>
+              <span class="pill pill-blue">Transactional</span>
+            </div>
+            <div class="code-box" id="simDynamoView" style="font-size: 0.78rem;">
+<span class="token-comment">// לחץ על אחד הכפתורים כדי להפעיל תרחיש</span>
+            </div>
+          </div>
+
+          <!-- S3 State Box -->
+          <div class="sim-state-box">
+            <div class="sim-state-header">
+              <span>S3 Object & Annotation</span>
+              <span class="pill pill-amber">Authoritative</span>
+            </div>
+            <div class="code-box" id="simS3View" style="font-size: 0.78rem;">
+<span class="token-comment">// כאן יוצגו גרסת ה-S3 וה-Annotation</span>
+            </div>
+          </div>
+
+          <!-- OpenSearch State Box -->
+          <div class="sim-state-box">
+            <div class="sim-state-header">
+              <span>OpenSearch Serverless</span>
+              <span class="pill pill-emerald">Search Index</span>
+            </div>
+            <div class="code-box" id="simSearchView" style="font-size: 0.78rem;">
+<span class="token-comment">// היטל החיפוש המעודכן</span>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div style="font-family: var(--font-heading); font-size: 0.85rem; font-weight: 700; margin-bottom: 0.35rem; color: var(--text-secondary);">
+            יומן אירועים ופעולות מערכת (System Execution Log):
+          </div>
+          <div class="sim-log" id="simLogBox">
+            <div class="log-item info">[System Ready] בחר פעולה בסרגל העליון לבחינת השינויים בזמן אמת.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 7: Metadata Templates & JSON Schema -->
+    <section class="slide" data-slide="7">
+      <div class="slide-header">
+        <div class="slide-title-group">
+          <h1>תבניות מטא-דאטה וסכמות מסמכים (Templates)</h1>
+          <p>הגדרת חוזים מחמירים באמצעות תקן JSON Schema Draft-07 ואימות מהיר בזיכרון ה-Lambda</p>
+        </div>
+        <div class="slide-tag">JSON Schema Draft-07</div>
+      </div>
+
+      <div class="grid-2" style="margin-bottom: 1.25rem;">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">
+              <span class="icon-badge blue">📐</span>
+              עקרונות מבנה התבנית (Template Architecture)
+            </div>
+          </div>
+          <ul class="feature-list">
+            <li>
+              <span class="check-icon">✓</span>
+              <div>
+                <strong>תקן בינלאומי מוביל:</strong>
+                כל התבניות מוגדרות בפורמט <code>JSON Schema Draft-07</code> עם מזהה סכמה ייחודי (<code>$id: bank.document-metadata/1</code>).
+              </div>
+            </li>
+            <li>
+              <span class="check-icon">✓</span>
+              <div>
+                <strong>אכיפת מעטפה סגורה (<code>additionalProperties: false</code>):</strong>
+                חסימה מוחלטת של שדות לא מוכרים. מונע זיהום של אינדקס החיפוש ומבטיח תאימות מלאה לרגולציה בנקאית.
+              </div>
+            </li>
+            <li>
+              <span class="check-icon">✓</span>
+              <div>
+                <strong>בקרת טיפוסים, גבולות ו-Enums:</strong>
+                הגדרת גדלים מינימליים למחרוזות, ולידציית תאריכים בפורמט תקני, ורשימות ערכים סגורות לסוגי מסמכים (<code>SIGNED_AGREEMENT</code>, <code>APPLICATION</code> וכו').
+              </div>
+            </li>
+            <li>
+              <span class="check-icon">✓</span>
+              <div>
+                <strong>ביצועים מתחת ל-1ms (Zero Cold-Start Overhead):</strong>
+                הסכמות מקומפלות ב-Lambda Startup בעזרת ספריית <code>Ajv</code> לפונקציית JS אופטימלית ללא פניות רשת או קריאות ל-DB בזמן הבקשה.
+              </div>
+            </li>
+          </ul>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">
+              <span class="icon-badge indigo">📄</span>
+              תבנית לדוגמה: <code>schemas/loan_agreement-v1.json</code>
+            </div>
+            <span class="pill pill-blue">Strict Schema</span>
+          </div>
+          <div class="code-box" style="max-height: 280px; font-size: 0.78rem;">
+{
+  <span class="token-key">"$schema"</span>: <span class="token-str">"http://json-schema.org/draft-07/schema#"</span>,
+  <span class="token-key">"$id"</span>: <span class="token-str">"bank.document-metadata/1"</span>,
+  <span class="token-key">"title"</span>: <span class="token-str">"LoanAgreementMetadataV1"</span>,
+  <span class="token-key">"type"</span>: <span class="token-str">"object"</span>,
+  <span class="token-key">"required"</span>: [
+    <span class="token-str">"document_id"</span>, <span class="token-str">"document_class"</span>, <span class="token-str">"customer_id"</span>,
+    <span class="token-str">"loan_number"</span>, <span class="token-str">"loan_amount_minor_units"</span>, <span class="token-str">"currency"</span>,
+    <span class="token-str">"loan_type"</span>, <span class="token-str">"signed_date"</span>, <span class="token-str">"content_checksum"</span>
+  ],
+  <span class="token-key">"properties"</span>: {
+    <span class="token-key">"document_class"</span>: { <span class="token-key">"type"</span>: <span class="token-str">"string"</span>, <span class="token-key">"const"</span>: <span class="token-str">"loan_agreement"</span> },
+    <span class="token-key">"customer_id"</span>: { <span class="token-key">"type"</span>: <span class="token-str">"string"</span>, <span class="token-key">"minLength"</span>: 1 },
+    <span class="token-key">"loan_number"</span>: { <span class="token-key">"type"</span>: <span class="token-str">"string"</span>, <span class="token-key">"minLength"</span>: 1 },
+    <span class="token-key">"loan_amount_minor_units"</span>: { <span class="token-key">"type"</span>: <span class="token-str">"integer"</span>, <span class="token-key">"minimum"</span>: 0 },
+    <span class="token-key">"currency"</span>: { <span class="token-key">"type"</span>: <span class="token-str">"string"</span>, <span class="token-key">"minLength"</span>: 3, <span class="token-key">"maxLength"</span>: 3 },
+    <span class="token-key">"loan_type"</span>: { <span class="token-key">"type"</span>: <span class="token-str">"string"</span>, <span class="token-key">"enum"</span>: [<span class="token-str">"MORTGAGE"</span>, <span class="token-str">"PERSONAL"</span>, <span class="token-str">"COMMERCIAL"</span>, <span class="token-str">"AUTO"</span>] }
+  },
+  <span class="token-key">"additionalProperties"</span>: <span class="token-str">false</span>
+}
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <span class="icon-badge emerald">⚡</span>
+            קומפילציית Ajv במנוע ה-Lambda (<code>src/shared/validator.ts</code>)
+          </div>
+        </div>
+        <div class="code-box">
+<span class="token-key">import</span> Ajv <span class="token-key">from</span> <span class="token-str">'ajv'</span>;
+<span class="token-key">import</span> addFormats <span class="token-key">from</span> <span class="token-str">'ajv-formats'</span>;
+<span class="token-key">import</span> * <span class="token-key">as</span> loanAgreementSchema <span class="token-key">from</span> <span class="token-str">'../../schemas/loan_agreement-v1.json'</span>;
+
+<span class="token-key">const</span> ajv = <span class="token-key">new</span> Ajv({ allErrors: <span class="token-key">true</span>, strict: <span class="token-key">false</span> });
+addFormats(ajv);
+
+<span class="token-comment">// קימפול חד-פעמי בזמן עליית ה-Lambda (Cold Start) שרץ ב-0ms בכל בקשה חמה</span>
+<span class="token-key">const</span> validateLoanAgreement = ajv.compile(loanAgreementSchema);
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 8: Templates Lifecycle & Evolution -->
+    <section class="slide" data-slide="8">
+      <div class="slide-header">
+        <div class="slide-title-group">
+          <h1>מחזור החיים ושינוי תבניות (Templates Lifecycle)</h1>
+          <p>תהליך שלב-אחר-שלב להוספת מחלקת מסמך חדשה, שינויים תואמים לאחור וניהול שבירות סכמה</p>
+        </div>
+        <div class="slide-tag">GitOps & Schema Evolution</div>
+      </div>
+
+      <div class="grid-2" style="margin-bottom: 1.25rem;">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">
+              <span class="icon-badge blue">🚀</span>
+              הוספת מחלקת מסמכים חדשה (למשל: <code>bank_statement</code>)
+            </div>
+          </div>
+          <div class="flow-steps" style="flex-direction: column; gap: 0.75rem;">
+            <div class="flow-step">
+              <div class="flow-step-num">1</div>
+              <div class="flow-step-title">יצירת קובץ הסכמה ב-Git</div>
+              <div class="flow-step-desc">הוספת <code>schemas/bank_statement-v1.json</code> עם שדות כגון <code>account_number</code> ו-<code>statement_period</code>.</div>
+            </div>
+            <div class="flow-step">
+              <div class="flow-step-num">2</div>
+              <div class="flow-step-title">רישום ב-Validator Registry</div>
+              <div class="flow-step-desc">מיפוי הסכמה ב-<code>src/shared/validator.ts</code> לקימפול Ajv עבור המחלקה החדשה.</div>
+            </div>
+            <div class="flow-step">
+              <div class="flow-step-num">3</div>
+              <div class="flow-step-title">עדכון מיפוי אינדקס OpenSearch</div>
+              <div class="flow-step-desc">הגדרת השדות העסקיים החדשים לחיפוש ב-<code>src/shared/opensearch.ts</code>.</div>
+            </div>
+            <div class="flow-step">
+              <div class="flow-step-num">4</div>
+              <div class="flow-step-title">פריסה בטוחה באמצעות CDK</div>
+              <div class="flow-step-desc">הרצת <code>npm run build && cdk deploy --all</code> לעדכון סביבות ה-AWS.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">
+              <span class="icon-badge purple">🔄</span>
+              אסטרטגיית שינוי סכמות קיימות
+            </div>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 1rem;">
+            <div style="background: var(--bg-secondary); padding: 1rem; border-radius: 8px; border-right: 3px solid var(--accent-emerald);">
+              <div style="font-weight: 700; color: var(--accent-emerald); font-size: 0.95rem; margin-bottom: 0.3rem;">
+                שינוי תואם לאחור (Minor / Additive Change)
+              </div>
+              <p style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.4;">
+                הוספת שדות אופציונליים חדשים, או הרחבת רשימת Enums קיימת. מסמכים קיימים נשארים 100% תקפים. לא נדרש שינוי גרסת סכמה.
+              </p>
+            </div>
+
+            <div style="background: var(--bg-secondary); padding: 1rem; border-radius: 8px; border-right: 3px solid var(--accent-rose);">
+              <div style="font-weight: 700; color: var(--accent-rose); font-size: 0.95rem; margin-bottom: 0.3rem;">
+                שינוי שובר תאימות (Major / Breaking Versioning)
+              </div>
+              <p style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.4;">
+                מחיקת שדות, שינוי שמות שדות או הפיכת שדה אופציונלי לשדה חובה (Required). מבוצע ע״י יצירת קובץ גרסה חדש: <code>loan_agreement-v2.json</code> עם <code>schema_version: 2</code>. מסמכים היסטוריים ממשיכים להיבדק מול סכמה v1.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <span class="icon-badge amber">💡</span>
+            מדוע נבחרה גישת GitOps לשלב הנוכחי (Current Phase Rationale)?
+          </div>
+        </div>
+        <div class="grid-3" style="font-size: 0.88rem;">
+          <div style="color: var(--text-secondary);">
+            <strong style="color: var(--text-primary);">בקרת איכות מחמירה:</strong>
+            כל שינוי במבנה הנתונים עובר דרך Pull Request, בדיקות linter ובדיקות יחידה אוטומטיות ב-CI/CD.
+          </div>
+          <div style="color: var(--text-secondary);">
+            <strong style="color: var(--text-primary);">תיעוד וביקורת מלאים:</strong>
+            היסטוריית Git שומרת במדויק מי יצר כל שדה, מתי ומאיזו סיבה עסקית.
+          </div>
+          <div style="color: var(--text-secondary);">
+            <strong style="color: var(--text-primary);">אפס עומס תשתיתי:</strong>
+            חוסך תחזוקת מסדי נתונים נוספים ומנגנוני Invalidation מורכבים בשלב הראשוני.
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 9: Deep Dive - How a New Metadata Schema is Added -->
+    <section class="slide" data-slide="9">
+      <div class="slide-header">
+        <div class="slide-title-group">
+          <h1>כיצד מוסיפים סכמת מטא-דאטה חדשה למערכת? (מדריך מעשי)</h1>
+          <p>פירוט צעד-אחר-צעד: הגדרת ה-JSON Schema, רישום ב-Ajv Validator, עדכון אינדקס ופריסה</p>
+        </div>
+        <div class="slide-tag">Developer & Architecture Guide</div>
+      </div>
+
+      <div class="card" style="margin-bottom: 1.25rem;">
+        <div class="tab-nav">
+          <button class="tab-btn active" data-tab="tab-step1">שלב 1: קובץ הסכמה (JSON Schema)</button>
+          <button class="tab-btn" data-tab="tab-step2">שלב 2: רישום ב-Validator (TypeScript)</button>
+          <button class="tab-btn" data-tab="tab-step3">שלב 3: מיפוי OpenSearch ו-CDK Deploy</button>
+          <button class="tab-btn" data-tab="tab-step4">שלב 2 (העתידי): Dynamic Admin API</button>
+        </div>
+
+        <!-- Tab 1: JSON Schema -->
+        <div class="tab-pane active" id="tab-step1">
+          <div class="grid-2">
+            <div>
+              <h3 style="font-family: var(--font-heading); font-size: 1.05rem; color: var(--accent-blue); margin-bottom: 0.5rem;">
+                1. יצירת קובץ <code>schemas/bank_statement-v1.json</code>
+              </h3>
+              <p style="font-size: 0.88rem; color: var(--text-secondary); line-height: 1.5; margin-bottom: 0.75rem;">
+                הסכמה מגדירה את מעטפת המערכת החובה, שדות עסקיים ספציפיים למחלקה, טיפוסים מדויקים (מחרוזות, מספרים, תאריכים, Enums), ואוכפת <code>additionalProperties: false</code> למניעת שדות זרים.
+              </p>
+              <ul class="feature-list" style="font-size: 0.85rem;">
+                <li><span class="check-icon">✓</span> <strong>מזהה סכמה ($id):</strong> <code>bank.document-metadata/bank_statement/1</code></li>
+                <li><span class="check-icon">✓</span> <strong>שדות מפתח:</strong> <code>account_number</code>, <code>statement_period_start</code>, <code>closing_balance_minor_units</code></li>
+              </ul>
+            </div>
+            <div class="code-box" style="max-height: 280px; font-size: 0.76rem;">
+{
+  <span class="token-key">"$schema"</span>: <span class="token-str">"http://json-schema.org/draft-07/schema#"</span>,
+  <span class="token-key">"$id"</span>: <span class="token-str">"bank.document-metadata/bank_statement/1"</span>,
+  <span class="token-key">"title"</span>: <span class="token-str">"BankStatementMetadataV1"</span>,
+  <span class="token-key">"type"</span>: <span class="token-str">"object"</span>,
+  <span class="token-key">"required"</span>: [
+    <span class="token-str">"annotation_schema"</span>, <span class="token-str">"document_id"</span>, <span class="token-str">"document_class"</span>,
+    <span class="token-str">"application_version"</span>, <span class="token-str">"metadata_revision"</span>, <span class="token-str">"schema_version"</span>,
+    <span class="token-str">"account_number"</span>, <span class="token-str">"statement_period_start"</span>, <span class="token-str">"closing_balance_minor_units"</span>,
+    <span class="token-str">"content_checksum"</span>, <span class="token-str">"content_length"</span>, <span class="token-str">"filename"</span>
+  ],
+  <span class="token-key">"properties"</span>: {
+    <span class="token-key">"annotation_schema"</span>: { <span class="token-key">"type"</span>: <span class="token-str">"string"</span>, <span class="token-key">"const"</span>: <span class="token-str">"bank.document-metadata/bank_statement/1"</span> },
+    <span class="token-key">"document_class"</span>: { <span class="token-key">"type"</span>: <span class="token-str">"string"</span>, <span class="token-key">"const"</span>: <span class="token-str">"bank_statement"</span> },
+    <span class="token-key">"account_number"</span>: { <span class="token-key">"type"</span>: <span class="token-str">"string"</span>, <span class="token-key">"minLength"</span>: 6 },
+    <span class="token-key">"statement_period_start"</span>: { <span class="token-key">"type"</span>: <span class="token-str">"string"</span>, <span class="token-key">"format"</span>: <span class="token-str">"date"</span> },
+    <span class="token-key">"closing_balance_minor_units"</span>: { <span class="token-key">"type"</span>: <span class="token-str">"integer"</span> },
+    <span class="token-key">"statement_type"</span>: { <span class="token-key">"type"</span>: <span class="token-str">"string"</span>, <span class="token-key">"enum"</span>: [<span class="token-str">"CHECKING"</span>, <span class="token-str">"SAVINGS"</span>, <span class="token-str">"BUSINESS"</span>] }
+  },
+  <span class="token-key">"additionalProperties"</span>: <span class="token-str">false</span>
+}
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 2: TypeScript Validator -->
+        <div class="tab-pane" id="tab-step2">
+          <div class="grid-2">
+            <div>
+              <h3 style="font-family: var(--font-heading); font-size: 1.05rem; color: var(--accent-emerald); margin-bottom: 0.5rem;">
+                2. רישום ב-<code>src/shared/validator.ts</code>
+              </h3>
+              <p style="font-size: 0.88rem; color: var(--text-secondary); line-height: 1.5; margin-bottom: 0.75rem;">
+                ייבוא קובץ ה-JSON, קומפילציה מהירה בזמן עלייה (Cold Start) בעזרת <code>Ajv</code>, ומיפוי לפי מפתח מחלקה וגרסה (<code>${docClass}:${schemaVer}</code>).
+              </p>
+              <ul class="feature-list" style="font-size: 0.85rem;">
+                <li><span class="check-icon">✓</span> <strong>אפס פניות רשת:</strong> הולידציה מתבצעת כולה בזיכרון ה-Lambda בתוך פחות מ-1 מילי-שנייה!</li>
+                <li><span class="check-icon">✓</span> <strong>תמיכה מובנית בריבוי גרסאות ומחלקות.</strong></li>
+              </ul>
+            </div>
+            <div class="code-box" style="max-height: 280px; font-size: 0.76rem;">
+<span class="token-key">import</span> Ajv <span class="token-key">from</span> <span class="token-str">'ajv'</span>;
+<span class="token-key">import</span> addFormats <span class="token-key">from</span> <span class="token-str">'ajv-formats'</span>;
+<span class="token-key">import</span> * <span class="token-key">as</span> loanAgreementSchema <span class="token-key">from</span> <span class="token-str">'../../schemas/loan_agreement-v1.json'</span>;
+<span class="token-key">import</span> * <span class="token-key">as</span> bankStatementSchema <span class="token-key">from</span> <span class="token-str">'../../schemas/bank_statement-v1.json'</span>;
+
+<span class="token-key">const</span> ajv = <span class="token-key">new</span> Ajv({ allErrors: <span class="token-key">true</span>, strict: <span class="token-key">false</span> });
+addFormats(ajv);
+
+<span class="token-comment">// רגיסטרי של פונקציות ולידציה מקומפלות בזיכרון</span>
+<span class="token-key">const</span> schemaRegistry: Record&lt;string, any&gt; = {
+  <span class="token-str">'loan_agreement:1'</span>: ajv.compile(loanAgreementSchema),
+  <span class="token-str">'bank_statement:1'</span>: ajv.compile(bankStatementSchema),
+};
+
+<span class="token-key">export function</span> validateMetadataSchema(metadata: Record&lt;string, any&gt;): <span class="token-type">void</span> {
+  <span class="token-key">const</span> key = <span class="token-str">`${metadata.document_class || 'loan_agreement'}:${metadata.schema_version || 1}`</span>;
+  <span class="token-key">const</span> validator = schemaRegistry[key];
+  <span class="token-key">if</span> (!validator) <span class="token-key">throw new</span> ValidationError(<span class="token-str">`Unsupported class/schema: ${key}`</span>);
+  <span class="token-key">if</span> (!validator(metadata)) <span class="token-key">throw new</span> ValidationError(<span class="token-str">`Validation failed for ${key}`</span>, validator.errors);
+}
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 3: Search Mapping & Deploy -->
+        <div class="tab-pane" id="tab-step3">
+          <div class="grid-2">
+            <div>
+              <h3 style="font-family: var(--font-heading); font-size: 1.05rem; color: var(--accent-purple); margin-bottom: 0.5rem;">
+                3. עדכון מיפוי OpenSearch ובניית CDK
+              </h3>
+              <p style="font-size: 0.88rem; color: var(--text-secondary); line-height: 1.5; margin-bottom: 0.75rem;">
+                אם שדות המחלקה החדשה נדרשים לחיפוש וסינון ב-OpenSearch Serverless (למשל <code>account_number</code>), מוסיפים אותם למיפוי ב-<code>src/shared/opensearch.ts</code>, ולאחר מכן פורסים באמצעות CDK:
+              </p>
+              <div class="code-box" style="margin-bottom: 0.75rem; font-size: 0.82rem;">
+<span class="token-comment"># בניית קבצי TypeScript ופריסה ל-AWS</span>
+npm run build
+cdk deploy --all --require-approval never
+              </div>
+            </div>
+            <div style="background: var(--bg-secondary); padding: 1rem; border-radius: 8px; border: 1px solid var(--border-color);">
+              <div style="font-weight: 700; color: var(--text-primary); margin-bottom: 0.5rem;">מה קורה בזמן הפריסה?</div>
+              <ul class="feature-list" style="font-size: 0.84rem;">
+                <li><span class="arrow-icon">&larr;</span> קובץ ה-JSON החדש נארז בתוך ה-ZIP של כל ה-Lambdas (API, Compute).</li>
+                <li><span class="arrow-icon">&larr;</span> כל בקשה חדשה ל-<code>POST /v1/documents</code> עם <code>document_class: "bank_statement"</code> תאומת מידית.</li>
+                <li><span class="arrow-icon">&larr;</span> מסמכים היסטוריים ממחלקות קודמות (<code>loan_agreement</code>) ממשיכים לעבוד בצורה תקינה לחלוטין.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 4: Phase 2 Dynamic Admin API -->
+        <div class="tab-pane" id="tab-step4">
+          <div class="grid-2">
+            <div>
+              <h3 style="font-family: var(--font-heading); font-size: 1.05rem; color: var(--aws-orange); margin-bottom: 0.5rem;">
+                4. שלב 2 (העתידי): Dynamic Schema Registry via REST API
+              </h3>
+              <p style="font-size: 0.88rem; color: var(--text-secondary); line-height: 1.5; margin-bottom: 0.75rem;">
+                בשלב הבא (Phase 2), מנהלי מערכת יוכלו לרשום סכמות חדשות בזמן ריצה ללא צורך ב-CDK Deployment או שינוי קוד, באמצעות קריאת REST API מאובטחת:
+              </p>
+              <div class="code-box" style="font-size: 0.8rem;">
+<span class="token-comment">// 1. רישום סכמה חדשה במצב DRAFT</span>
+POST /v1/admin/schemas
+Authorization: Bearer &lt;JWT-Token&gt;
+Content-Type: application/json
+{
+  "document_class": "bank_statement",
+  "version": 1,
+  "schema_definition": { ... }
+}
+
+<span class="token-comment">// 2. הפעלת הסכמה בייצור (משדר אירוע EventBridge שמרענן מטמון)</span>
+POST /v1/admin/schemas/bank_statement/versions/1/activate
+              </div>
+            </div>
+            <div style="background: var(--bg-secondary); padding: 1rem; border-radius: 8px; border: 1px solid var(--border-color);">
+              <div style="font-weight: 700; color: var(--text-primary); margin-bottom: 0.5rem;">יתרונות הגישה הדינמית:</div>
+              <ul class="feature-list" style="font-size: 0.84rem;">
+                <li><span class="check-icon">✓</span> <strong>Zero Deployment Downtime:</strong> הוספת מחלקות מסמכים תוך שניות בודדות.</li>
+                <li><span class="check-icon">✓</span> <strong>EventBridge Invalidation:</strong> פונקציות ה-Lambda מקבלות אירוע עדכון ומרעננות את ה-Ajv Cache המקומי שלהן.</li>
+                <li><span class="check-icon">✓</span> <strong>Backward Compatibility Check:</strong> בדיקה אוטומטית שהסכמה החדשה אינה שוברת מסמכים קיימים.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 10: Dynamic Schema Registry (Phase 2 Roadmap) -->
+    <section class="slide" data-slide="10">
+      <div class="slide-header">
+        <div class="slide-title-group">
+          <h1>מפת הדרכים: רגיסטרי סכמות דינמי (Phase 2)</h1>
+          <p>מעבר לניהול תבניות בזמן ריצה ללא צורך בפריסת קוד מחדש עבור ארגוני Enterprise מרובי מחלקות</p>
+        </div>
+        <div class="slide-tag">Enterprise Architecture Roadmap</div>
+      </div>
+
+      <div class="grid-2-1" style="margin-bottom: 1.25rem;">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">
+              <span class="icon-badge purple">🏗️</span>
+              ארכיטקטורת ה-Dynamic Schema Registry
+            </div>
+          </div>
+
+          <div class="flow-steps" style="margin-bottom: 1rem;">
+            <div class="flow-step">
+              <div class="flow-step-num">1</div>
+              <div class="flow-step-title">Admin REST API</div>
+              <div class="flow-step-desc">רישום סכמה חדשה ב-<code>POST /v1/admin/schemas</code>.</div>
+            </div>
+            <div class="flow-step">
+              <div class="flow-step-num">2</div>
+              <div class="flow-step-title">DynamoDB Table</div>
+              <div class="flow-step-desc">שמירה בטבלה ייעודית תחת <code>DRAFT</code> ואימות Meta-Schema.</div>
+            </div>
+            <div class="flow-step">
+              <div class="flow-step-num">3</div>
+              <div class="flow-step-title">EventBridge Invalidation</div>
+              <div class="flow-step-desc">שידור אירוע הפעלה (<code>ACTIVE</code>) בזמן אמת לכל הפונקציות.</div>
+            </div>
+            <div class="flow-step">
+              <div class="flow-step-num">4</div>
+              <div class="flow-step-title">Lambda Local Cache</div>
+              <div class="flow-step-desc">רענון מטמון ה-Ajv המקומי בזיכרון ללא פגיעה בזמני תגובה.</div>
+            </div>
+          </div>
+
+          <div style="font-size: 0.88rem; color: var(--text-secondary);">
+            מאפשר למנהלי מערכת להוסיף מחלקות מסמכים חדשות תוך שניות בודדות, תוך שמירה על ביצועי זמן ריצה מעולים.
+          </div>
+        </div>
+
+        <div class="card" style="background: var(--bg-secondary);">
+          <div class="card-header">
+            <div class="card-title">
+              <span class="icon-badge emerald">⚙️</span>
+              מכונת מצבי סכמה
+            </div>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 0.65rem;">
+            <div style="padding: 0.6rem; background: var(--bg-card); border-radius: 6px; border-right: 3px solid var(--accent-blue);">
+              <span class="pill pill-blue">DRAFT</span>
+              <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.2rem;">סכמה בשלבי עריכה ובדיקות איכות.</div>
+            </div>
+            <div style="padding: 0.6rem; background: var(--bg-card); border-radius: 6px; border-right: 3px solid var(--accent-emerald);">
+              <span class="pill pill-emerald">ACTIVE</span>
+              <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.2rem;">סכמה פעילה המשמשת לקליטת מסמכים חדשים.</div>
+            </div>
+            <div style="padding: 0.6rem; background: var(--bg-card); border-radius: 6px; border-right: 3px solid var(--accent-amber);">
+              <span class="pill pill-amber">DEPRECATED</span>
+              <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.2rem;">סכמה שאינה מקבלת מסמכים חדשים אך תקפה להיסטוריים.</div>
+            </div>
+            <div style="padding: 0.6rem; background: var(--bg-card); border-radius: 6px; border-right: 3px solid var(--accent-rose);">
+              <span class="pill pill-rose">RETIRED</span>
+              <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.2rem;">סכמה ישנה שאינה בשימוש עוד.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="table-container">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>תכונה</th>
+              <th>מימוש נוכחי (Phase 1 - Git-Based)</th>
+              <th>מימוש עתידי (Phase 2 - Dynamic Registry)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>מיקום אחסון הסכמות</strong></td>
+              <td>קבצי JSON בתוך Git Repository</td>
+              <td>טבלת DynamoDB ייעודית (<code>doc-platform-schemas</code>)</td>
+            </tr>
+            <tr>
+              <td><strong>תהליך פריסה</strong></td>
+              <td>CI/CD Pipeline ו-<code>cdk deploy</code></td>
+              <td>Admin REST API מיידי (Zero-Downtime / Zero-Deploy)</td>
+            </tr>
+            <tr>
+              <td><strong>זמן השהייה ב-Lambda (Latency)</strong></td>
+              <td>&lt; 0.1 ms (מקומפל ב-Bundle)</td>
+              <td>&lt; 0.2 ms (In-Memory Cache עם TTL ו-Event Invalidation)</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- SLIDE 11: Supported Features & Capabilities -->
+    <section class="slide" data-slide="11">
+      <div class="slide-header">
+        <div class="slide-title-group">
+          <h1>יכולות המערכת הנתמכות (Supported Capabilities)</h1>
+          <p>סקירה מקיפה של כלל המנגנונים, התהליכים והפיצ'רים המוטמעים במערכת</p>
+        </div>
+        <div class="slide-tag">Platform Feature Set</div>
+      </div>
+
+      <div class="grid-3" style="margin-bottom: 1.5rem;">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">
+              <span class="icon-badge blue">📤</span>
+              קליטת קבצים דו-ערוצית
+            </div>
+          </div>
+          <ul class="feature-list">
+            <li><span class="check-icon">✓</span> <strong>Inline Upload (&le; 4 MiB):</strong> העלאה ישירה ב-HTTP יחיד דרך API Gateway.</li>
+            <li><span class="check-icon">✓</span> <strong>Direct S3 Upload (&gt; 4 MiB):</strong> העלאה מאובטחת ישירות ל-S3 באמצעות Presigned URL.</li>
+            <li><span class="check-icon">✓</span> בדיקת שלמות קבצים באמצעות SHA-256 Checksum ואימות גודל.</li>
+          </ul>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">
+              <span class="icon-badge emerald">🔒</span>
+              אבטחה, WORM ו-RBAC
+            </div>
+          </div>
+          <ul class="feature-list">
+            <li><span class="check-icon">✓</span> <strong>מדיניות WORM מחמירה:</strong> חסימה גורפת של <code>DeleteObjectVersion</code> ב-S3 Bucket Policy.</li>
+            <li><span class="check-icon">✓</span> הצפנה מקצה לקצה באמצעות AWS KMS Customer Managed Key (CMK).</li>
+            <li><span class="check-icon">✓</span> בקרת גישה מבוססת תפקידים (RBAC) עם Cognito JWT וחלוקת הרשאות חדה.</li>
+          </ul>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">
+              <span class="icon-badge purple">🔎</span>
+              חיפוש ושאילתות
+            </div>
+          </div>
+          <ul class="feature-list">
+            <li><span class="check-icon">✓</span> שאילתות OpenSearch Serverless לפי שדות עסקיים מדויקים.</li>
+            <li><span class="check-icon">✓</span> סינון לפי טווחי סכומים (<code>loan_amount</code>) וטווחי תאריכים (<code>signed_date</code>).</li>
+            <li><span class="check-icon">✓</span> החרגה מיידית של מסמכים שנמחקו מחיקה רכה מתוצאות החיפוש.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="grid-3">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">
+              <span class="icon-badge amber">♻️</span>
+              מחיקה רכה ושחזור
+            </div>
+          </div>
+          <ul class="feature-list">
+            <li><span class="check-icon">✓</span> <code>POST /soft-delete</code> מעביר מסמך לסטטוס <code>SOFT_DELETED</code>.</li>
+            <li><span class="check-icon">✓</span> <code>POST /restore</code> משחזר מסמך ומאנדקס אותו מחדש ב-OpenSearch.</li>
+            <li><span class="check-icon">✓</span> הקבצים והגרסאות ההיסטוריות נשמרים תמיד ב-S3 ללא מחיקה פיזית.</li>
+          </ul>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">
+              <span class="icon-badge rose">🔁</span>
+              מניעת כפילויות (Idempotency)
+            </div>
+          </div>
+          <ul class="feature-list">
+            <li><span class="check-icon">✓</span> כותרת <code>Idempotency-Key</code> חובה בכל פעולות הכתיבה.</li>
+            <li><span class="check-icon">✓</span> טבלת נעילות ייעודית ב-DynamoDB עם Hash של הבקשה למניעת כפילויות רשת.</li>
+            <li><span class="check-icon">✓</span> החזרת תשובה זהה בבטחה במקרה של שליחה חוזרת (Retry).</li>
+          </ul>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">
+              <span class="icon-badge indigo">🤖</span>
+              התאמה ותיקון עצמי (Reconciliation)
+            </div>
+          </div>
+          <ul class="feature-list">
+            <li><span class="check-icon">✓</span> תהליך רקע אוטונומי הסורק רשומות ומתקן פערים בין S3 ל-DynamoDB.</li>
+            <li><span class="check-icon">✓</span> תורי שגיאות ייעודיים (SQS DLQ) ללכידת כשלים באינדוקס וניטור התראות CloudWatch.</li>
+            <li><span class="check-icon">✓</span> שמירת יומן ביקורת (Audit Logs) מלא ובלתי מחיק ב-S3 Audit Bucket.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 12: Limitations, Trade-offs & Mitigations -->
+    <section class="slide" data-slide="12">
+      <div class="slide-header">
+        <div class="slide-title-group">
+          <h1>מגבלות הפתרון ומטריצת סיכונים (Limitations & Mitigations)</h1>
+          <p>שקיפות הנדסית: ניתוח מגבלות ידועות, השפעתן העסקית והמענה הארכיטקטוני הקיים והעתידי</p>
+        </div>
+        <div class="slide-tag">Risk Governance Matrix</div>
+      </div>
+
+      <div class="table-container" style="margin-bottom: 1.5rem;">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th style="width: 25%;">מגבלה ארכיטקטונית ידועה</th>
+              <th style="width: 35%;">מענה קיים במערכת (Current Mitigation)</th>
+              <th style="width: 40%;">מענה אסטרטגי עתידי (Phase 2 Roadmap)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>
+                <strong>מוטביליות של S3 Annotations</strong><br>
+                <span style="font-size: 0.8rem; color: var(--text-muted);">אנוטציה מתעדכנת In-Place ודורסת את מצבה הקודם באותו S3 Version.</span>
+              </td>
+              <td>
+                כל עדכון מטא-דאטה מייצר רשומת Audit בלתי ניתנת למחיקה הנכתבת מיד ל-S3 Audit Bucket המוצפן.
+              </td>
+              <td>
+                הטמעת שמירת תצלומי מטא-דאטה היסטוריים (Historical Metadata Snapshots) ב-DynamoDB / S3.
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <strong>היעדר טרנזקציה מבוזרת (2PC) בין S3 ל-DynamoDB</strong><br>
+                <span style="font-size: 0.8rem; color: var(--text-muted);">אין תמיכה מובנית ב-Atomic Two-Phase Commit חוצה שירותים ב-AWS.</span>
+              </td>
+              <td>
+                מכונות מצבים ברורות (<code>INITIATED</code> &rarr; <code>ACTIVE</code>), נעילות אופטימיות, ותהליך Reconciliation רקעי שמתקן יתומים.
+              </td>
+              <td>
+                שימוש ב-AWS Step Functions Saga Orchestration עבור תהליכי קליטה מרובי שלבים בעומסי קיצון.
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <strong>אינדקס חיפוש בעל עקביות בסופו של דבר (Eventual Consistency)</strong><br>
+                <span style="font-size: 0.8rem; color: var(--text-muted);">השהיית אינדוקס של עד 30 שניות ב-OpenSearch Serverless.</span>
+              </td>
+              <td>
+                קריאות ישירות (Direct Document Lookups) מבוצעות ישירות מ-DynamoDB עם עקביות חזקה (Strong Consistency).
+              </td>
+              <td>
+                אופטימיזציית גודל Batch ב-SQS Indexer להקטנת זמן ה-Projection לפחות מ-5 שניות.
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <strong>תבניות סכמה סטטיות בקוד (Git-Based Schemas)</strong><br>
+                <span style="font-size: 0.8rem; color: var(--text-muted);">הוספת מחלקת מסמך חדשה דורשת פריסת CDK.</span>
+              </td>
+              <td>
+                מבטיח אפס תוספת השהייה ב-Cold Starts (ולידציה מתחת ל-1ms) ובקרת GitOps מלאה על שינויי מבנה.
+              </td>
+              <td>
+                הטמעת Dynamic Schema Registry מבוסס DynamoDB ו-EventBridge לטעינת סכמות בזמן ריצה.
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <strong>פריסה באזור יחיד (Single Region - <code>us-east-1</code>)</strong><br>
+                <span style="font-size: 0.8rem; color: var(--text-muted);">הפתרון הנוכחי פרוס באזור גיאוגרפי יחיד.</span>
+              </td>
+              <td>
+                עמידות גבוהה Multi-AZ בכלל השירותים (S3, DynamoDB, OpenSearch), וארכיטקטורה מוגדרת כולה ב-CDK.
+              </td>
+              <td>
+                הרחבה לתצורת Multi-Region Active-Passive עם S3 Cross-Region Replication (CRR) ו-DynamoDB Global Tables.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="card" style="border-right: 4px solid var(--accent-emerald);">
+        <div class="card-header">
+          <div class="card-title">
+            <span class="icon-badge emerald">📌</span>
+            שורה תחתונה: ניהול סיכונים אחראי
+          </div>
+        </div>
+        <p style="font-size: 0.92rem; color: var(--text-secondary); line-height: 1.5;">
+          הארכיטקטורה תוכננה בקפידה כך שכל מגבלה טכנולוגית מגודרת על ידי מנגנון הגנה הנדסי (Mitigation) מוכח, תוך שמירה על עמידה מלאה בדרישות רגולטוריות, אבטחת מידע קפדנית ויעילות עלויות מקסימלית.
+        </p>
+      </div>
+    </section>
+
+    <!-- SLIDE 13: Summary & Takeaways -->
+    <section class="slide" data-slide="13">
+      <div class="slide-header">
+        <div class="slide-title-group">
+          <h1>סיכום ותובנות מרכזיות להנהלה</h1>
+          <p>פתרון מודרני, עמיד, סקיילבילי ומאובטח המשלב חדשנות עננית עם בקרה ארגונית מחמירה</p>
+        </div>
+        <div class="slide-tag">Executive Summary</div>
+      </div>
+
+      <div class="grid-2" style="margin-bottom: 1.5rem;">
+        <div class="card" style="background: linear-gradient(135deg, rgba(26, 34, 52, 0.95) 0%, rgba(17, 24, 39, 0.95) 100%);">
+          <div class="card-header">
+            <div class="card-title">
+              <span class="icon-badge emerald">🏆</span>
+              הישגי הארכיטקטורה המרכזיים
+            </div>
+          </div>
+          <ul class="feature-list">
+            <li>
+              <span class="check-icon">✓</span>
+              <div><strong>חסכון דרסטי בעלויות ובביצועים:</strong> שימוש ב-S3 Object Annotations מונע שכפול קבצים בינאריים ומאפשר עריכת מטא-דאטה מהירה ללא עלויות אחסון מיותרות.</div>
+            </li>
+            <li>
+              <span class="check-icon">✓</span>
+              <div><strong>מודל גרסאות דו-ערוצי מדויק:</strong> הבחנה ברורה בין שינוי תוכן קובץ לשינוי נתונים עסקיים, המבטיחה עקיבות מלאה.</div>
+            </li>
+            <li>
+              <span class="check-icon">✓</span>
+              <div><strong>אימות סכמה הדוק ומהיר:</strong> אפס תוספת זמני תגובה (תת-מילישנייה) עם מניעה מוחלטת של הזרקת שדות זרים.</div>
+            </li>
+            <li>
+              <span class="check-icon">✓</span>
+              <div><strong>חוסן מובנה ותיקון עצמי:</strong> שילוב של נעילות OCC, תורי DLQ, ו-Background Reconciliation מבטיח עמידות לאורך זמן.</div>
+            </li>
+          </ul>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">
+              <span class="icon-badge indigo">🧭</span>
+              המלצות וצעדים הבאים להמשך הדרך
+            </div>
+          </div>
+          <ul class="feature-list">
+            <li>
+              <span class="arrow-icon">&larr;</span>
+              <div><strong>אישור והטמעת תבניות נוספות:</strong> הרחבת סכמות ה-JSON Schema למחלקות מסמכים נוספות בארגון (דפי חשבון, תעודות מזהות וכו').</div>
+            </li>
+            <li>
+              <span class="arrow-icon">&larr;</span>
+              <div><strong>הערכות ל-Phase 2:</strong> הטמעת רגיסטרי סכמות דינמי ב-DynamoDB במידת הצורך בניהול סכמות בזמן אמת ע״י משתמשים עסקיים.</div>
+            </li>
+            <li>
+              <span class="arrow-icon">&larr;</span>
+              <div><strong>חיבור לאנליטיקה ארגונית:</strong> ניצול זרימת ה-S3 Annotations ישירות ל-Amazon Athena ו-Apache Iceberg לשאילתות BI ארגוניות.</div>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="card" style="text-align: center; padding: 2rem; background: var(--bg-card);">
+        <h2 style="font-family: var(--font-heading); font-size: 1.6rem; color: var(--text-primary); margin-bottom: 0.5rem;">
+          תודה רבה! שאלות ודיון מקצועי
+        </h2>
+        <p style="color: var(--text-secondary); max-width: 650px; margin: 0 auto; font-size: 1rem;">
+          הארכיטקטורה זמינה, נבדקה מקצה-לקצה (E2E Verified) ומוכנה לפריסה מלאה באמצעות AWS CDK.
+        </p>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Overview Modal (Grid View) -->
+  <div class="overview-modal" id="overviewModal">
+    <div class="overview-content">
+      <div class="overview-header">
+        <h2 style="font-family: var(--font-heading); color: var(--text-primary);">סקירת כל שקפי המצגת</h2>
+        <button class="btn btn-primary" id="btnCloseOverview">סגירה (ESC)</button>
+      </div>
+      <div class="overview-grid" id="overviewGrid">
+        <!-- Injected via JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom Navigation & Keyboard Help -->
+  <footer class="bottom-bar">
+    <div class="kbd-list">
+      <span>קיצורי מקשים:</span>
+      <span><kbd>&larr;</kbd> <kbd>&rarr;</kbd> שקף הבא / קודם</span>
+      <span><kbd>Space</kbd> שקף הבא</span>
+      <span><kbd>O</kbd> סקירה כללית</span>
+      <span><kbd>T</kbd> החלפת עיצוב</span>
+      <span><kbd>F</kbd> מסך מלא</span>
+    </div>
+    <div>
+      AWS Document Management Platform &bull; Solutions Architecture
+    </div>
+  </footer>
+
+  <!-- Script for Navigation, Tabs, Simulator, and Theme -->
+  <script>
+    (function () {
+      const slides = document.querySelectorAll('.slide');
+      const totalSlides = slides.length;
+      let currentSlideIndex = 0;
+
+      const slideCounter = document.getElementById('slideCounter');
+      const progressBar = document.getElementById('progressBar');
+      const btnPrev = document.getElementById('btnPrev');
+      const btnNext = document.getElementById('btnNext');
+      const btnOverview = document.getElementById('btnOverview');
+      const btnCloseOverview = document.getElementById('btnCloseOverview');
+      const overviewModal = document.getElementById('overviewModal');
+      const overviewGrid = document.getElementById('overviewGrid');
+      const btnTheme = document.getElementById('btnTheme');
+      const btnFullscreen = document.getElementById('btnFullscreen');
+
+      // Slide Metadata for Overview
+      const slideMeta = [
+        { num: 1, title: 'פלטפורמת ניהול מסמכים ב-AWS', desc: 'תקציר מנהלים, 3 עמודי התווך וסקירת הפתרון' },
+        { num: 2, title: 'מקור האמת המשולש', desc: 'S3 Annotations, שכבת הבקרה ב-DynamoDB ואינדקס החיפוש' },
+        { num: 3, title: 'פיצ\'ר S3 Object Annotations', desc: 'מדוע לא כותרות ישנות? עד 1MB מטא-דאטה עשיר ועריכה ישירה' },
+        { num: 4, title: 'מבנה המטא-דאטה ומוטביליות', desc: 'הפרדה בין מעטפת מערכת בלתי ניתנת לשינוי לשדות עסקיים' },
+        { num: 5, title: 'מודל הגרסאות הדו-ערוצי', desc: 'הפרדה בין Content Version לבין Metadata Revision ונעילת OCC' },
+        { num: 6, title: 'סימולטור אינטראקטיבי', desc: 'התנסות חיה: עריכת מטא-דאטה מול העלאת גרסת קובץ חדשה' },
+        { num: 7, title: 'תבניות מטא-דאטה וסכמות', desc: 'JSON Schema Draft-07, ולידציית Ajv בזיכרון ה-Lambda' },
+        { num: 8, title: 'מחזור החיים של תבניות', desc: 'תהליך הוספת סכמה ב-GitOps, שינויים תואמים לאחור ושבירות' },
+        { num: 9, title: 'כיצד מוסיפים סכמה חדשה?', desc: 'מדריך מעשי שלב-אחר-שלב: JSON Schema, Validator, Search, Deploy' },
+        { num: 10, title: 'רגיסטרי סכמות דינמי (Phase 2)', desc: 'ניהול סכמות דינמי ב-DynamoDB עם אירועי EventBridge' },
+        { num: 11, title: 'יכולות המערכת הנתמכות', desc: 'קליטה דו-ערוצית, מחיקה רכה, Idempotency, WORM ו-RBAC' },
+        { num: 12, title: 'מגבלות הפתרון ומענה סיכונים', desc: 'מטריצת ניהול סיכונים, השהיות וגבולות טרנזקציוניים' },
+        { num: 13, title: 'סיכום והמלצות הנהלה', desc: 'ערך עסקי, תוצאות הנדסיות וצעדים הבאים' },
+      ];
+
+      // Build Overview Grid
+      function buildOverviewGrid() {
+        overviewGrid.innerHTML = '';
+        slideMeta.forEach((meta, idx) => {
+          const card = document.createElement('div');
+          card.className = `overview-card ${idx === currentSlideIndex ? 'current' : ''}`;
+          card.innerHTML = `
+            <div class="overview-card-num">שקף ${meta.num}</div>
+            <div class="overview-card-title">${meta.title}</div>
+            <div class="overview-card-desc">${meta.desc}</div>
+          `;
+          card.addEventListener('click', () => {
+            goToSlide(idx);
+            closeOverview();
+          });
+          overviewGrid.appendChild(card);
+        });
+      }
+
+      function updateSlideUI() {
+        slides.forEach((slide, idx) => {
+          slide.classList.toggle('active', idx === currentSlideIndex);
+        });
+
+        slideCounter.textContent = `שקף ${currentSlideIndex + 1} / ${totalSlides}`;
+        const pct = ((currentSlideIndex + 1) / totalSlides) * 100;
+        progressBar.style.width = `${pct}%`;
+
+        btnPrev.disabled = currentSlideIndex === 0;
+        btnNext.disabled = currentSlideIndex === totalSlides - 1;
+
+        // Save progress to URL hash
+        window.location.hash = `slide=${currentSlideIndex + 1}`;
+      }
+
+      function goToSlide(index) {
+        if (index >= 0 && index < totalSlides) {
+          currentSlideIndex = index;
+          updateSlideUI();
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+      }
+
+      function nextSlide() {
+        if (currentSlideIndex < totalSlides - 1) {
+          goToSlide(currentSlideIndex + 1);
+        }
+      }
+
+      function prevSlide() {
+        if (currentSlideIndex > 0) {
+          goToSlide(currentSlideIndex - 1);
+        }
+      }
+
+      function openOverview() {
+        buildOverviewGrid();
+        overviewModal.classList.add('active');
+      }
+
+      function closeOverview() {
+        overviewModal.classList.remove('active');
+      }
+
+      // Event Listeners for Nav Buttons
+      btnNext.addEventListener('click', nextSlide);
+      btnPrev.addEventListener('click', prevSlide);
+      btnOverview.addEventListener('click', openOverview);
+      btnCloseOverview.addEventListener('click', closeOverview);
+
+      // Tab Functionality
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const tabId = btn.getAttribute('data-tab');
+          const parentCard = btn.closest('.card');
+          
+          parentCard.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+          parentCard.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+          
+          btn.classList.add('active');
+          const targetPane = document.getElementById(tabId);
+          if (targetPane) targetPane.classList.add('active');
+        });
+      });
+
+      // Keyboard Navigation
+      window.addEventListener('keydown', (e) => {
+        if (overviewModal.classList.contains('active')) {
+          if (e.key === 'Escape') closeOverview();
+          return;
+        }
+
+        switch (e.key) {
+          case 'ArrowLeft':
+          case 'PageDown':
+            nextSlide();
+            break;
+          case 'ArrowRight':
+          case 'PageUp':
+            prevSlide();
+            break;
+          case ' ':
+            if (e.shiftKey) prevSlide();
+            else nextSlide();
+            break;
+          case 'Home':
+            goToSlide(0);
+            break;
+          case 'End':
+            goToSlide(totalSlides - 1);
+            break;
+          case 'o':
+          case 'O':
+          case 'ם':
+            openOverview();
+            break;
+          case 't':
+          case 'T':
+          case 'א':
+            toggleTheme();
+            break;
+          case 'f':
+          case 'F':
+          case 'כ':
+            toggleFullscreen();
+            break;
+        }
+      });
+
+      // Theme toggle
+      function toggleTheme() {
+        const isLight = document.body.getAttribute('data-theme') === 'light';
+        if (isLight) {
+          document.body.removeAttribute('data-theme');
+          localStorage.setItem('theme', 'dark');
+        } else {
+          document.body.setAttribute('data-theme', 'light');
+          localStorage.setItem('theme', 'light');
+        }
+      }
+
+      btnTheme.addEventListener('click', toggleTheme);
+
+      // Load saved theme
+      if (localStorage.getItem('theme') === 'light') {
+        document.body.setAttribute('data-theme', 'light');
+      }
+
+      // Fullscreen
+      function toggleFullscreen() {
+        if (!document.fullscreenElement) {
+          document.documentElement.requestFullscreen().catch(() => {});
+        } else {
+          document.exitFullscreen().catch(() => {});
+        }
+      }
+      btnFullscreen.addEventListener('click', toggleFullscreen);
+
+      // Handle direct hash navigation
+      function checkHash() {
+        const hash = window.location.hash;
+        if (hash.startsWith('#slide=')) {
+          const s = parseInt(hash.replace('#slide=', ''), 10);
+          if (!isNaN(s) && s >= 1 && s <= totalSlides) {
+            currentSlideIndex = s - 1;
+          }
+        }
+        updateSlideUI();
+      }
+      window.addEventListener('hashchange', checkHash);
+      checkHash();
+
+      // ==========================================
+      // Interactive Simulator Logic (Slide 6)
+      // ==========================================
+      const simDynamoView = document.getElementById('simDynamoView');
+      const simS3View = document.getElementById('simS3View');
+      const simSearchView = document.getElementById('simSearchView');
+      const simLogBox = document.getElementById('simLogBox');
+
+      const simBtnCreate = document.getElementById('simBtnCreate');
+      const simBtnPatch = document.getElementById('simBtnPatch');
+      const simBtnConflict = document.getElementById('simBtnConflict');
+      const simBtnNewVer = document.getElementById('simBtnNewVer');
+      const simBtnReset = document.getElementById('simBtnReset');
+
+      let simState = {
+        docId: "550e8400-e29b-41d4-a716-446655440000",
+        appVersion: 1,
+        metaRevision: 1,
+        s3VersionId: "3/L4bqtJlcpXroDTDmJ+rmSpXd3dIawk",
+        branchCode: "TLV-001",
+        loanAmount: 45000000,
+        status: "ACTIVE"
+      };
+
+      function addLog(msg, type = 'info') {
+        const time = new Date().toLocaleTimeString('he-IL');
+        const item = document.createElement('div');
+        item.className = `log-item ${type}`;
+        item.textContent = `[${time}] ${msg}`;
+        simLogBox.appendChild(item);
+        simLogBox.scrollTop = simLogBox.scrollHeight;
+      }
+
+      function renderSim() {
+        // DynamoDB view
+        simDynamoView.innerHTML = `
+<span class="token-comment">// PK: DOC#${simState.docId} | SK: DOC</span>
+{
+  <span class="token-key">"document_id"</span>: <span class="token-str">"${simState.docId}"</span>,
+  <span class="token-key">"current_app_version"</span>: <span class="token-num">${simState.appVersion}</span>,
+  <span class="token-key">"current_metadata_revision"</span>: <span class="token-num">${simState.metaRevision}</span>,
+  <span class="token-key">"current_s3_version_id"</span>: <span class="token-str">"${simState.s3VersionId.substring(0, 16)}..."</span>,
+  <span class="token-key">"status"</span>: <span class="token-str">"${simState.status}"</span>
+}`;
+
+        // S3 view
+        simS3View.innerHTML = `
+<span class="token-comment">// S3 Object Key: documents/loan_agreement/${simState.docId}</span>
+<span class="token-comment">// Target S3 VersionId: ${simState.s3VersionId.substring(0, 16)}...</span>
+<span class="token-comment">// Annotation: "document-metadata"</span>
+{
+  <span class="token-key">"annotation_schema"</span>: <span class="token-str">"bank.document-metadata/1"</span>,
+  <span class="token-key">"application_version"</span>: <span class="token-num">${simState.appVersion}</span>,
+  <span class="token-key">"metadata_revision"</span>: <span class="token-num">${simState.metaRevision}</span>,
+  <span class="token-key">"branch_code"</span>: <span class="token-str">"${simState.branchCode}"</span>,
+  <span class="token-key">"loan_amount_minor_units"</span>: <span class="token-num">${simState.loanAmount}</span>
+}`;
+
+        // OpenSearch view
+        simSearchView.innerHTML = `
+<span class="token-comment">// OpenSearch Index: documents-v1</span>
+{
+  <span class="token-key">"document_id"</span>: <span class="token-str">"${simState.docId}"</span>,
+  <span class="token-key">"application_version"</span>: <span class="token-num">${simState.appVersion}</span>,
+  <span class="token-key">"metadata_revision"</span>: <span class="token-num">${simState.metaRevision}</span>,
+  <span class="token-key">"branch_code"</span>: <span class="token-str">"${simState.branchCode}"</span>,
+  <span class="token-key">"loan_amount_minor_units"</span>: <span class="token-num">${simState.loanAmount}</span>,
+  <span class="token-key">"status"</span>: <span class="token-str">"${simState.status}"</span>
+}`;
+      }
+
+      if (simBtnCreate) {
+        simBtnCreate.addEventListener('click', () => {
+          simState = {
+            docId: "550e8400-e29b-41d4-a716-446655440000",
+            appVersion: 1,
+            metaRevision: 1,
+            s3VersionId: "3/L4bqtJlcpXroDTDmJ+rmSpXd3dIawk",
+            branchCode: "TLV-001",
+            loanAmount: 45000000,
+            status: "ACTIVE"
+          };
+          renderSim();
+          addLog('מסמך חדש נוצר בהצלחה (POST /v1/documents): app_version=1, rev=1, S3 VersionId נוצר.', 'success');
+        });
+
+        simBtnPatch.addEventListener('click', () => {
+          const oldRev = simState.metaRevision;
+          simState.metaRevision += 1;
+          simState.branchCode = simState.branchCode === "TLV-001" ? "TLV-HERZLIYA-002" : "TLV-001";
+          renderSim();
+          addLog(`עריכת מטא-דאטה (PATCH /metadata עם expected_revision=${oldRev}): רוויזיה קודמה ל-${simState.metaRevision}. אפס גרסאות בינאריות חדשות ב-S3!`, 'success');
+        });
+
+        simBtnConflict.addEventListener('click', () => {
+          const staleRev = simState.metaRevision - 1 > 0 ? simState.metaRevision - 1 : 1;
+          addLog(`ניסיון PATCH עם רוויזיה לא מעודכנת (expected_revision=${staleRev}, בעוד שב-DynamoDB הרוויזיה היא ${simState.metaRevision}) &larr; נחסם ב-409 METADATA_CONFLICT!`, 'error');
+        });
+
+        simBtnNewVer.addEventListener('click', () => {
+          simState.appVersion += 1;
+          simState.metaRevision = 1; // איפוס רוויזיה לגרסה חדשה
+          simState.s3VersionId = "4/" + Math.random().toString(36).substring(2, 15);
+          renderSim();
+          addLog(`קובץ בינארי חדש הועלה (POST /versions): app_version קודם ל-${simState.appVersion}, S3 VersionId חדש נוצר, ו-metadata_revision אופס ל-1.`, 'warn');
+        });
+
+        simBtnReset.addEventListener('click', () => {
+          simState = {
+            docId: "550e8400-e29b-41d4-a716-446655440000",
+            appVersion: 1,
+            metaRevision: 1,
+            s3VersionId: "3/L4bqtJlcpXroDTDmJ+rmSpXd3dIawk",
+            branchCode: "TLV-001",
+            loanAmount: 45000000,
+            status: "ACTIVE"
+          };
+          renderSim();
+          simLogBox.innerHTML = '<div class="log-item info">[סימולטור אופס] בחר פעולה לבדיקה.</div>';
+        });
+
+        renderSim();
+      }
+
+    })();
+  </script>
+</body>
+</html>

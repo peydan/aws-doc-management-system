@@ -9,7 +9,7 @@ import { SearchStack } from '../lib/search-stack';
 import { ComputeStack } from '../lib/compute-stack';
 import { ApiStack } from '../lib/api-stack';
 import { ObservabilityStack } from '../lib/observability-stack';
-import { FrontendStack } from '../lib/frontend-stack';
+import { ServerlessFrontendStack } from '../lib/serverless-frontend-stack';
 
 const app = new cdk.App();
 const env = {
@@ -75,8 +75,8 @@ new ObservabilityStack(app, 'DocPlatformObservabilityStack', {
   api: apiStack.api,
 });
 
-// 9. Hardened Production Frontend Stack (ECS Fargate + ALB)
-new FrontendStack(app, 'DocPlatformFrontendStack', {
+// 9. 100% Serverless Frontend Stack (CloudFront + S3 SPA - Zero Idle Cost)
+new ServerlessFrontendStack(app, 'DocPlatformServerlessFrontendStack', {
   env,
   api: apiStack.api,
   userPool: securityStack.userPool,

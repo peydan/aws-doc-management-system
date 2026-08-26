@@ -63,9 +63,13 @@ export class ComputeStack extends cdk.Stack {
     const s3AnnotationWritePolicy = new iam.PolicyStatement({
       actions: [
         's3:PutObjectAnnotation',
+        's3:PutObjectVersionAnnotation',
         's3:GetObjectAnnotation',
+        's3:GetObjectVersionAnnotation',
         's3:DeleteObjectAnnotation',
+        's3:DeleteObjectVersionAnnotation',
         's3:ListObjectAnnotations',
+        's3:ListObjectVersionAnnotations',
       ],
       resources: [`${props.documentBucket.bucketArn}/*`],
     });
@@ -73,7 +77,9 @@ export class ComputeStack extends cdk.Stack {
     const s3AnnotationReadPolicy = new iam.PolicyStatement({
       actions: [
         's3:GetObjectAnnotation',
+        's3:GetObjectVersionAnnotation',
         's3:ListObjectAnnotations',
+        's3:ListObjectVersionAnnotations',
       ],
       resources: [`${props.documentBucket.bucketArn}/*`],
     });

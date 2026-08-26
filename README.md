@@ -17,7 +17,7 @@ An enterprise-grade, cloud-native document management platform built entirely on
 - **Full-Text & Multi-Attribute Search (Amazon OpenSearch Serverless)**: Real-time asynchronous indexing via DynamoDB Streams + SQS + Lambda worker.
 - **Enterprise Security & RBAC**: Granular role-based access control (`Admin`, `Editor`, `Viewer`) enforced via Amazon Cognito JWT authorizers and IAM least privilege.
 - **Dynamic Multi-Tenant Schema Registry**: Precompiled, zero-cold-start JSON Schema validation (`Ajv`) for dynamic document types (e.g., Loans, IDs, Contracts).
-- **Interactive Management UI**: Complete Python Streamlit GUI for document upload, search, version lineage browsing, schema editor, and direct downloads.
+- **Interactive Management Web Portal**: 100% serverless Single-Page Application (SPA) hosted on Amazon CloudFront + S3 with 1-click Cognito persona authentication, OpenSearch Explorer, direct S3 upload with client-side SHA256 checksums, and document viewer.
 - **Production Resilience**: SQS Dead Letter Queues (DLQ), automated background reconciliation, and CloudWatch alarms.
 
 ---
@@ -26,7 +26,7 @@ An enterprise-grade, cloud-native document management platform built entirely on
 
 ```text
 +----------------------------------------------------------------------------------------------------+
-|                                    CONSUMER / CLIENT / STREAMLIT GUI                               |
+|                      SERVERLESS SPA (AMAZON CLOUDFRONT + S3 WEB PORTAL)                            |
 +----------------------------------------------------------------------------------------------------+
                                                   |
                                      HTTPS / REST | (Cognito JWT Bearer)
@@ -70,12 +70,11 @@ An enterprise-grade, cloud-native document management platform built entirely on
 ```
 .
 ├── bin/                             # CDK application entry point
-├── lib/                             # AWS CDK infrastructure stacks (Storage, API, Search, Auth)
+├── lib/                             # AWS CDK infrastructure stacks (Storage, API, Search, Auth, Frontend)
 ├── src/                             # Lambda handlers (Commands, Queries, Search, Stream Processor)
+├── frontend/                        # Serverless Web Portal assets (HTML5, Vanilla JS, CSS)
 ├── schemas/                         # Dynamic Document JSON Schemas
-├── scripts/                         # Seeding, E2E demo scenarios, and annotation migrations
-├── app.py                           # Local Streamlit Management GUI
-├── app_for_deployment.py            # Containerized / Production Streamlit GUI
+├── scripts/                         # Seeding, deployment, E2E scenarios, and migrations
 ├── openapi.yaml                     # OpenAPI 3.0 Specification
 ├── postman_collection.json          # Postman E2E Test Suite
 ├── SOLUTION_ARCHITECTURE_SPECIFICATION.md # Deep-dive 1,300+ line technical architecture specification
@@ -90,7 +89,6 @@ An enterprise-grade, cloud-native document management platform built entirely on
 
 ### Prerequisites
 - Node.js 20+ & npm
-- Python 3.10+
 - AWS CLI configured with active credentials
 - AWS CDK CLI (`npm install -g aws-cdk`)
 
@@ -108,14 +106,13 @@ npx cdk deploy --all
 npm run seed
 ```
 
-### 3. Launch the Management GUI
+### 3. Launch or Deploy the Web Portal
 ```bash
-# Install UI dependencies
-pip install -r requirements-gui.txt
+# Upload web portal assets to Amazon S3 & CloudFront
+npm run deploy:frontend-assets
 
-# Run the Streamlit application
-npm run gui
-# Or: streamlit run app.py
+# Or run locally for development
+npm run gui:local
 ```
 
 ---

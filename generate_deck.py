@@ -11,9 +11,9 @@ Covers:
 - Optimistic Concurrency Control (OCC) & Schema Evolution
 - Bimodal Ingestion (Inline vs Direct S3 Presigned)
 - All 15 Exposed APIs & Sequence Flows with High-Resolution Diagram Embeds
-- Streamlit UI & Backend Client Integration
+- Serverless Web Portal & Client Integration (CloudFront + S3 SPA)
 - Security, RBAC & Cryptographic Governance (KMS CMK, WORM)
-- AWS CDK v2 Infrastructure as Code (8 Modular Stacks)
+- AWS CDK v2 Infrastructure as Code (Modular Stacks)
 - Resiliency, Failure Modes, DLQ & Reconciliation
 - Strategic Architecture Conclusion & Production Acceptance
 """
@@ -1266,14 +1266,6 @@ def build_presentation(output_path="AWS_Document_Management_Platform_Architectur
     p.font.size = Pt(11)
     p.font.bold = True
     p.font.color.rgb = ACCENT_PURPLE
-
-    p_sub = tf18.add_paragraph()
-    p_sub.text = "• OpenSearch Search (15): Executes SigV4-signed multi-field DSL queries with numeric/date ranges and stateless cursor pagination (search_after).\n• Deep Health Check (01): Probes API Gateway, DynamoDB table, S3 document bucket, and OpenSearch Serverless collection in parallel, returning 200 OK with per-service latencies."
-    p_sub.font.name = FONT_FAMILY
-    p_sub.font.size = Pt(9)
-    p_sub.font.color.rgb = TEXT_WHITE
-    p_sub.space_before = Pt(2)
-
     add_footer(slide18, 18, TOTAL_SLIDES)
 
     # =========================================================================
@@ -1281,8 +1273,8 @@ def build_presentation(output_path="AWS_Document_Management_Platform_Architectur
     # =========================================================================
     slide19 = prs.slides.add_slide(blank_layout)
     set_slide_background(slide19)
-    add_header(slide19, "Frontend UI & Backend Integration Architecture",
-               "Streamlit Interactive Client, Cognito JWT Authentication & Automated API Client Layer",
+    add_header(slide19, "Serverless Web Portal & Client Integration Architecture",
+               "CloudFront + S3 SPA, Cognito JWT Authentication & Client-Side SHA256 Checksums",
                "Client Integration Architecture")
 
     ui_img = "diagrams/ui_backend_integration_architecture.png"
@@ -1302,10 +1294,10 @@ def build_presentation(output_path="AWS_Document_Management_Platform_Architectur
     p.font.color.rgb = AWS_ORANGE
 
     ui_points = [
-        ("• Persona Role Simulator: ", "Allows seamless switching between Document.Reader, Document.Writer, Document.MetadataEditor, and Document.Admin roles to test RBAC boundaries."),
+        ("• 1-Click Persona Simulator: ", "Instant token generation for Document.Admin, Document.Writer, Document.Reader, and Compliance Officer."),
         ("• Automatic Token Ingress: ", "Signs all HTTP requests with Cognito OAuth 2.0 / OpenID Connect JWT tokens."),
-        ("• Bimodal File Upload UI: ", "Auto-selects inline vs. direct presigned upload based on file size threshold (4 MiB)."),
-        ("• Interactive OCC Sandbox: ", "Visualizes optimistic concurrency conflicts with simulated parallel editors and conflict resolution.")
+        ("• Bimodal File Upload UI: ", "Direct S3 presigned upload with client-side SHA256 hashing and inline binary upload (< 4 MiB)."),
+        ("• OpenSearch Discovery: ", "Real-time faceted exploration with dynamic status and attribute filters.")
     ]
     for label, desc in ui_points:
         p = tf.add_paragraph()
@@ -1318,21 +1310,17 @@ def build_presentation(output_path="AWS_Document_Management_Platform_Architectur
 
         run = p.add_run()
         run.text = desc
-        run.font.bold = False
+        run.font.name = FONT_FAMILY
+        run.font.size = Pt(9.5)
         run.font.color.rgb = TEXT_MUTED
 
     add_footer(slide19, 19, TOTAL_SLIDES)
 
     # =========================================================================
-    # SLIDE 20: Security, RBAC & Cryptographic Controls
+    # SLIDE 20: Cost Model & Financial Sizing
     # =========================================================================
     slide20 = prs.slides.add_slide(blank_layout)
     set_slide_background(slide20)
-    add_header(slide20, "Security, Governance & Cryptographic Controls",
-               "Role-Based Access Control Matrix, KMS Customer Managed Key Encryption & WORM Protection",
-               "Security & Compliance")
-
-    add_card(slide20, Inches(0.8), Inches(1.7), Inches(6.0), Inches(5.1), CARD_BG, CARD_BORDER)
     left_b = slide20.shapes.add_textbox(Inches(1.0), Inches(1.85), Inches(5.6), Inches(4.8))
     tf = left_b.text_frame
     tf.word_wrap = True
