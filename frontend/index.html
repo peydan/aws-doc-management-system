@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>AWS Document Management Platform — Serverless Portal</title>
-  <link rel="stylesheet" href="styles.css?v=3" />
+  <link rel="stylesheet" href="styles.css?v=4" />
 </head>
 <body class="unauthenticated">
 
@@ -79,12 +79,12 @@
 
           <div class="form-group">
             <label class="form-label">Cognito Username / Email</label>
-            <input type="text" id="login-username" class="form-control" placeholder="e.g. admin-user" value="admin-user" />
+            <input type="text" id="login-username" class="form-control" placeholder="Enter username (e.g. admin-user)" autocomplete="username" />
           </div>
 
           <div class="form-group">
             <label class="form-label">Password</label>
-            <input type="password" id="login-password" class="form-control" placeholder="••••••••••••" value="DemoPassword123!" />
+            <input type="password" id="login-password" class="form-control" placeholder="Enter password" autocomplete="current-password" />
           </div>
 
           <button id="btn-login-submit" class="btn btn-primary btn-block" style="margin-top: 1.5rem;" onclick="handleCustomLogin()">
@@ -713,6 +713,6 @@
   <!-- Toast Notification Container -->
   <div id="toast-container"></div>
 
-  <script src="app.js?v=3"></script>
+  <script src="app.js?v=4"></script>
 </body>
 </html>
