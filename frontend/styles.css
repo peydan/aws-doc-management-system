@@ -432,26 +432,6 @@ textarea.code-area {
   cursor: not-allowed;
 }
 
-/* Persona selection button */
-.persona-btn {
-  text-align: left;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px 16px;
-  background-color: #1e293b;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
-  color: var(--text-main);
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.persona-btn:hover {
-  border-color: var(--aws-orange);
-  background-color: rgba(255, 153, 0, 0.05);
-}
-
 /* Upload Dropzone */
 .dropzone {
   border: 2px dashed var(--border-color);

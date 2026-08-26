@@ -128,18 +128,28 @@ async function authenticateCognito(username, password) {
   return token;
 }
 
-async function loginPersona(username, password) {
+async function loginUser(username, password) {
+  const submitBtn = document.getElementById('btn-login-submit');
   try {
-    showToast(`Authenticating as ${username}...`, 'info');
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.innerText = '⏳ Authenticating...';
+    }
+    showToast(`Authenticating ${username}...`, 'info');
     const token = await authenticateCognito(username, password);
     parseAndSetToken(token);
-    showToast(`Welcome, ${username}! Portal unlocked.`, 'success');
+    showToast(`Welcome, ${username}! Access granted.`, 'success');
   } catch (err) {
     showToast(`Authentication failed: ${err.message}`, 'danger');
+  } finally {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.innerText = '🚀 Sign In & Enter Portal';
+    }
   }
 }
 
-async function handleCustomLogin() {
+async function handleLogin() {
   const username = document.getElementById('login-username').value.trim();
   const password = document.getElementById('login-password').value;
 
@@ -148,7 +158,7 @@ async function handleCustomLogin() {
     return;
   }
 
-  await loginPersona(username, password);
+  await loginUser(username, password);
 }
 
 function parseAndSetToken(token) {
