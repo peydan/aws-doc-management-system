@@ -41,5 +41,4 @@ env/
 Thumbs.db
 .vscode/
 .idea/
-.agents/
 *.log
