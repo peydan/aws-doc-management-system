@@ -53,20 +53,38 @@ paths:
       operationId: uploadInlineDocument
       security:
         - CognitoAuth: []
-      headers:
-        Idempotency-Key:
+      parameters:
+        - name: X-Document-Metadata
+          in: header
+          required: true
+          schema:
+            type: string
+          description: >
+            Base64-encoded or raw JSON envelope of document metadata conforming to one of the 3 templates:
+            loan_agreement, compliance_retention, or security_classification.
+          examples:
+            loan_agreement_example:
+              summary: Loan Agreement Metadata
+              value: '{"document_class":"loan_agreement","document_type":"SIGNED_AGREEMENT","customer_id":"IL-4492817","loan_number":"LN-2026-88821","loan_amount_minor_units":90000000,"currency":"ILS","loan_type":"MORTGAGE","branch_code":"TLV-04","signed_date":"2026-07-15"}'
+            compliance_retention_example:
+              summary: Compliance & Retention Metadata
+              value: '{"document_class":"compliance_retention","document_type":"FINANCIAL_LEDGER","retention_schedule_code":"RET-FIN-001","retention_period_years":7,"regulatory_framework":"SOX","retention_start_date":"2026-01-01","retention_expiry_date":"2033-01-01","legal_hold_active":false,"disposal_action":"TRANSITION_TO_GLACIER","compliance_officer_id":"USR-COMP-9912"}'
+            security_classification_example:
+              summary: Security Classification Metadata
+              value: '{"document_class":"security_classification","document_type":"BOARD_RESOLUTION","confidentiality_tier":"HIGHLY_CONFIDENTIAL","contains_pii":true,"pii_categories":["NATIONAL_ID","FINANCIAL_ACCOUNT"],"minimum_clearance_role":"Document.Admin","encryption_requirement":"SSE_KMS_CUSTOM_KEY","data_residency_jurisdiction":"IL","export_restricted":true,"classification_owner":"CISO_OFFICE"}'
+        - name: X-Content-SHA256
+          in: header
+          required: true
+          schema:
+            type: string
+          description: SHA-256 checksum of raw payload bytes.
+        - name: Idempotency-Key
+          in: header
+          required: false
           schema:
             type: string
             format: uuid
           description: Unique idempotency key for mutation safety.
-        X-Content-SHA256:
-          schema:
-            type: string
-          description: SHA-256 checksum of raw payload bytes.
-        X-Document-Metadata:
-          schema:
-            type: string
-          description: Base64-encoded or raw JSON envelope of document metadata.
       requestBody:
         required: true
         description: Raw binary document bytes (PDF, TIFF, JPEG, Office).
@@ -524,7 +542,7 @@ components:
         current_metadata_revision:
           type: integer
         metadata:
-          $ref: '#/components/schemas/LoanAgreementMetadata'
+          $ref: '#/components/schemas/DocumentMetadata'
         download_url:
           type: string
           format: uri
@@ -560,6 +578,7 @@ components:
       properties:
         document_class:
           type: string
+          enum: [loan_agreement, compliance_retention, security_classification]
           default: loan_agreement
         filename:
           type: string
@@ -574,7 +593,7 @@ components:
           type: string
           example: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
         metadata:
-          $ref: '#/components/schemas/LoanAgreementMetadata'
+          $ref: '#/components/schemas/DocumentMetadata'
 
     DirectUploadInitResponse:
       type: object
@@ -610,13 +629,10 @@ components:
           example: CORRECTION
         changes:
           type: object
-          properties:
-            branch_code:
-              type: string
-              example: TLV-05
-            loan_amount_minor_units:
-              type: integer
-              example: 95000000
+          description: Key-value map of mutable metadata fields to update according to document class.
+          example:
+            branch_code: TLV-05
+            loan_amount_minor_units: 95000000
 
     MetadataUpdateResponse:
       type: object
@@ -629,7 +645,7 @@ components:
         updated_at:
           type: string
         metadata:
-          $ref: '#/components/schemas/LoanAgreementMetadata'
+          $ref: '#/components/schemas/DocumentMetadata'
 
     SearchRequest:
       type: object
@@ -639,6 +655,7 @@ components:
           properties:
             document_class:
               type: string
+              enum: [loan_agreement, compliance_retention, security_classification]
               example: loan_agreement
             customer_id:
               type: string
@@ -652,6 +669,12 @@ components:
             branch_code:
               type: string
               example: TLV-04
+            regulatory_framework:
+              type: string
+              example: SOX
+            confidentiality_tier:
+              type: string
+              example: RESTRICTED
             created_from:
               type: string
               format: date-time
@@ -686,7 +709,7 @@ components:
         items:
           type: array
           items:
-            $ref: '#/components/schemas/LoanAgreementMetadata'
+            $ref: '#/components/schemas/DocumentMetadata'
         next_cursor:
           type: array
           nullable: true
@@ -695,9 +718,24 @@ components:
         total:
           type: integer
 
+    DocumentMetadata:
+      type: object
+      description: Polymorphic document metadata schema resolved by document_class.
+      oneOf:
+        - $ref: '#/components/schemas/LoanAgreementMetadata'
+        - $ref: '#/components/schemas/ComplianceRetentionMetadata'
+        - $ref: '#/components/schemas/SecurityClassificationMetadata'
+      discriminator:
+        propertyName: document_class
+        mapping:
+          loan_agreement: '#/components/schemas/LoanAgreementMetadata'
+          compliance_retention: '#/components/schemas/ComplianceRetentionMetadata'
+          security_classification: '#/components/schemas/SecurityClassificationMetadata'
+
     LoanAgreementMetadata:
       type: object
       required:
+        - document_class
         - customer_id
         - loan_number
         - loan_amount_minor_units
@@ -707,22 +745,27 @@ components:
       properties:
         annotation_schema:
           type: string
-          example: bank.document-metadata/1
+          example: bank.document-metadata/loan_agreement/1
         document_id:
           type: string
+          format: uuid
         document_class:
           type: string
+          enum: [loan_agreement]
           example: loan_agreement
         application_version:
           type: integer
+          example: 1
         metadata_revision:
           type: integer
+          example: 1
         schema_version:
           type: integer
           example: 1
         document_type:
           type: string
           enum: [SIGNED_AGREEMENT, APPLICATION, DISCLOSURE, PROMISSORY_NOTE]
+          example: SIGNED_AGREEMENT
         customer_id:
           type: string
           example: IL-4492817
@@ -738,6 +781,7 @@ components:
         loan_type:
           type: string
           enum: [MORTGAGE, PERSONAL, COMMERCIAL, AUTO]
+          example: MORTGAGE
         branch_code:
           type: string
           example: TLV-04
@@ -752,9 +796,171 @@ components:
           example: 204800
         content_checksum:
           type: string
+          example: sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
         filename:
           type: string
           example: loan_LN-2026-88821.pdf
+
+    ComplianceRetentionMetadata:
+      type: object
+      required:
+        - document_class
+        - document_type
+        - retention_schedule_code
+        - retention_period_years
+        - regulatory_framework
+        - retention_start_date
+        - retention_expiry_date
+        - legal_hold_active
+        - disposal_action
+        - compliance_officer_id
+      properties:
+        annotation_schema:
+          type: string
+          example: bank.document-metadata/compliance_retention/1
+        document_id:
+          type: string
+          format: uuid
+        document_class:
+          type: string
+          enum: [compliance_retention]
+          example: compliance_retention
+        application_version:
+          type: integer
+          example: 1
+        metadata_revision:
+          type: integer
+          example: 1
+        schema_version:
+          type: integer
+          example: 1
+        document_type:
+          type: string
+          enum: [STATUTORY_RECORD, FINANCIAL_LEDGER, AUDIT_EVIDENCE, CONTRACT_ARCHIVE, COMMUNICATION_LOG]
+          example: FINANCIAL_LEDGER
+        retention_schedule_code:
+          type: string
+          example: RET-FIN-001
+        retention_period_years:
+          type: integer
+          minimum: 1
+          maximum: 100
+          example: 7
+        regulatory_framework:
+          type: string
+          enum: [SOX, FINRA, GDPR, BASEL_III, LOCAL_BANKING_DIRECTIVE]
+          example: SOX
+        retention_start_date:
+          type: string
+          example: '2026-01-01'
+        retention_expiry_date:
+          type: string
+          example: '2033-01-01'
+        legal_hold_active:
+          type: boolean
+          example: false
+        legal_hold_case_id:
+          type: string
+        disposal_action:
+          type: string
+          enum: [PERMANENT_DELETE, TRANSITION_TO_GLACIER, MANUAL_DISPOSAL_REVIEW]
+          example: TRANSITION_TO_GLACIER
+        compliance_officer_id:
+          type: string
+          example: USR-COMP-9912
+        content_type:
+          type: string
+          example: application/pdf
+        content_length:
+          type: integer
+          example: 512000
+        content_checksum:
+          type: string
+          example: sha256:f4b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b999
+        filename:
+          type: string
+          example: ledger_2026_q1.pdf
+
+    SecurityClassificationMetadata:
+      type: object
+      required:
+        - document_class
+        - document_type
+        - confidentiality_tier
+        - contains_pii
+        - pii_categories
+        - minimum_clearance_role
+        - encryption_requirement
+        - data_residency_jurisdiction
+        - export_restricted
+        - classification_owner
+      properties:
+        annotation_schema:
+          type: string
+          example: bank.document-metadata/security_classification/1
+        document_id:
+          type: string
+          format: uuid
+        document_class:
+          type: string
+          enum: [security_classification]
+          example: security_classification
+        application_version:
+          type: integer
+          example: 1
+        metadata_revision:
+          type: integer
+          example: 1
+        schema_version:
+          type: integer
+          example: 1
+        document_type:
+          type: string
+          enum: [CUSTOMER_RECORD, INTERNAL_MEMO, BOARD_RESOLUTION, FINANCIAL_FORECAST, SECURITY_ASSESSMENT]
+          example: BOARD_RESOLUTION
+        confidentiality_tier:
+          type: string
+          enum: [PUBLIC, INTERNAL, RESTRICTED, HIGHLY_CONFIDENTIAL]
+          example: HIGHLY_CONFIDENTIAL
+        contains_pii:
+          type: boolean
+          example: true
+        pii_categories:
+          type: array
+          items:
+            type: string
+            enum: [NATIONAL_ID, FINANCIAL_ACCOUNT, BIOMETRIC, CONTACT_INFO, CREDIT_SCORE, NONE]
+          example: [NATIONAL_ID, FINANCIAL_ACCOUNT]
+        minimum_clearance_role:
+          type: string
+          enum: [Document.Reader, Document.Writer, Document.Admin, Compliance.Auditor, Executive.Only]
+          example: Document.Admin
+        encryption_requirement:
+          type: string
+          enum: [SSE_S3, SSE_KMS_DEFAULT, SSE_KMS_CUSTOM_KEY, DUAL_LAYER_KMS]
+          example: SSE_KMS_CUSTOM_KEY
+        data_residency_jurisdiction:
+          type: string
+          enum: [IL, EU, US, GLOBAL]
+          example: IL
+        export_restricted:
+          type: boolean
+          example: true
+        classification_owner:
+          type: string
+          example: CISO_OFFICE
+        content_type:
+          type: string
+          example: application/pdf
+        content_length:
+          type: integer
+          example: 1048576
+        content_checksum:
+          type: string
+          example: sha256:d8b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b111
+        filename:
+          type: string
+          example: board_minutes_2026_q2.pdf
 
     ErrorEnvelope:
       type: object
