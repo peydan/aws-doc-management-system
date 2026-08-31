@@ -440,22 +440,38 @@ async function calculateSHA256(arrayBuffer) {
   return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
-const METADATA_TEMPLATES = {
+const SHARED_BASE_TEMPLATE = {
+  customer_id: 1094827,
+  complete_customer_id_code: {
+    id_number: '123456789',
+    id_type: 1,
+  },
+  account_id: {
+    bank_id: 10,
+    branch_id: 802,
+    account_number: 123456,
+  },
+  business_area_code: 100,
+  business_sub_area_code: 101,
+  document_group_id: 'GRP-FIN-001',
+};
+
+const CLASS_SPECIFIC_TEMPLATES = {
   loan_agreement: {
-    customer_id: 'IL-4492817',
+    document_type: 'SIGNED_AGREEMENT',
     loan_number: 'LN-2026-88821',
     loan_amount_minor_units: 150000000,
     currency: 'ILS',
     loan_type: 'MORTGAGE',
-    document_type: 'SIGNED_AGREEMENT',
     branch_code: 'TLV-01',
+    signed_date: '2026-08-31',
   },
   compliance_retention: {
     document_type: 'FINANCIAL_LEDGER',
     retention_schedule_code: 'RET-FIN-001',
     retention_period_years: 7,
     regulatory_framework: 'SOX',
-    retention_start_date: '2026-08-26',
+    retention_start_date: '2026-08-31',
     retention_expiry_date: '2033-12-31',
     legal_hold_active: false,
     disposal_action: 'PERMANENT_DELETE',
@@ -474,17 +490,38 @@ const METADATA_TEMPLATES = {
   },
 };
 
+const METADATA_TEMPLATES = {
+  loan_agreement: {
+    ...SHARED_BASE_TEMPLATE,
+    ...CLASS_SPECIFIC_TEMPLATES.loan_agreement,
+  },
+  compliance_retention: {
+    ...SHARED_BASE_TEMPLATE,
+    ...CLASS_SPECIFIC_TEMPLATES.compliance_retention,
+  },
+  security_classification: {
+    ...SHARED_BASE_TEMPLATE,
+    ...CLASS_SPECIFIC_TEMPLATES.security_classification,
+  },
+};
+
 function onDirectClassChange(className) {
-  const el = document.getElementById('direct-metadata');
-  if (el && METADATA_TEMPLATES[className]) {
-    el.value = JSON.stringify(METADATA_TEMPLATES[className], null, 2);
+  const badge = document.getElementById('direct-class-badge');
+  if (badge) badge.innerText = className;
+
+  const classEl = document.getElementById('direct-class-metadata');
+  if (classEl && CLASS_SPECIFIC_TEMPLATES[className]) {
+    classEl.value = JSON.stringify(CLASS_SPECIFIC_TEMPLATES[className], null, 2);
   }
 }
 
 function onInlineClassChange(className) {
-  const el = document.getElementById('inline-metadata');
-  if (el && METADATA_TEMPLATES[className]) {
-    el.value = JSON.stringify(METADATA_TEMPLATES[className], null, 2);
+  const badge = document.getElementById('inline-class-badge');
+  if (badge) badge.innerText = className;
+
+  const classEl = document.getElementById('inline-class-metadata');
+  if (classEl && CLASS_SPECIFIC_TEMPLATES[className]) {
+    classEl.value = JSON.stringify(CLASS_SPECIFIC_TEMPLATES[className], null, 2);
   }
 }
 
@@ -495,13 +532,26 @@ async function executeDirectUpload() {
   }
 
   const docClass = document.getElementById('direct-doc-class').value;
-  let metadata = {};
+  let sharedMeta = {};
+  let classMeta = {};
+
   try {
-    metadata = JSON.parse(document.getElementById('direct-metadata').value);
+    const sharedRaw = document.getElementById('direct-shared-metadata')?.value || '{}';
+    sharedMeta = JSON.parse(sharedRaw);
   } catch (e) {
-    showToast('Invalid JSON in custom metadata', 'danger');
+    showToast('Invalid JSON in Shared Banking Metadata', 'danger');
     return;
   }
+
+  try {
+    const classRaw = document.getElementById('direct-class-metadata')?.value || '{}';
+    classMeta = JSON.parse(classRaw);
+  } catch (e) {
+    showToast('Invalid JSON in Class-Specific Metadata', 'danger');
+    return;
+  }
+
+  const metadata = { ...sharedMeta, ...classMeta };
 
   const progressContainer = document.getElementById('direct-progress-container');
   const progressBar = document.getElementById('direct-progress-bar');
@@ -602,13 +652,26 @@ async function executeInlineUpload() {
   }
 
   const docClass = document.getElementById('inline-doc-class').value;
-  let metadata = {};
+  let sharedMeta = {};
+  let classMeta = {};
+
   try {
-    metadata = JSON.parse(document.getElementById('inline-metadata').value);
+    const sharedRaw = document.getElementById('inline-shared-metadata')?.value || '{}';
+    sharedMeta = JSON.parse(sharedRaw);
   } catch (e) {
-    showToast('Invalid JSON metadata', 'danger');
+    showToast('Invalid JSON in Shared Banking Metadata', 'danger');
     return;
   }
+
+  try {
+    const classRaw = document.getElementById('inline-class-metadata')?.value || '{}';
+    classMeta = JSON.parse(classRaw);
+  } catch (e) {
+    showToast('Invalid JSON in Class-Specific Metadata', 'danger');
+    return;
+  }
+
+  const metadata = { ...sharedMeta, ...classMeta };
 
   const resultBox = document.getElementById('upload-result-box');
 

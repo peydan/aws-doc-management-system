@@ -181,8 +181,19 @@ s3://doc-platform-mvp-docs-{account}-{region}/
   "application_version": 3,
   "metadata_revision": 2,
   "schema_version": 1,
+  "customer_id": 1094827,
+  "complete_customer_id_code": {
+    "id_number": "123456789",
+    "id_type": 1
+  },
+  "account_id": {
+    "bank_id": 10,
+    "branch_id": 802,
+    "account_number": 123456
+  },
+  "business_area_code": 100,
+  "business_sub_area_code": 101,
   "document_type": "SIGNED_AGREEMENT",
-  "customer_id": "IL-4492817",
   "loan_number": "LN-2026-88821",
   "loan_amount_minor_units": 90000000,
   "currency": "ILS",

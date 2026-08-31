@@ -2,49 +2,34 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "bank.document-metadata/1",
   "title": "LoanAgreementMetadataV1",
-  "type": "object",
-  "required": [
-    "annotation_schema",
-    "document_id",
-    "document_class",
-    "application_version",
-    "metadata_revision",
-    "schema_version",
-    "document_type",
-    "customer_id",
-    "loan_number",
-    "loan_amount_minor_units",
-    "currency",
-    "loan_type",
-    "branch_code",
-    "signed_date",
-    "content_type",
-    "content_length",
-    "filename"
-  ],
-  "properties": {
-    "annotation_schema": { "type": "string", "const": "bank.document-metadata/1" },
-    "document_id": { "type": "string", "format": "uuid" },
-    "document_class": { "type": "string", "const": "loan_agreement" },
-    "application_version": { "type": "integer", "minimum": 1 },
-    "metadata_revision": { "type": "integer", "minimum": 1 },
-    "schema_version": { "type": "integer", "const": 1 },
-    "document_type": { "type": "string", "enum": ["SIGNED_AGREEMENT", "APPLICATION", "DISCLOSURE", "PROMISSORY_NOTE"] },
-    "customer_id": { "type": "string", "minLength": 1 },
-    "loan_number": { "type": "string", "minLength": 1 },
-    "loan_amount_minor_units": { "type": "integer", "minimum": 0 },
-    "currency": { "type": "string", "minLength": 3, "maxLength": 3 },
-    "loan_type": { "type": "string", "enum": ["MORTGAGE", "PERSONAL", "COMMERCIAL", "AUTO"] },
-    "branch_code": { "type": "string", "minLength": 1 },
-    "signed_date": { "type": "string" },
-    "content_type": { "type": "string", "minLength": 1 },
-    "content_length": { "type": "integer", "minimum": 1 },
-    "content_checksum": { "type": "string" },
-    "filename": { "type": "string", "minLength": 1 },
-    "created_at": { "type": "string" },
-    "created_by": { "type": "string" },
-    "metadata_updated_at": { "type": "string" },
-    "metadata_updated_by": { "type": "string" }
-  },
-  "additionalProperties": false
+  "allOf": [
+    { "$ref": "https://bank.internal/schemas/shared-document-metadata-v1.json" },
+    {
+      "type": "object",
+      "required": [
+        "document_type",
+        "loan_number",
+        "loan_amount_minor_units",
+        "currency",
+        "loan_type",
+        "branch_code",
+        "signed_date"
+      ],
+      "properties": {
+        "annotation_schema": { "type": "string", "const": "bank.document-metadata/1" },
+        "document_class": { "type": "string", "const": "loan_agreement" },
+        "schema_version": { "type": "integer", "const": 1 },
+        "document_type": {
+          "type": "string",
+          "enum": ["SIGNED_AGREEMENT", "APPLICATION", "DISCLOSURE", "PROMISSORY_NOTE"]
+        },
+        "loan_number": { "type": "string", "minLength": 1 },
+        "loan_amount_minor_units": { "type": "integer", "minimum": 0 },
+        "currency": { "type": "string", "minLength": 3, "maxLength": 3 },
+        "loan_type": { "type": "string", "enum": ["MORTGAGE", "PERSONAL", "COMMERCIAL", "AUTO"] },
+        "branch_code": { "type": "string", "minLength": 1 },
+        "signed_date": { "type": "string" }
+      }
+    }
+  ]
 }

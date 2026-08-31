@@ -6,7 +6,28 @@ export interface SyntheticDocument {
   document_id: string;
   document_class: string;
   document_type: string;
-  customer_id: string;
+  customer_id: number;
+  complete_customer_id_code: {
+    id_number: string;
+    id_type: number;
+  };
+  account_id: {
+    bank_id: number;
+    branch_id: number;
+    account_number: number;
+  };
+  account_subscription_num?: number;
+  transaction_id?: string;
+  document_int?: string;
+  document_ext?: string;
+  a_content_type?: string;
+  document_form_id?: string;
+  legacy_document_entry_dttm?: string;
+  r_creation_date?: string;
+  r_modify_date?: string;
+  business_area_code: number;
+  business_sub_area_code: number;
+  document_group_id?: string;
   loan_number: string;
   loan_amount_minor_units: number;
   currency: string;
@@ -37,26 +58,52 @@ export function generateSyntheticDataset(count = 100): SyntheticDocument[] {
 
   for (let i = 1; i <= count; i++) {
     const docId = uuidv4();
-    const custId = `IL-${Math.floor(1000000 + Math.random() * 9000000)}`;
+    const custId = 1000000 + (i % 50) * 137;
+    const nationalId = String(300000000 + i * 1111);
+    const bankId = (i % 3 === 0) ? 10 : (i % 3 === 1) ? 12 : 31;
+    const branchId = 800 + (i % 15);
+    const accountNum = 100000 + i * 23;
     const loanNum = `LN-2026-${Math.floor(10000 + Math.random() * 90000)}`;
     const amount = Math.floor(5000000 + Math.random() * 95000000); // 50,000 to 1,000,000 minor units
     const fileType = EXTENSIONS[i % EXTENSIONS.length];
     const isLarge = i % 10 === 0;
     const contentLength = isLarge ? 5242880 + i * 1024 : 102400 + (i % 20) * 10240; // Some >4MB
 
-    const randomTimestamp = new Date(baseDate + Math.random() * (180 * 24 * 60 * 60 * 1000)).toISOString().substring(0, 10);
+    const randomTimestamp = new Date(baseDate + Math.random() * (180 * 24 * 60 * 60 * 1000)).toISOString();
+    const signedDate = randomTimestamp.substring(0, 10);
 
     dataset.push({
       document_id: docId,
       document_class: 'loan_agreement',
       document_type: DOCUMENT_TYPES[i % DOCUMENT_TYPES.length],
       customer_id: custId,
+      complete_customer_id_code: {
+        id_number: nationalId,
+        id_type: 1,
+      },
+      account_id: {
+        bank_id: bankId,
+        branch_id: branchId,
+        account_number: accountNum,
+      },
+      account_subscription_num: 880000 + i,
+      transaction_id: `TX-2026-${10000 + i}`,
+      document_int: `0901234580${String(i).padStart(6, '0')}`,
+      document_ext: `EXT-${2026000 + i}`,
+      a_content_type: fileType.mime,
+      document_form_id: `FORM-${1000 + (i % 10)}`,
+      legacy_document_entry_dttm: randomTimestamp,
+      r_creation_date: randomTimestamp,
+      r_modify_date: randomTimestamp,
+      business_area_code: 100 + (i % 5),
+      business_sub_area_code: 10 + (i % 3),
+      document_group_id: `GRP-FIN-${Math.floor(i / 10)}`,
       loan_number: loanNum,
       loan_amount_minor_units: amount,
       currency: CURRENCIES[i % CURRENCIES.length],
       loan_type: LOAN_TYPES[i % LOAN_TYPES.length],
       branch_code: BRANCH_CODES[i % BRANCH_CODES.length],
-      signed_date: randomTimestamp,
+      signed_date: signedDate,
       filename: `loan_${loanNum}.${fileType.ext}`,
       content_type: fileType.mime,
       content_length: contentLength,

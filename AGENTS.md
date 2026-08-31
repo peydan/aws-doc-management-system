@@ -76,8 +76,28 @@ When extending schemas or writing validators, agents must use these standard pro
 * `created_at` / `metadata_updated_at` (`string`, ISO 8601 UTC).
 * `created_by` / `metadata_updated_by` (`string`): User/Subject identity.
 
-### B. Financial Domain Trait
-* `customer_id` (`string`): Canonical customer reference (e.g., `IL-4492817`).
+### B. Shared Banking & DCTM Domain Traits (Inherited by All Document Classes)
+* `customer_id` (`integer`, >= 0): Core Banking Customer Number (`CUSTOMER_ID NUMBER(10)`).
+* `complete_customer_id_code` (`object`): Compound customer ID (`COMPLEATE_CUSTOMER_ID_CODE`).
+  * `id_number` (`string`, max 16): National ID / Passport (`ID_Number VARCHAR2(16)`).
+  * `id_type` (`integer`): ID Type Code (`ID_Type NUMBER(10)`).
+* `account_id` (`object`): Compound bank account key (`ACCOUNT_ID`).
+  * `bank_id` (`integer`): Bank code (`ACCOUNT_BANK_ID NUMBER(10)`).
+  * `branch_id` (`integer`): Branch code (`BRANCH_ID NUMBER(10)`).
+  * `account_number` (`integer`): Account number (`ACCOUNT_NBR NUMBER(10)`).
+* `account_subscription_num` (`integer`, >= 0): Account subscription number (`NUMBER(10)`).
+* `transaction_id` (`string`, max 64): Transaction / Box identifier.
+* `document_int` (`string`, max 64): Documentum (DCTM) Internal Chronicle ID.
+* `document_ext` (`string`, max 40): Legacy external system identifier.
+* `a_content_type` (`string`, max 32): Documentum format / content type string.
+* `document_form_id` (`string`, max 10): Form template code.
+* `legacy_document_entry_dttm` (`string`, ISO 8601 UTC): Legacy ingestion timestamp.
+* `r_creation_date` / `r_modify_date` (`string`, ISO 8601 UTC): Documentum audit timestamps.
+* `business_area_code` (`integer`, >= 0): Business Area Code (`NUMBER(10)`).
+* `business_sub_area_code` (`integer`, >= 0): Business Sub-Area Code (`NUMBER(10)`).
+* `document_group_id` (`string`, max 40): Envelope / Document Group ID.
+
+### C. Financial Domain Trait
 * `loan_number` (`string`): Unique loan account reference (e.g., `LN-2026-88821`).
 * `loan_amount_minor_units` (`integer`, >= 0): **Always integer minor units (cents / agorot)**. Never use floating-point for currency.
 * `currency` (`string`, 3-letter ISO 4217): e.g. `ILS`, `USD`, `EUR`.
@@ -85,7 +105,7 @@ When extending schemas or writing validators, agents must use these standard pro
 * `branch_code` (`string`): e.g. `TLV-01`.
 * `signed_date` (`string`, ISO 8601 Date: `YYYY-MM-DD`).
 
-### C. Compliance & Retention Domain Trait
+### D. Compliance & Retention Domain Trait
 * `retention_schedule_code` (`string`): e.g. `RET-FIN-001`.
 * `retention_period_years` (`integer`, >= 0): Retention lifespan.
 * `regulatory_framework` (`string`, Enum): `SOX` | `GDPR` | `BASEL_III` | `HIPAA` | `LOCAL_BANKING_REG`.
@@ -93,7 +113,7 @@ When extending schemas or writing validators, agents must use these standard pro
 * `legal_hold_active` (`boolean`): If true, prevents purge/disposal regardless of expiry.
 * `disposal_action` (`string`, Enum): `PERMANENT_DELETE` | `ARCHIVE_GLACIER` | `REVIEW_REQUIRED`.
 
-### D. Security & Privacy Classification Trait
+### E. Security & Privacy Classification Trait
 * `confidentiality_tier` (`string`, Enum): `PUBLIC` | `INTERNAL` | `RESTRICTED` | `HIGHLY_CONFIDENTIAL`.
 * `contains_pii` (`boolean`): Whether Personally Identifiable Information is present.
 * `pii_categories` (`array[string]`): e.g. `["NATIONAL_ID", "FINANCIAL_HISTORY", "BIOMETRIC"]`.

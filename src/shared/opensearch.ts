@@ -39,22 +39,52 @@ async function ensureIndexExists(client: Client): Promise<void> {
               document_id: { type: 'keyword' },
               document_class: { type: 'keyword' },
               filename: { type: 'keyword' },
-              customer_id: { type: 'keyword' },
-              document_type: { type: 'keyword' },
-              loan_number: { type: 'keyword' },
-              loan_type: { type: 'keyword' },
-              branch_code: { type: 'keyword' },
               status: { type: 'keyword' },
-              currency: { type: 'keyword' },
-              loan_amount_minor_units: { type: 'long' },
               application_version: { type: 'integer' },
               metadata_revision: { type: 'integer' },
               content_type: { type: 'keyword' },
               content_length: { type: 'long' },
-              signed_date: { type: 'date', format: 'yyyy-MM-dd||strict_date_optional_time||epoch_millis' },
               created_at: { type: 'date' },
               updated_at: { type: 'date' },
               projection_timestamp: { type: 'date' },
+
+              // Shared Banking / DCTM Properties
+              customer_id: { type: 'long' },
+              complete_customer_id_code: {
+                properties: {
+                  id_number: { type: 'keyword' },
+                  id_type: { type: 'integer' },
+                },
+              },
+              account_id: {
+                properties: {
+                  bank_id: { type: 'integer' },
+                  branch_id: { type: 'integer' },
+                  account_number: { type: 'long' },
+                },
+              },
+              account_subscription_num: { type: 'long' },
+              transaction_id: { type: 'keyword' },
+              document_int: { type: 'keyword' },
+              document_ext: { type: 'keyword' },
+              a_content_type: { type: 'keyword' },
+              document_form_id: { type: 'keyword' },
+              legacy_document_entry_dttm: { type: 'date', format: 'yyyy-MM-dd||strict_date_optional_time||epoch_millis' },
+              r_creation_date: { type: 'date', format: 'yyyy-MM-dd||strict_date_optional_time||epoch_millis' },
+              r_modify_date: { type: 'date', format: 'yyyy-MM-dd||strict_date_optional_time||epoch_millis' },
+              business_area_code: { type: 'integer' },
+              business_sub_area_code: { type: 'integer' },
+              document_group_id: { type: 'keyword' },
+
+              // Loan Agreement Properties
+              document_type: { type: 'keyword' },
+              loan_number: { type: 'keyword' },
+              loan_type: { type: 'keyword' },
+              branch_code: { type: 'keyword' },
+              currency: { type: 'keyword' },
+              loan_amount_minor_units: { type: 'long' },
+              signed_date: { type: 'date', format: 'yyyy-MM-dd||strict_date_optional_time||epoch_millis' },
+
               // Compliance & Retention Properties
               retention_schedule_code: { type: 'keyword' },
               retention_period_years: { type: 'integer' },
@@ -65,6 +95,7 @@ async function ensureIndexExists(client: Client): Promise<void> {
               legal_hold_case_id: { type: 'keyword' },
               disposal_action: { type: 'keyword' },
               compliance_officer_id: { type: 'keyword' },
+
               // Security & Privacy Classification Properties
               confidentiality_tier: { type: 'keyword' },
               contains_pii: { type: 'boolean' },
@@ -88,7 +119,7 @@ async function ensureIndexExists(client: Client): Promise<void> {
 export interface SearchFilters {
   document_class?: string;
   filename?: string;
-  customer_id?: string;
+  customer_id?: number | string;
   document_type?: string;
   loan_type?: string;
   branch_code?: string;
@@ -96,6 +127,11 @@ export interface SearchFilters {
   created_to?: string;
   loan_amount_min_minor_units?: number;
   loan_amount_max_minor_units?: number;
+  business_area_code?: number;
+  business_sub_area_code?: number;
+  document_int?: string;
+  document_ext?: string;
+  document_group_id?: string;
 }
 
 export interface SearchParams {
@@ -116,26 +152,11 @@ export class OpenSearchManager {
     await ensureIndexExists(client);
 
     const doc = {
-      document_id: metadata.document_id,
-      document_class: metadata.document_class,
-      application_version: metadata.application_version,
-      metadata_revision: metadata.metadata_revision,
-      filename: metadata.filename,
-      customer_id: metadata.customer_id,
-      document_type: metadata.document_type,
-      loan_number: metadata.loan_number,
-      loan_amount_minor_units: metadata.loan_amount_minor_units,
-      currency: metadata.currency,
-      loan_type: metadata.loan_type,
-      branch_code: metadata.branch_code,
-      signed_date: metadata.signed_date,
-      content_type: metadata.content_type,
-      content_length: metadata.content_length,
-      content_checksum: metadata.content_checksum,
-      created_at: metadata.created_at || new Date().toISOString(),
-      updated_at: metadata.metadata_updated_at || new Date().toISOString(),
+      ...metadata,
       status: status,
       projection_timestamp: new Date().toISOString(),
+      created_at: metadata.created_at || new Date().toISOString(),
+      updated_at: metadata.metadata_updated_at || new Date().toISOString(),
     };
 
     try {

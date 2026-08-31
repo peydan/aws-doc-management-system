@@ -104,8 +104,15 @@
         "url": {
           "raw": "https://cognito-idp.us-east-1.amazonaws.com/",
           "protocol": "https",
-          "host": ["cognito-idp", "us-east-1", "amazonaws", "com"],
-          "path": [""]
+          "host": [
+            "cognito-idp",
+            "us-east-1",
+            "amazonaws",
+            "com"
+          ],
+          "path": [
+            ""
+          ]
         },
         "description": "Authenticates against AWS Cognito User Pool via InitiateAuth and automatically sets the returned JWT IdToken into collectionVariable {{authToken}}."
       },
@@ -121,8 +128,12 @@
         "header": [],
         "url": {
           "raw": "{{baseUrl}}/health",
-          "host": ["{{baseUrl}}"],
-          "path": ["health"]
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "health"
+          ]
         },
         "description": "Checks the operational health status of the API Gateway and service."
       },
@@ -165,7 +176,7 @@
           },
           {
             "key": "X-Document-Metadata",
-            "value": "eyJkb2N1bWVudF9jbGFzcyI6ImxvYW5fYWdyZWVtZW50IiwiZG9jdW1lbnRfdHlwZSI6IlNJR05FRF9BR1JFRU1FTlQiLCJjdXN0b21lcl9pZCI6IklMLTQ0OTI4MTciLCJsb2FuX251bWJlciI6IkxOLTIwMjYtODg4MjEiLCJsb2FuX2Ftb3VudF9taW5vcl91bml0cyI6OTAwMDAwMDAsImN1cnJlbmN5IjoiSUxTIiwibG9hbl90eXBlIjoiTU9SVEdBR0UiLCJicmFuY2hfY29kZSI6IlRMVi0wNCIsInNpZ25lZF9kYXRlIjoiMjAyNi0wNy0xNSIsImZpbGVuYW1lIjoibG9hbl9MTi0yMDI2LTg4ODIxLnBkZiJ9",
+            "value": "eyJkb2N1bWVudF9jbGFzcyI6ImxvYW5fYWdyZWVtZW50IiwiZG9jdW1lbnRfdHlwZSI6IlNJR05FRF9BR1JFRU1FTlQiLCJjdXN0b21lcl9pZCI6MTA5NDgyNywiY29tcGxldGVfY3VzdG9tZXJfaWRfY29kZSI6eyJpZF9udW1iZXIiOiIxMjM0NTY3ODkiLCJpZF90eXBlIjoxfSwiYWNjb3VudF9pZCI6eyJiYW5rX2lkIjoxMCwiYnJhbmNoX2lkIjo4MDIsImFjY291bnRfbnVtYmVyIjoxMjM0NTZ9LCJidXNpbmVzc19hcmVhX2NvZGUiOjEwMCwiYnVzaW5lc3Nfc3ViX2FyZWFfY29kZSI6MTAxLCJsb2FuX251bWJlciI6IkxOLTIwMjYtODg4MjEiLCJsb2FuX2Ftb3VudF9taW5vcl91bml0cyI6OTAwMDAwMDAsImN1cnJlbmN5IjoiSUxTIiwibG9hbl90eXBlIjoiTU9SVEdBR0UiLCJicmFuY2hfY29kZSI6IlRMVi0wNCIsInNpZ25lZF9kYXRlIjoiMjAyNi0wNy0xNSIsImZpbGVuYW1lIjoibG9hbl9MTi0yMDI2LTg4ODIxLnBkZiJ9",
             "type": "text",
             "description": "Base64-encoded loan agreement metadata JSON"
           }
@@ -176,8 +187,12 @@
         },
         "url": {
           "raw": "{{baseUrl}}/documents",
-          "host": ["{{baseUrl}}"],
-          "path": ["documents"]
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "documents"
+          ]
         },
         "description": "Uploads a raw document up to 4 MiB inline. Captures documentId into collection variables."
       },
@@ -190,8 +205,13 @@
         "header": [],
         "url": {
           "raw": "{{baseUrl}}/documents/{{documentId}}",
-          "host": ["{{baseUrl}}"],
-          "path": ["documents", "{{documentId}}"]
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "documents",
+            "{{documentId}}"
+          ]
         },
         "description": "Retrieves the document control pointer, authoritative metadata annotation, and S3 presigned download URL."
       },
@@ -219,8 +239,14 @@
         },
         "url": {
           "raw": "{{baseUrl}}/documents/{{documentId}}/metadata",
-          "host": ["{{baseUrl}}"],
-          "path": ["documents", "{{documentId}}", "metadata"]
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "documents",
+            "{{documentId}}",
+            "metadata"
+          ]
         },
         "description": "Updates metadata revision from 1 to 2 without creating a new content version."
       },
@@ -243,8 +269,14 @@
         },
         "url": {
           "raw": "{{baseUrl}}/documents/{{documentId}}/metadata",
-          "host": ["{{baseUrl}}"],
-          "path": ["documents", "{{documentId}}", "metadata"]
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "documents",
+            "{{documentId}}",
+            "metadata"
+          ]
         },
         "description": "Demonstrates optimistic concurrency control. Rejects update with 409 METADATA_CONFLICT when expected_metadata_revision is stale."
       },
@@ -267,8 +299,14 @@
         },
         "url": {
           "raw": "{{baseUrl}}/documents/{{documentId}}/versions",
-          "host": ["{{baseUrl}}"],
-          "path": ["documents", "{{documentId}}", "versions"]
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "documents",
+            "{{documentId}}",
+            "versions"
+          ]
         },
         "description": "Creates application version 2 for the document while keeping the same logical document ID."
       },
@@ -281,8 +319,15 @@
         "header": [],
         "url": {
           "raw": "{{baseUrl}}/documents/{{documentId}}/versions/1",
-          "host": ["{{baseUrl}}"],
-          "path": ["documents", "{{documentId}}", "versions", "1"]
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "documents",
+            "{{documentId}}",
+            "versions",
+            "1"
+          ]
         },
         "description": "Retrieves the exact S3 VersionId and presigned download URL for historical version 1."
       },
@@ -322,8 +367,13 @@
         },
         "url": {
           "raw": "{{baseUrl}}/documents/uploads",
-          "host": ["{{baseUrl}}"],
-          "path": ["documents", "uploads"]
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "documents",
+            "uploads"
+          ]
         },
         "description": "Initiates direct S3 single-PUT upload session and returns a short-lived S3 upload URL."
       },
@@ -349,7 +399,9 @@
         },
         "url": {
           "raw": "{{uploadUrl}}",
-          "host": ["{{uploadUrl}}"]
+          "host": [
+            "{{uploadUrl}}"
+          ]
         },
         "description": "Uploads raw binary bytes directly to Amazon S3 using the presigned PUT URL issued by Step 08."
       },
@@ -362,8 +414,14 @@
         "header": [],
         "url": {
           "raw": "{{baseUrl}}/uploads/{{uploadId}}/complete",
-          "host": ["{{baseUrl}}"],
-          "path": ["uploads", "{{uploadId}}", "complete"]
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "uploads",
+            "{{uploadId}}",
+            "complete"
+          ]
         },
         "description": "Verifies the direct S3 upload, creates the authoritative S3 metadata annotation, and activates the document."
       },
@@ -386,8 +444,12 @@
         },
         "url": {
           "raw": "{{baseUrl}}/search",
-          "host": ["{{baseUrl}}"],
-          "path": ["search"]
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "search"
+          ]
         },
         "description": "Performs structured metadata search over current active documents in OpenSearch Serverless."
       },
@@ -400,8 +462,14 @@
         "header": [],
         "url": {
           "raw": "{{baseUrl}}/documents/{{documentId}}/soft-delete",
-          "host": ["{{baseUrl}}"],
-          "path": ["documents", "{{documentId}}", "soft-delete"]
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "documents",
+            "{{documentId}}",
+            "soft-delete"
+          ]
         },
         "description": "Marks document status as SOFT_DELETED and removes it from OpenSearch discovery."
       },
@@ -414,8 +482,14 @@
         "header": [],
         "url": {
           "raw": "{{baseUrl}}/documents/{{documentId}}/restore",
-          "host": ["{{baseUrl}}"],
-          "path": ["documents", "{{documentId}}", "restore"]
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "documents",
+            "{{documentId}}",
+            "restore"
+          ]
         },
         "description": "Restores soft-deleted document back to ACTIVE status and re-indexes in OpenSearch."
       },

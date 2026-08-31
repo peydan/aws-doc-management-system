@@ -1,12 +1,16 @@
 import Ajv, { ValidateFunction } from 'ajv';
 import addFormats from 'ajv-formats';
-import * as loanAgreementSchema from '../../schemas/loan_agreement-v1.json';
-import * as complianceRetentionSchema from '../../schemas/compliance_retention-v1.json';
-import * as securityClassificationSchema from '../../schemas/security_classification-v1.json';
+import sharedDocumentSchema from '../../schemas/shared_document_metadata-v1.json';
+import loanAgreementSchema from '../../schemas/loan_agreement-v1.json';
+import complianceRetentionSchema from '../../schemas/compliance_retention-v1.json';
+import securityClassificationSchema from '../../schemas/security_classification-v1.json';
 import { ValidationError, ErrorDetail } from './errors';
 
 const ajv = new Ajv({ allErrors: true, strict: false });
 addFormats(ajv);
+
+// Register shared base schema so $ref: "https://bank.internal/schemas/shared-document-metadata-v1.json" compiles cleanly
+ajv.addSchema(sharedDocumentSchema);
 
 const schemaRegistry: Record<string, ValidateFunction> = {
   'loan_agreement:1': ajv.compile(loanAgreementSchema),
@@ -75,9 +79,26 @@ export function buildFullMetadata(params: {
     ...params.clientMetadata,
   };
 
+  // Shared Banking / DCTM default traits
+  if (baseMetadata.customer_id === undefined) baseMetadata.customer_id = 1094827;
+  if (!baseMetadata.complete_customer_id_code) {
+    baseMetadata.complete_customer_id_code = {
+      id_number: '123456789',
+      id_type: 1,
+    };
+  }
+  if (!baseMetadata.account_id) {
+    baseMetadata.account_id = {
+      bank_id: 10,
+      branch_id: 802,
+      account_number: 123456,
+    };
+  }
+  if (baseMetadata.business_area_code === undefined) baseMetadata.business_area_code = 100;
+  if (baseMetadata.business_sub_area_code === undefined) baseMetadata.business_sub_area_code = 101;
+
   if (docClass === 'loan_agreement') {
     if (!baseMetadata.document_type) baseMetadata.document_type = 'SIGNED_AGREEMENT';
-    if (!baseMetadata.customer_id) baseMetadata.customer_id = 'IL-4492817';
     if (!baseMetadata.loan_number) baseMetadata.loan_number = 'LN-2026-88821';
     if (baseMetadata.loan_amount_minor_units === undefined) baseMetadata.loan_amount_minor_units = 100000000;
     if (!baseMetadata.currency) baseMetadata.currency = 'ILS';

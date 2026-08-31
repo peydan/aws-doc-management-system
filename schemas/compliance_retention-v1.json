@@ -2,132 +2,88 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "bank.document-metadata/compliance_retention/1",
   "title": "ComplianceRetentionMetadataV1",
-  "type": "object",
-  "required": [
-    "annotation_schema",
-    "document_id",
-    "document_class",
-    "application_version",
-    "metadata_revision",
-    "schema_version",
-    "document_type",
-    "retention_schedule_code",
-    "retention_period_years",
-    "regulatory_framework",
-    "retention_start_date",
-    "retention_expiry_date",
-    "legal_hold_active",
-    "disposal_action",
-    "compliance_officer_id",
-    "content_type",
-    "content_length",
-    "filename"
-  ],
-  "properties": {
-    "annotation_schema": {
-      "type": "string",
-      "const": "bank.document-metadata/compliance_retention/1"
-    },
-    "document_id": {
-      "type": "string",
-      "format": "uuid"
-    },
-    "document_class": {
-      "type": "string",
-      "const": "compliance_retention"
-    },
-    "application_version": {
-      "type": "integer",
-      "minimum": 1
-    },
-    "metadata_revision": {
-      "type": "integer",
-      "minimum": 1
-    },
-    "schema_version": {
-      "type": "integer",
-      "const": 1
-    },
-    "document_type": {
-      "type": "string",
-      "enum": [
-        "STATUTORY_RECORD",
-        "FINANCIAL_LEDGER",
-        "AUDIT_EVIDENCE",
-        "CONTRACT_ARCHIVE",
-        "COMMUNICATION_LOG"
-      ]
-    },
-    "retention_schedule_code": {
-      "type": "string",
-      "pattern": "^RET-[A-Z0-9_-]+$"
-    },
-    "retention_period_years": {
-      "type": "integer",
-      "minimum": 1,
-      "maximum": 100
-    },
-    "regulatory_framework": {
-      "type": "string",
-      "enum": [
-        "SOX",
-        "FINRA",
-        "GDPR",
-        "BASEL_III",
-        "LOCAL_BANKING_DIRECTIVE"
-      ]
-    },
-    "retention_start_date": {
-      "type": "string"
-    },
-    "retention_expiry_date": {
-      "type": "string"
-    },
-    "legal_hold_active": {
-      "type": "boolean"
-    },
-    "legal_hold_case_id": {
-      "type": "string"
-    },
-    "disposal_action": {
-      "type": "string",
-      "enum": [
-        "PERMANENT_DELETE",
-        "TRANSITION_TO_GLACIER",
-        "MANUAL_DISPOSAL_REVIEW"
-      ]
-    },
-    "compliance_officer_id": {
-      "type": "string",
-      "minLength": 1
-    },
-    "content_type": {
-      "type": "string",
-      "minLength": 1
-    },
-    "content_length": {
-      "type": "integer",
-      "minimum": 1
-    },
-    "content_checksum": {
-      "type": "string"
-    },
-    "filename": {
-      "type": "string",
-      "minLength": 1
-    },
-    "created_at": {
-      "type": "string"
-    },
-    "created_by": {
-      "type": "string"
-    },
-    "metadata_updated_at": {
-      "type": "string"
-    },
-    "metadata_updated_by": {
-      "type": "string"
+  "allOf": [
+    { "$ref": "https://bank.internal/schemas/shared-document-metadata-v1.json" },
+    {
+      "type": "object",
+      "required": [
+        "document_type",
+        "retention_schedule_code",
+        "retention_period_years",
+        "regulatory_framework",
+        "retention_start_date",
+        "retention_expiry_date",
+        "legal_hold_active",
+        "disposal_action",
+        "compliance_officer_id"
+      ],
+      "properties": {
+        "annotation_schema": {
+          "type": "string",
+          "const": "bank.document-metadata/compliance_retention/1"
+        },
+        "document_class": {
+          "type": "string",
+          "const": "compliance_retention"
+        },
+        "schema_version": {
+          "type": "integer",
+          "const": 1
+        },
+        "document_type": {
+          "type": "string",
+          "enum": [
+            "STATUTORY_RECORD",
+            "FINANCIAL_LEDGER",
+            "AUDIT_EVIDENCE",
+            "CONTRACT_ARCHIVE",
+            "COMMUNICATION_LOG"
+          ]
+        },
+        "retention_schedule_code": {
+          "type": "string",
+          "pattern": "^RET-[A-Z0-9_-]+$"
+        },
+        "retention_period_years": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        },
+        "regulatory_framework": {
+          "type": "string",
+          "enum": [
+            "SOX",
+            "FINRA",
+            "GDPR",
+            "BASEL_III",
+            "LOCAL_BANKING_DIRECTIVE"
+          ]
+        },
+        "retention_start_date": {
+          "type": "string"
+        },
+        "retention_expiry_date": {
+          "type": "string"
+        },
+        "legal_hold_active": {
+          "type": "boolean"
+        },
+        "legal_hold_case_id": {
+          "type": "string"
+        },
+        "disposal_action": {
+          "type": "string",
+          "enum": [
+            "PERMANENT_DELETE",
+            "TRANSITION_TO_GLACIER",
+            "MANUAL_DISPOSAL_REVIEW"
+          ]
+        },
+        "compliance_officer_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
     }
-  },
-  "additionalProperties": false
+  ]
 }

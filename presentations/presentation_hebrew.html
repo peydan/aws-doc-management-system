@@ -1,0 +1,2109 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>פלטפורמת ניהול מסמכים ב-AWS - מצגת ארכיטקטורת פתרון</title>
+  <style>
+    :root {
+      --bg-primary: #0a0f1d;
+      --bg-secondary: #111827;
+      --bg-card: #1a2234;
+      --bg-card-hover: #222d44;
+      --bg-glass: rgba(26, 34, 52, 0.92);
+      --border-color: #2a364f;
+      --border-accent: #38bdf8;
+      --text-primary: #f8fafc;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+      --accent-blue: #38bdf8;
+      --accent-indigo: #818cf8;
+      --accent-emerald: #34d399;
+      --accent-amber: #fbbf24;
+      --accent-rose: #f43f5e;
+      --accent-purple: #c084fc;
+      --aws-orange: #ff9900;
+      --code-bg: #0d1321;
+      --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.3);
+      --font-sans: "Segoe UI", Roboto, -apple-system, BlinkMacSystemFont, "Heebo", "Assistant", "Rubik", "Alef", Helvetica, Arial, sans-serif;
+      --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    }
+
+    [data-theme="light"] {
+      --bg-primary: #f8fafc;
+      --bg-secondary: #f1f5f9;
+      --bg-card: #ffffff;
+      --bg-card-hover: #f8fafc;
+      --bg-glass: rgba(255, 255, 255, 0.94);
+      --border-color: #e2e8f0;
+      --border-accent: #0284c7;
+      --text-primary: #0f172a;
+      --text-secondary: #475569;
+      --text-muted: #94a3b8;
+      --accent-blue: #0284c7;
+      --accent-indigo: #4f46e5;
+      --accent-emerald: #059669;
+      --accent-amber: #d97706;
+      --accent-rose: #e11d48;
+      --accent-purple: #9333ea;
+      --aws-orange: #d97706;
+      --code-bg: #f1f5f9;
+      --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+      line-height: 1.6;
+      overflow-x: hidden;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      direction: rtl;
+      text-align: right;
+      transition: background-color 0.3s ease, color 0.3s ease;
+    }
+
+    /* Top Navigation */
+    header.top-nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: var(--bg-glass);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.75rem 2rem;
+    }
+
+    .nav-brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-weight: 700;
+      font-size: 1.1rem;
+      color: var(--text-primary);
+    }
+
+    .badge-aws {
+      background: linear-gradient(135deg, #ff9900 0%, #ff5500 100%);
+      color: #000;
+      font-size: 0.7rem;
+      font-weight: 800;
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      letter-spacing: 0.5px;
+    }
+
+    .badge-cto {
+      background: rgba(56, 189, 248, 0.15);
+      color: var(--accent-blue);
+      border: 1px solid var(--accent-blue);
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 0.2rem 0.55rem;
+      border-radius: 9999px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .nav-controls {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .slide-counter {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      background: var(--bg-card);
+      padding: 0.35rem 0.85rem;
+      border-radius: 6px;
+      border: 1px solid var(--border-color);
+      min-width: 110px;
+      text-align: center;
+      direction: ltr;
+    }
+
+    .btn {
+      background: var(--bg-card);
+      color: var(--text-primary);
+      border: 1px solid var(--border-color);
+      padding: 0.45rem 0.9rem;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      transition: all 0.2s ease;
+      font-family: var(--font-sans);
+    }
+
+    .btn:hover {
+      background: var(--bg-card-hover);
+      border-color: var(--accent-blue);
+      color: var(--accent-blue);
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent-blue) 0%, var(--accent-indigo) 100%);
+      color: #fff;
+      border: none;
+    }
+
+    .btn-primary:hover {
+      opacity: 0.9;
+      color: #fff;
+    }
+
+    /* Main Container */
+    main.presentation-container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      padding: 1.5rem 2rem;
+      max-width: 1540px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    /* Slides */
+    .slide {
+      display: none;
+      animation: fadeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+      width: 100%;
+    }
+
+    .slide.active {
+      display: block;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(8px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    /* Slide Header */
+    .slide-header {
+      margin-bottom: 1.5rem;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 1rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 1rem;
+    }
+
+    .slide-title-group h1 {
+      font-size: 1.95rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      background: linear-gradient(135deg, var(--text-primary) 0%, var(--text-secondary) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .slide-title-group p {
+      font-size: 0.98rem;
+      color: var(--text-secondary);
+      margin-top: 0.3rem;
+    }
+
+    .slide-tag {
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--accent-indigo);
+      background: rgba(129, 140, 248, 0.12);
+      border: 1px solid rgba(129, 140, 248, 0.25);
+      padding: 0.35rem 0.75rem;
+      border-radius: 9999px;
+      white-space: nowrap;
+    }
+
+    /* Grids & Cards */
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1.5rem;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1.25rem;
+    }
+
+    .grid-4 {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1rem;
+    }
+
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 1.35rem;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+      transition: border-color 0.2s ease, transform 0.2s ease;
+    }
+
+    .card:hover {
+      border-color: rgba(56, 189, 248, 0.4);
+    }
+
+    .card-highlight {
+      border-right: 4px solid var(--accent-blue);
+    }
+
+    .card-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 0.6rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .card-title svg {
+      color: var(--accent-blue);
+      flex-shrink: 0;
+    }
+
+    .card-desc {
+      font-size: 0.88rem;
+      color: var(--text-secondary);
+      margin-bottom: 0.85rem;
+      line-height: 1.5;
+    }
+
+    /* Architecture Hero Slide */
+    .arch-hero-container {
+      display: grid;
+      grid-template-columns: 1.35fr 1fr;
+      gap: 1.5rem;
+      align-items: start;
+    }
+
+    .img-preview-box {
+      background: var(--code-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      overflow: hidden;
+      cursor: zoom-in;
+      position: relative;
+      transition: all 0.2s ease;
+    }
+
+    .img-preview-box:hover {
+      border-color: var(--accent-blue);
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+    }
+
+    .img-preview-box img {
+      width: 100%;
+      height: auto;
+      display: block;
+      object-fit: contain;
+    }
+
+    .img-caption {
+      padding: 0.65rem 1rem;
+      font-size: 0.82rem;
+      color: var(--text-secondary);
+      background: var(--bg-card);
+      border-top: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    /* Authority Model Badges */
+    .authority-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 0.9rem 1.1rem;
+      margin-bottom: 0.75rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .authority-card::before {
+      content: "";
+      position: absolute;
+      right: 0;
+      top: 0;
+      bottom: 0;
+      width: 4px;
+    }
+
+    .auth-content::before { background: var(--accent-blue); }
+    .auth-meta::before { background: var(--accent-emerald); }
+    .auth-control::before { background: var(--aws-orange); }
+    .auth-search::before { background: var(--accent-purple); }
+    .auth-audit::before { background: var(--accent-rose); }
+
+    .authority-card h4 {
+      font-size: 0.95rem;
+      font-weight: 700;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.25rem;
+    }
+
+    .authority-card h4 span {
+      font-size: 0.75rem;
+      font-family: var(--font-mono);
+      color: var(--accent-blue);
+      font-weight: 600;
+      direction: ltr;
+    }
+
+    .authority-card p {
+      font-size: 0.825rem;
+      color: var(--text-secondary);
+      line-height: 1.45;
+    }
+
+    /* Code Blocks */
+    pre.code-block {
+      background: var(--code-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 1rem;
+      overflow-x: auto;
+      font-family: var(--font-mono);
+      font-size: 0.82rem;
+      color: #e2e8f0;
+      line-height: 1.5;
+      direction: ltr;
+      text-align: left;
+    }
+
+    .token-key { color: var(--accent-blue); }
+    .token-str { color: var(--accent-emerald); }
+    .token-num { color: var(--accent-amber); }
+    .token-bool { color: var(--accent-purple); }
+
+    /* Tables */
+    .table-container {
+      overflow-x: auto;
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      background: var(--bg-card);
+    }
+
+    table.data-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+      text-align: right;
+    }
+
+    table.data-table th {
+      background: var(--bg-secondary);
+      padding: 0.75rem 1rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      border-bottom: 1px solid var(--border-color);
+      white-space: nowrap;
+    }
+
+    table.data-table td {
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid var(--border-color);
+      color: var(--text-secondary);
+      line-height: 1.5;
+    }
+
+    table.data-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    table.data-table tr:hover td {
+      background: rgba(56, 189, 248, 0.03);
+      color: var(--text-primary);
+    }
+
+    .pill {
+      display: inline-block;
+      padding: 0.18rem 0.55rem;
+      border-radius: 4px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      font-family: var(--font-mono);
+      white-space: nowrap;
+      direction: ltr;
+    }
+
+    .pill-immutable {
+      background: rgba(244, 63, 94, 0.15);
+      color: var(--accent-rose);
+      border: 1px solid rgba(244, 63, 94, 0.3);
+    }
+
+    .pill-mutable {
+      background: rgba(52, 211, 153, 0.15);
+      color: var(--accent-emerald);
+      border: 1px solid rgba(52, 211, 153, 0.3);
+    }
+
+    .pill-system {
+      background: rgba(251, 191, 36, 0.15);
+      color: var(--accent-amber);
+      border: 1px solid rgba(251, 191, 36, 0.3);
+    }
+
+    /* Comparison Split */
+    .compare-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+    }
+
+    .compare-box {
+      border-radius: 12px;
+      border: 1px solid var(--border-color);
+      background: var(--bg-card);
+      padding: 1.5rem;
+    }
+
+    .compare-box.dynamo {
+      border-top: 4px solid var(--aws-orange);
+    }
+
+    .compare-box.opensearch {
+      border-top: 4px solid var(--accent-purple);
+    }
+
+    /* API Sequence Selector & Explorer */
+    .api-explorer {
+      display: grid;
+      grid-template-columns: 340px 1fr;
+      gap: 1.5rem;
+      min-height: 590px;
+    }
+
+    .api-nav-list {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      overflow-y: auto;
+      max-height: 590px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .api-nav-item {
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid var(--border-color);
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+      transition: all 0.15s ease;
+      text-align: right;
+    }
+
+    .api-nav-item:hover {
+      background: var(--bg-card-hover);
+    }
+
+    .api-nav-item.active {
+      background: rgba(56, 189, 248, 0.12);
+      border-right: 3px solid var(--accent-blue);
+    }
+
+    .api-method-badge {
+      display: inline-block;
+      font-size: 0.68rem;
+      font-weight: 800;
+      padding: 0.15rem 0.45rem;
+      border-radius: 4px;
+      width: fit-content;
+      text-transform: uppercase;
+      font-family: var(--font-mono);
+      direction: ltr;
+    }
+
+    .method-get { background: rgba(56, 189, 248, 0.2); color: var(--accent-blue); }
+    .method-post { background: rgba(52, 211, 153, 0.2); color: var(--accent-emerald); }
+    .method-patch { background: rgba(251, 191, 36, 0.2); color: var(--accent-amber); }
+    .method-delete { background: rgba(244, 63, 94, 0.2); color: var(--accent-rose); }
+
+    .api-path-text {
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      direction: ltr;
+      text-align: left;
+    }
+
+    .api-name-text {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+    }
+
+    .api-detail-pane {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+      overflow-y: auto;
+      max-height: 590px;
+    }
+
+    /* Lightbox Modal */
+    .lightbox-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 1000;
+      background: rgba(0, 0, 0, 0.9);
+      backdrop-filter: blur(8px);
+      padding: 2rem;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .lightbox-modal.open {
+      display: flex;
+    }
+
+    .lightbox-content {
+      position: relative;
+      max-width: 92vw;
+      max-height: 92vh;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .lightbox-content img {
+      max-width: 100%;
+      max-height: 82vh;
+      object-fit: contain;
+      border-radius: 8px;
+    }
+
+    .lightbox-close {
+      position: absolute;
+      top: -14px;
+      left: -14px;
+      background: var(--accent-rose);
+      color: white;
+      border: none;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      font-weight: 800;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.1rem;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+    }
+
+    /* Bottom Controller */
+    footer.bottom-bar {
+      position: sticky;
+      bottom: 0;
+      background: var(--bg-glass);
+      backdrop-filter: blur(12px);
+      border-top: 1px solid var(--border-color);
+      padding: 0.75rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 90;
+    }
+
+    .timeline-nav {
+      display: flex;
+      gap: 0.4rem;
+      overflow-x: auto;
+      max-width: 60vw;
+      padding: 0.2rem 0;
+      direction: rtl;
+    }
+
+    .timeline-dot {
+      height: 8px;
+      width: 24px;
+      border-radius: 4px;
+      background: var(--border-color);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .timeline-dot:hover {
+      background: var(--text-secondary);
+    }
+
+    .timeline-dot.active {
+      background: var(--accent-blue);
+      width: 42px;
+    }
+
+    .keyboard-hint {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .kbd {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      padding: 0.15rem 0.4rem;
+      border-radius: 4px;
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      color: var(--text-secondary);
+      direction: ltr;
+    }
+
+    /* Responsive */
+    @media (max-width: 1024px) {
+      .arch-hero-container, .grid-2, .compare-container {
+        grid-template-columns: 1fr;
+      }
+      .api-explorer {
+        grid-template-columns: 1fr;
+      }
+      .grid-3, .grid-4 {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Bar -->
+  <header class="top-nav">
+    <div class="nav-brand">
+      <span class="badge-aws">AWS</span>
+      <span>פלטפורמת ניהול מסמכים</span>
+      <span class="badge-cto">ארכיטקטורת פתרון</span>
+    </div>
+    <div class="nav-controls">
+      <button class="btn" id="btn-theme-toggle" title="החלף ערכת נושא (בהיר/כהה)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+        <span>ערכת נושא</span>
+      </button>
+      <span class="slide-counter" id="slide-display">שקף 1 / 11</span>
+      <button class="btn" id="btn-prev" onclick="prevSlide()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
+        <span>הקודם</span>
+      </button>
+      <button class="btn btn-primary" id="btn-next" onclick="nextSlide()">
+        <span>הבא</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Presentation Slides -->
+  <main class="presentation-container">
+
+    <!-- ========================================================================= -->
+    <!-- SLIDE 1: Executive Summary & Solution Architecture -->
+    <!-- ========================================================================= -->
+    <section class="slide active" id="slide-1">
+      <div class="slide-header">
+        <div class="slide-title-group">
+          <h1>פלטפורמת ניהול מסמכים מבוססת ענן (Cloud-Native)</h1>
+          <p>ארכיטקטורת Serverless מנותקת לניהול תוכן ארגוני, אי-הפיכות (Immutability) וממשל מטא-דאטה</p>
+        </div>
+        <span class="slide-tag">סקירת ארכיטקטורה עסקית וטכנולוגית</span>
+      </div>
+
+      <div class="arch-hero-container">
+        <!-- Architecture Diagram Box -->
+        <div class="img-preview-box" onclick="openLightbox('diagrams/aws_document_management_architecture.jpg', 'ארכיטקטורת פלטפורמת מסמכים ב-AWS - תרשים פתרון מלא מקצה-לקצה')">
+          <img src="diagrams/aws_document_management_architecture.jpg" alt="תרשים ארכיטקטורת פתרון" />
+          <div class="img-caption">
+            <span><strong>תרשים 1.0:</strong> ארכיטקטורת פתרון Serverless מלאה ב-AWS</span>
+            <span style="color: var(--accent-blue); font-weight:600;">🔍 לחץ להגדלה</span>
+          </div>
+        </div>
+
+        <!-- Executive Pillars & Authority Model -->
+        <div style="display: flex; flex-direction: column; gap: 0.65rem;">
+          <h3 style="font-size: 1.15rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.2rem;">מודל 5 רמות הסמכות והעקביות (Authority Model)</h3>
+          <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.4rem;">
+            מבטל את הצורך בטרנזקציות מבוזרות (2PC) על ידי הגדרת גבולות סמכות חדים לשירותי AWS ייעודיים:
+          </p>
+
+          <div class="authority-card auth-content">
+            <h4>1. סמכות התוכן הבינארי <span>Amazon S3</span></h4>
+            <p>אחסון בינארי בלתי ניתן לשינוי (PDF, TIFF, תמונות, מסמכי Office). אובייקטים מנוהלי גרסאות עם מדיניות WORM מחמירה החוסמת מחיקת גרסאות (<code class="pill pill-immutable">s3:DeleteObjectVersion</code> DENY).</p>
+          </div>
+
+          <div class="authority-card auth-meta">
+            <h4>2. סמכות המטא-דאטה <span>Amazon S3 Object Annotations</span></h4>
+            <p>מטא-דאטה JSON מלא ומבני הנשמר כאנוטציות אובייקט ייעודיות (<code>document-metadata</code>) הצמודות ישירות לגרסת ה-S3. תואם באופן מלא לתקן JSON Schema Draft-07.</p>
+          </div>
+
+          <div class="authority-card auth-control">
+            <h4>3. שכבת הבקרה והמצביעים <span>Amazon DynamoDB</span></h4>
+            <p>טבלה יחידה (Single-Table Design) המנהלת מצביעי גרסה פעילה, היסטוריית גרסאות, נעילות אופטימיות (OCC) וסשנים של העלאה בזמני תגובה של פחות מ-10 מילישניות.</p>
+          </div>
+
+          <div class="authority-card auth-search">
+            <h4>4. היטל שאילתות וחיפוש <span>OpenSearch Serverless</span></h4>
+            <p>היטל קריאה נגזר לחלוטין המוזן אסינכרונית דרך DynamoDB Streams ו-SQS. במקרה של השבתת אינדקס החיפוש, פעולות קליטה, עריכה והורדה נותרות זמינות ב-100%.</p>
+          </div>
+
+          <div class="authority-card auth-audit">
+            <h4>5. תיעוד ביקורת בלתי מחיק <span>S3 Audit Bucket</span></h4>
+            <p>תיעוד שינויים (CDC) הנכתב אוטומטית לקובצי JSON חתומים ומוצפני KMS במבנה מחולק לפי תאריכים לצרכי רגולציה וחקירה פורנזית.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- SLIDE 2: Serverless Nature & AWS Lambda Deep Dive -->
+    <!-- ========================================================================= -->
+    <section class="slide" id="slide-2">
+      <div class="slide-header">
+        <div class="slide-title-group">
+          <h1>ארכיטקטורת Serverless מלאה ומנוע חישוב AWS Lambda</h1>
+          <p>אפס ניהול שרתים, גמישות אלסטית מיידית ומיקרו-פרימטרים של הרשאות מינימליות (Least Privilege)</p>
+        </div>
+        <span class="slide-tag">תשתית מחשוב ו-Serverless</span>
+      </div>
+
+      <div class="grid-3" style="margin-bottom: 1.5rem;">
+        <div class="card card-highlight">
+          <div class="card-title">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+            הרצה מונחית אירועים (Event-Driven)
+          </div>
+          <div class="card-desc">
+            כלל רכיבי המחשוב הם 100% חסרי מצב (Stateless) ומגיבים לאירועים: בקשות HTTP REST, אירועי CDC ב-DynamoDB Streams, או תורי משימות SQS — עם Scale to Zero במצב סרק.
+          </div>
+          <div style="font-size: 0.8rem; color: var(--accent-blue); font-weight: 600;">
+            • תשלום מדויק לפי מילישניות ריצה בלבד<br/>
+            • שרידות וזמינות גבוהה אוטומטית ב-Multi-AZ
+          </div>
+        </div>
+
+        <div class="card card-highlight">
+          <div class="card-title">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            אבטחת מיקרו-פרימטר (IAM Scope)
+          </div>
+          <div class="card-desc">
+            לכל פונקציית Lambda תפקיד IAM Execution Role ייעודי עם הרשאות מוגבלות בקפידה (למשל, פונקציית השאילתות מחזיקה בהרשאות קריאה בלבד ללא שום הרשאת כתיבה ל-S3/DynamoDB).
+          </div>
+          <div style="font-size: 0.8rem; color: var(--accent-emerald); font-weight: 600;">
+            • מניעה מוחלטת של הסלמת הרשאות חוצת-פונקציות<br/>
+            • אפס משטח תקיפה של מערכות הפעלה או SSH
+          </div>
+        </div>
+
+        <div class="card card-highlight">
+          <div class="card-title">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+            ביצועים ושרידות בתת-שנייה
+          </div>
+          <div class="card-desc">
+            חבילות קוד TypeScript קלות על גבי Node.js 20.x ו-AWS SDK v3 מבצעות קימפול סכמות בזיכרון בזמן Cold Start, ומאפשרות ולידציה וביצוע בפחות ממילישנייה בבקשות חמות.
+          </div>
+          <div style="font-size: 0.8rem; color: var(--accent-purple); font-weight: 600;">
+            • Cold Starts מותאמים לפחות מ-250ms<br/>
+            • אימות סכמות JSON בזיכרון ללא פניות לרשת
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 style="font-size: 1.05rem; font-weight: 700; margin-bottom: 1rem; color: var(--text-primary);">
+          טופולוגיית פונקציות ה-Lambda ואחריות תפעולית
+        </h3>
+        <div class="table-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>שם פונקציית ה-Lambda</th>
+                <th>סוג טריגר / תפקיד</th>
+                <th>תחומי אחריות עיקריים</th>
+                <th>זמן ריצה מקסימלי וזיכרון</th>
+                <th>הרשאות IAM מוגדרות</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>UploadInlineFunction</code></td>
+                <td><span class="pill pill-mutable">Sync REST / Command</span></td>
+                <td>קליטת קבצים עד 4MB, חישוב SHA-256, כתיבת קובץ + אנוטציה ל-S3, וביצוע טרנזקציית DynamoDB אטומית.</td>
+                <td style="direction:ltr; text-align:right;">10s / 512 MB</td>
+                <td style="direction:ltr; text-align:right;">S3 PutObject, DynamoDB TransactWrite</td>
+              </tr>
+              <tr>
+                <td><code>UploadDirectInit / Complete</code></td>
+                <td><span class="pill pill-mutable">Sync REST / Command</span></td>
+                <td>הנפקת כתובות Presigned PUT ל-15 דקות לקבצים גדולים; אימות סיום העלאה ב-S3 ויצירת רשומות קטלוג.</td>
+                <td style="direction:ltr; text-align:right;">10s / 256 MB</td>
+                <td style="direction:ltr; text-align:right;">S3 Presign & HeadObject, DynamoDB Write</td>
+              </tr>
+              <tr>
+                <td><code>MetadataUpdateFunction</code></td>
+                <td><span class="pill pill-mutable">Sync REST / Command</span></td>
+                <td>אכיפת נעילה אופטימית (OCC) עם <code>expected_metadata_revision</code>, אימות Ajv, כתיבת אנוטציה ועדכון מצביע.</td>
+                <td style="direction:ltr; text-align:right;">10s / 256 MB</td>
+                <td style="direction:ltr; text-align:right;">S3 Get/PutObject, DynamoDB ConditionalUpdate</td>
+              </tr>
+              <tr>
+                <td><code>GetDocument / Version / Download</code></td>
+                <td><span class="pill pill-system">Sync REST / Query</span></td>
+                <td>קריאת מצביע וגרסאות מ-DynamoDB, שליפת מטא-דאטה מוסמך מ-S3, והנפקת כתובות הורדה מאובטחות (Presigned GET).</td>
+                <td style="direction:ltr; text-align:right;">10s / 256 MB</td>
+                <td style="direction:ltr; text-align:right;">DynamoDB Strongly Consistent Read, S3 Presign</td>
+              </tr>
+              <tr>
+                <td><code>SearchDocumentsFunction</code></td>
+                <td><span class="pill pill-system">Sync REST / Search</span></td>
+                <td>תרגום מסננים ל-OpenSearch DSL; ביצוע שאילתות חתומות IAM SigV4 עם דפדוף סמן (Cursor Pagination).</td>
+                <td style="direction:ltr; text-align:right;">15s / 512 MB</td>
+                <td style="direction:ltr; text-align:right;">aoss:APIAccessAll on Collection</td>
+              </tr>
+              <tr>
+                <td><code>StreamProcessorFunction</code></td>
+                <td><span class="pill pill-immutable">Async / DynamoDB Stream</span></td>
+                <td>האזנה לאירועי CDC, כתיבת תיעוד ביקורת JSON מחולק לפי תאריך ל-S3 Audit, ושליחת משימות אינדוקס ל-SQS.</td>
+                <td style="direction:ltr; text-align:right;">30s / 256 MB</td>
+                <td style="direction:ltr; text-align:right;">DynamoDB Streams, S3 Audit Put, SQS Send</td>
+              </tr>
+              <tr>
+                <td><code>IndexerConsumerFunction</code></td>
+                <td><span class="pill pill-immutable">Async / SQS Queue</span></td>
+                <td>עיבוד מקבצי הודעות SQS, שליפת אנוטציית S3 ועדכון/מחיקה ב-OpenSearch. ניתוב הודעות תקולות ל-DLQ.</td>
+                <td style="direction:ltr; text-align:right;">60s / 512 MB</td>
+                <td style="direction:ltr; text-align:right;">SQS Receive/Delete, S3 Get, AOSS Upsert</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- SLIDE 3: Document Versioning & S3 Metadata Annotations -->
+    <!-- ========================================================================= -->
+    <section class="slide" id="slide-3">
+      <div class="slide-header">
+        <div class="slide-title-group">
+          <h1>ניהול גרסאות מסמכים בלתי ניתנות לשינוי ו-S3 Annotations</h1>
+          <p>פתרון מלא למגבלת 2KB במטא-דאטה של S3 באמצעות פיצ'ר Amazon S3 Object Annotations</p>
+        </div>
+        <span class="slide-tag">ארכיטקטורת אחסון וגרסאות</span>
+      </div>
+
+      <div class="grid-2" style="margin-bottom: 1.25rem;">
+        <!-- The Native AWS S3 Annotations Feature Deep Dive -->
+        <div class="card">
+          <div class="card-title">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            פיצ'ר ה-Native AWS Amazon S3 Object Annotations
+          </div>
+          <div class="card-desc">
+            המערכת משתמשת ב-<strong>API של S3 Object Annotations</strong> (באמצעות <code>PutObjectAnnotationCommand</code> ו-<code>GetObjectAnnotationCommand</code>), המאפשר הצמדת מטא-דאטה עשיר ומבני (עד 1MB) ישירות לגרסת האובייקט ללא ריבוי קובצי Sidecar.
+          </div>
+          <div style="background: var(--code-bg); padding: 0.85rem; border-radius: 8px; border: 1px solid var(--border-color); font-size: 0.8rem; margin-bottom: 0.75rem; direction: ltr; text-align: left;">
+            <strong>Native S3 Binding:</strong><br/>
+            <code>s3://{bucket}/documents/{class}/{doc_id}</code> &nbsp; <em>(Versioned Binary)</em><br/>
+            &nbsp; └── <strong>Annotation Name:</strong> <code>document-metadata</code> &nbsp; <em>(JSON Metadata Payload)</em>
+          </div>
+          <ul style="font-size: 0.825rem; color: var(--text-secondary); padding-right: 1.2rem; display: flex; flex-direction: column; gap: 0.35rem;">
+            <li><strong>אפס פיצול קבצים (Zero Sprawl):</strong> המטא-דאטה קשור ישירות לגרסת הקובץ ב-S3 ללא צורך בקובץ נוסף נפרד.</li>
+            <li><strong>מחזור חיים מנותק:</strong> עריכת מטא-דאטה מעדכנת את האנוטציה במקומה (In-Place) ללא שכפול הקובץ הבינארי או יצירת גרסת קובץ מיותרת.</li>
+            <li><strong>מוכנות לאנליטיקת Iceberg:</strong> תמיכה מובנית בקטלוג אנוטציות ישירות לטבלאות Apache Iceberg עבור שאילתות SQL ו-BI ארגוני.</li>
+          </ul>
+        </div>
+
+        <!-- Versioning Mechanics -->
+        <div class="card">
+          <div class="card-title">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
+            מודל מעקב גרסאות תלת-שכבתי (Version Lineage)
+          </div>
+          <div class="card-desc">
+            כל מסמך מתחזק 3 מונים נפרדים להבטחת עקביות מוחלטת בין הקובץ הבינארי, המטא-דאטה ושכבת האחסון:
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 0.5rem; font-size: 0.825rem;">
+            <div style="background: var(--code-bg); padding: 0.6rem; border-radius: 6px; border-right: 3px solid var(--accent-blue);">
+              <strong>1. גרסת אפליקציה (<code style="direction:ltr;">application_version: 1, 2, 3...</code>):</strong><br/>
+              מספר שלם עולה. מקודם <em>אך ורק</em> בעת העלאת קובץ בינארי חדש דרך <code>POST /documents/{id}/versions</code>.
+            </div>
+            <div style="background: var(--code-bg); padding: 0.6rem; border-radius: 6px; border-right: 3px solid var(--accent-emerald);">
+              <strong>2. מזהה גרסת S3 (<code style="direction:ltr;">s3_version_id: "3/L4bqt..."</code>):</strong><br/>
+              מזהה גרסה ייחודי ובלתי ניתן לשינוי המונפק על ידי S3 ומייצג את הבתים הפיזיים המאוחסנים באחסון.
+            </div>
+            <div style="background: var(--code-bg); padding: 0.6rem; border-radius: 6px; border-right: 3px solid var(--accent-amber);">
+              <strong>3. רוויזיית מטא-דאטה (<code style="direction:ltr;">metadata_revision: 1, 2, 3...</code>):</strong><br/>
+              מונה OCC עולה. מקודם בכל קריאת <code>PATCH /metadata</code> ומאופס ל-1 בעת יצירת גרסת קובץ חדשה.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Field Mutability Matrix -->
+      <div class="card">
+        <h3 style="font-size: 1rem; font-weight: 700; margin-bottom: 0.75rem; color: var(--text-primary);">
+          מטריצת מוטביליות של שדות מטא-דאטה (סכמה: <code style="color:var(--accent-blue); direction:ltr;">bank.document-metadata/1</code>)
+        </h3>
+        <div class="table-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>שמות השדות</th>
+                <th>קטגוריה</th>
+                <th>כלל מוטביליות (Mutability)</th>
+                <th>מנגנון עדכון ובקרה</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style="direction:ltr; text-align:right;"><code>document_id</code>, <code>document_class</code>, <code>created_at</code>, <code>created_by</code></td>
+                <td>זהות מערכת</td>
+                <td><span class="pill pill-immutable">Strictly Immutable</span></td>
+                <td>נוצר פעם אחת ביצירת המסמך. ניסיון עריכה ב-PATCH נדחה מיד.</td>
+              </tr>
+              <tr>
+                <td style="direction:ltr; text-align:right;"><code>application_version</code>, <code>content_type</code>, <code>content_length</code>, <code>content_checksum</code></td>
+                <td>מפרט בינארי</td>
+                <td><span class="pill pill-immutable">Immutable for Version</span></td>
+                <td>קשור קריפטוגרפית לקובץ (SHA-256). מתעדכן אך ורק בהעלאת גרסת קובץ חדשה.</td>
+              </tr>
+              <tr>
+                <td style="direction:ltr; text-align:right;"><code>metadata_revision</code>, <code>metadata_updated_at</code>, <code>metadata_updated_by</code></td>
+                <td>בקרת מקביליות</td>
+                <td><span class="pill pill-system">System Monotonic</span></td>
+                <td>מנוהל ומקודם אוטומטית על ידי ה-Lambda ונעילות DynamoDB OCC.</td>
+              </tr>
+              <tr>
+                <td style="direction:ltr; text-align:right;"><code>customer_id</code>, <code>complete_customer_id_code</code>, <code>account_id</code>, <code>business_area_code</code>, <code>loan_number</code>, <code>currency</code>...</td>
+                <td>שדות עסקיים ומשותפים</td>
+                <td><span class="pill pill-mutable">Mutable via PATCH</span></td>
+                <td>ניתן לעריכה באמצעות <code>PATCH /metadata</code> בכפוף לנעילה אופטימית וסכמת JSON.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- SLIDE 4: DynamoDB vs. OpenSearch Serverless Deep Dive -->
+    <!-- ========================================================================= -->
+    <section class="slide" id="slide-4">
+      <div class="slide-header">
+        <div class="slide-title-group">
+          <h1>הפרדת אחסון ו-CQRS: Amazon DynamoDB מול OpenSearch Serverless</h1>
+          <p>ארכיטקטורת CQRS המפרידה בין שכבת בקרה טרנזקציונית מהירה להיטל חיפוש אלסטי</p>
+        </div>
+        <span class="slide-tag">ארכיטקטורת נתונים ו-CQRS</span>
+      </div>
+
+      <div class="compare-container" style="margin-bottom: 1.5rem;">
+        <!-- DynamoDB Box -->
+        <div class="compare-box dynamo">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem;">
+            <h3 style="font-size: 1.15rem; font-weight: 700; color: var(--aws-orange);">Amazon DynamoDB (Single-Table)</h3>
+            <span class="pill pill-system">OLTP / Source of Truth</span>
+          </div>
+          <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1rem;">
+            מהווה את עמוד השדרה הטרנזקציוני המהיר, מתאם הנעילות האופטימיות וסמכות המצביעים הפעילים.
+          </p>
+          <div style="display: flex; flex-direction: column; gap: 0.6rem; font-size: 0.825rem;">
+            <div style="background: var(--code-bg); padding: 0.6rem; border-radius: 6px; direction: ltr; text-align: left;">
+              <strong>Primary Key Patterns:</strong><br/>
+              • Document Pointer: <code>pk: DOC#{id} | sk: DOC</code><br/>
+              • Version History: <code>pk: DOC#{id} | sk: VER#{padded_version}</code><br/>
+              • Upload Session: <code>pk: UPLOAD#{id} | sk: SESSION</code><br/>
+              • Idempotency Lock: <code>pk: IDEMP#{client}#{key} | sk: REQUEST</code>
+            </div>
+            <ul style="color: var(--text-secondary); padding-right: 1.2rem; display: flex; flex-direction: column; gap: 0.25rem;">
+              <li><strong>בקרת מקביליות אופטימית:</strong> עדכונים מותנים (<code>ConditionExpression: current_metadata_revision = :exp</code>).</li>
+              <li><strong>טרנזקציות אטומיות:</strong> <code>TransactWriteItems</code> מאחד עדכון מצביע, רשומת גרסה ונעילת Idempotency.</li>
+              <li><strong>זרימת אירועי CDC:</strong> אירועי DynamoDB Streams נלכדים לעיבוד אסינכרוני במורד הצינור.</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- OpenSearch Serverless Box -->
+        <div class="compare-box opensearch">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem;">
+            <h3 style="font-size: 1.15rem; font-weight: 700; color: var(--accent-purple);">Amazon OpenSearch Serverless (AOSS)</h3>
+            <span class="pill pill-mutable">OLAP / Read Projection</span>
+          </div>
+          <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1rem;">
+            משמש אך ורק כאינדקס חיפוש נגזר (<code>documents-v1</code>) לסינונים מרובי-שדות ודפדוף יעיל.
+          </p>
+          <div style="display: flex; flex-direction: column; gap: 0.6rem; font-size: 0.825rem;">
+            <div style="background: var(--code-bg); padding: 0.6rem; border-radius: 6px; direction: ltr; text-align: left;">
+              <strong>Search Capabilities:</strong><br/>
+              • Exact keyword filtering (<code>document_class</code>, <code>branch_code</code>, <code>status</code>)<br/>
+              • Numeric range queries (<code>loan_amount_minor_units</code>)<br/>
+              • ISO 8601 Date ranges (<code>signed_date</code>, <code>created_at</code>)<br/>
+              • Stateless Cursor Pagination via <code>search_after</code>
+            </div>
+            <ul style="color: var(--text-secondary); padding-right: 1.2rem; display: flex; flex-direction: column; gap: 0.25rem;">
+              <li><strong>אפס ניהול קלאסטרים:</strong> מתרחב ומתכווץ אוטומטית לפי יחידות OCU.</li>
+              <li><strong>בידוד תקלות:</strong> גם בעת השבתת אינדקס החיפוש, העלאות, עדכוני מטא-דאטה והורדות ממשיכים לפעול ב-100%.</li>
+              <li><strong>אבטחת IAM SigV4:</strong> אימות והרשאות ישירות מול AWS IAM ללא סיסמאות סטטיות.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- Why CQRS Decoupling Matters -->
+      <div class="card card-highlight">
+        <div class="card-title">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          מדוע הפרדת CQRS היא דרישת חובה בארכיטקטורת Enterprise מודרנית?
+        </div>
+        <div class="grid-3" style="font-size: 0.85rem; color: var(--text-secondary); gap: 1rem;">
+          <div>
+            <strong style="color:var(--text-primary);">1. בידוד משטח פגיעה (Blast Radius):</strong> שאילתות חיפוש כבדות או בנייה מחדש של אינדקס אינן פוגעות בביצועי הקליטה הטרנזקציונית או ב-SLA.
+          </div>
+          <div>
+            <strong style="color:var(--text-primary);">2. שחזור ותיקון עצמי (Self-Healing):</strong> היות ו-S3 ו-DynamoDB הם מקורות האמת הבלעדיים, ניתן למחוק ולבנות מחדש את אינדקס החיפוש מאנוטציות S3 בכל עת.
+          </div>
+          <div>
+            <strong style="color:var(--text-primary);">3. אופטימיזציית עלויות וסילום:</strong> תשלום לפי נפח השאילתות בפועל ללא צורך בהחזקת קלאסטרים ייעודיים יקרים 24/7.
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- SLIDE 5: Comprehensive AWS Services Catalog -->
+    <!-- ========================================================================= -->
+    <section class="slide" id="slide-5">
+      <div class="slide-header">
+        <div class="slide-title-group">
+          <h1>קטלוג שירותי AWS מנוהלים והצדקה ארכיטקטונית</h1>
+          <p>ההיגיון ההנדסי והבקרות המאובטחות מאחורי כל אבן בניין במערכת</p>
+        </div>
+        <span class="slide-tag">קטלוג שירותי AWS</span>
+      </div>
+
+      <div class="card">
+        <div class="table-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>שירות AWS</th>
+                <th>תפקיד בארכיטקטורה</th>
+                <th>מדוע נבחר? (הצדקה ארכיטקטונית)</th>
+                <th>בקרות אבטחה וממשל</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Amazon API Gateway</strong></td>
+                <td>שער כניסה וניתוב REST ציבורי</td>
+                <td>שער Serverless מנוהל לחלוטין; תמיכה ב-Cognito JWT Authorizer; הגבלת קצב (1,000 RPS עם Burst ל-2,000); העברת תוכן בינארי (<code>*/*</code>).</td>
+                <td>TLS 1.2+, מוכן ל-AWS WAF, אימות JWT.</td>
+              </tr>
+              <tr>
+                <td><strong>AWS Lambda</strong></td>
+                <td>מנוע חישוב מיקרו-שירותים</td>
+                <td>תשלום לפי מילישניות ריצה; אפס תחזוקת שרתים; סקיילינג אוטומטי ב-Multi-AZ; זמני תגובה של תת-שנייה עם Node.js 20.x TypeScript.</td>
+                <td>תפקיד IAM Execution Role ייעודי לכל פונקציה (Least Privilege).</td>
+              </tr>
+              <tr>
+                <td><strong>Amazon S3</strong></td>
+                <td>אחסון קבצים ואנוטציות מטא-דאטה</td>
+                <td>עמידות של 11 תשיעיות (11 9s); ניהול גרסאות מובנה; הנפקת כתובות Presigned URL ישירות לעקיפת צווארי בקבוק במחשוב.</td>
+                <td>הצפנת SSE-KMS, חסימת גישה ציבורית, Deny למחיקת גרסאות.</td>
+              </tr>
+              <tr>
+                <td><strong>Amazon DynamoDB</strong></td>
+                <td>שכבת בקרה ונעילות (Control Plane)</td>
+                <td>השהיה של מילישניות בודדות בכל עומס; טרנזקציות אטומיות (<code>TransactWriteItems</code>); עדכונים מותנים ל-OCC; זרימת אירועי CDC.</td>
+                <td>הצפנת KMS, גיבוי רציף (PITR), בקרת גישה מדויקת ב-IAM.</td>
+              </tr>
+              <tr>
+                <td><strong>Amazon OpenSearch Serverless</strong></td>
+                <td>היטל חיפוש ושאילתות עסקיות</td>
+                <td>חיפוש טקסט מלא ומסננים מרובי-שדות ללא צורך בניהול גודל קלאסטר או Shards; הרחבת יחידות OCU אוטומטית; אימות IAM SigV4.</td>
+                <td>מדיניות הצפנה ואבטחת רשת ב-AOSS Security Policies.</td>
+              </tr>
+              <tr>
+                <td><strong>Amazon SQS & DLQ</strong></td>
+                <td>חיץ וצימוד אסינכרוני</td>
+                <td>ספיגת עומסים פתאומיים בין DynamoDB Streams ל-OpenSearch; לכידת הודעות תקולות ב-<code>doc-platform-mvp-index-dlq</code> לאחר 3 ניסיונות.</td>
+                <td>הצפנת תור באמצעות KMS CMK, התראות CloudWatch Alarms.</td>
+              </tr>
+              <tr>
+                <td><strong>AWS Cognito</strong></td>
+                <td>ספריית זהויות וניהול תפקידי RBAC</td>
+                <td>ספריית זהויות מנוהלת התומכת ב-OAuth 2.0 / OIDC; הנפקת טוקני JWT קריפטוגרפיים; מיפוי קבוצות משתמשים לתפקידים (Reader, Writer, Editor, Admin).</td>
+                <td>אימות JWKS, אכיפת מדיניות סיסמאות קפדנית.</td>
+              </tr>
+              <tr>
+                <td><strong>AWS KMS</strong></td>
+                <td>ליבת הצפנה ארגונית מרכזית</td>
+                <td>מפתח מנוהל לקוח (<code>alias/doc-platform-mvp</code>) עם רוטציה אוטומטית שנתית המצפין את S3, DynamoDB, SQS ו-CloudWatch.</td>
+                <td>מגובה בחומרת HSM מאושרת בתקן FIPS 140-2 Level 3.</td>
+              </tr>
+              <tr>
+                <td><strong>Amazon CloudWatch & Trail</strong></td>
+                <td>ניטור, לוגים ותיעוד ביקורת</td>
+                <td>לוגים מבניים בפורמט JSON, התראות עומק בתורי DLQ, התראות שגיאות 5xx, ותיעוד CloudTrail מקיף שאינו ניתן להכחשה.</td>
+                <td>הצפנת Log Groups ב-KMS, טשטוש אוטומטי של שדות רגישים.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- SLIDE 6: Asynchronous Event Streaming & Self-Healing Pipeline -->
+    <!-- ========================================================================= -->
+    <section class="slide" id="slide-6">
+      <div class="slide-header">
+        <div class="slide-title-group">
+          <h1>זרימת אירועים אסינכרונית וצינור עיבוד בעל תיקון עצמי</h1>
+          <p>אינדוקס מנותק, תיעוד ביקורת S3 אוטומטי ובידוד תקלות באמצעות Dead-Letter Queue</p>
+        </div>
+        <span class="slide-tag">הנדסת אירועים (CDC) וחוסן</span>
+      </div>
+
+      <div class="grid-2" style="margin-bottom: 1.25rem;">
+        <!-- Flow Explanation -->
+        <div class="card card-highlight">
+          <div class="card-title">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+            שלבי ביצוע צינור האירועים האסינכרוני
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 0.6rem; font-size: 0.85rem; color: var(--text-secondary);">
+            <div>
+              <strong style="color: var(--accent-blue);">1. ביצוע שינוי ב-DynamoDB:</strong> פעולת קליטה, עדכון מטא-דאטה או מחיקה רכה נרשמת ב-DynamoDB ומייצרת אוטומטית רשומת אירוע ב-<strong>DynamoDB Streams</strong>.
+            </div>
+            <div>
+              <strong style="color: var(--accent-blue);">2. פונקציית Stream Processor:</strong> צורכת מקבצי אירועים (עד 10 רשומות) ומבצעת שתי משימות במקביל:
+              <ul style="padding-right: 1.2rem; margin-top: 0.2rem;">
+                <li>כותבת תיעוד ביקורת JSON בלתי מחיק ל-<code style="font-size:0.75rem; direction:ltr;">s3://audit-bucket/audit/{date}/{doc_id}_{event_id}.json</code>.</li>
+                <li>משדרת הודעת אינדוקס לתור ה-<strong>Amazon SQS Indexing Queue</strong>.</li>
+              </ul>
+            </div>
+            <div>
+              <strong style="color: var(--accent-blue);">3. פונקציית SQS Indexer:</strong> מעבדת מקבצי הודעות (עד 5), קוראת את אנוטציית ה-S3 המוסמכת, ומעדכנת/מוחקת את ההיטל ב-OpenSearch Serverless.
+            </div>
+            <div>
+              <strong style="color: var(--accent-blue);">4. תור שגיאות (DLQ) והתראות:</strong> במידה ו-OpenSearch אינו זמין זמנית, SQS מנסה שוב 3 פעמים ולאחר מכן מנתב את ההודעה ל-<code>doc-platform-mvp-index-dlq</code> ומפעיל התראת CloudWatch.
+            </div>
+          </div>
+        </div>
+
+        <!-- Code / Event Schema -->
+        <div class="card">
+          <div class="card-title">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            מבנה הודעת האינדוקס בתור ה-SQS
+          </div>
+          <pre class="code-block">{
+  <span class="token-key">"event_id"</span>: <span class="token-str">"e3b0c442-98fc-1c14-9afb-f4c8996fb924"</span>,
+  <span class="token-key">"event_type"</span>: <span class="token-str">"DOCUMENT_METADATA_UPDATED"</span>,
+  <span class="token-key">"document_id"</span>: <span class="token-str">"550e8400-e29b-41d4-a716-446655440000"</span>,
+  <span class="token-key">"document_class"</span>: <span class="token-str">"loan_agreement"</span>,
+  <span class="token-key">"application_version"</span>: <span class="token-num">2</span>,
+  <span class="token-key">"metadata_revision"</span>: <span class="token-num">3</span>,
+  <span class="token-key">"status"</span>: <span class="token-str">"ACTIVE"</span>,
+  <span class="token-key">"timestamp"</span>: <span class="token-str">"2026-08-18T15:05:00.000Z"</span>,
+  <span class="token-key">"actor_id"</span>: <span class="token-str">"usr_editor_02"</span>
+}</pre>
+          <div style="margin-top: 0.75rem; font-size: 0.8rem; color: var(--accent-emerald);">
+            ✓ מנגנון הצרכן הינו אידמפוטנטי לחלוטין ומונע כפילויות גם במקרה של מסירת הודעה חוזרת (At-least-once) ב-SQS.
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- SLIDE 7: Complete API Sequence Gallery & Interactive Explorer -->
+    <!-- ========================================================================= -->
+    <section class="slide" id="slide-7">
+      <div class="slide-header">
+        <div class="slide-title-group">
+          <h1>ארכיטקטורת ממשקי ה-API ותרשימי רצף מקצה-לקצה</h1>
+          <p>סייר תרשימי רצף אינטראקטיבי וצפייה ברזולוציה גבוהה (למעט Health API)</p>
+        </div>
+        <span class="slide-tag">גלריית תרשימי רצף ו-API</span>
+      </div>
+
+      <!-- Interactive API Explorer -->
+      <div class="api-explorer">
+        <!-- API Route Sidebar -->
+        <div class="api-nav-list" id="api-list-container">
+          <div class="api-nav-item active" onclick="showApiDetail(2)">
+            <span class="api-method-badge method-post">POST</span>
+            <span class="api-path-text">/v1/documents</span>
+            <span class="api-name-text">קליטת קובץ ישירה ב-Inline (≤ 4 MiB)</span>
+          </div>
+          <div class="api-nav-item" onclick="showApiDetail(3)">
+            <span class="api-method-badge method-post">POST</span>
+            <span class="api-path-text">/v1/documents/uploads</span>
+            <span class="api-name-text">אתחול סשן העלאה ישירה (&gt; 4 MiB)</span>
+          </div>
+          <div class="api-nav-item" onclick="showApiDetail(4)">
+            <span class="api-method-badge method-post">POST</span>
+            <span class="api-path-text">/v1/uploads/{id}/complete</span>
+            <span class="api-name-text">השלמת סשן העלאה ישירה</span>
+          </div>
+          <div class="api-nav-item" onclick="showApiDetail(5)">
+            <span class="api-method-badge method-delete">DELETE</span>
+            <span class="api-path-text">/v1/uploads/{id}</span>
+            <span class="api-name-text">ביטול / הפסקת סשן העלאה</span>
+          </div>
+          <div class="api-nav-item" onclick="showApiDetail(6)">
+            <span class="api-method-badge method-get">GET</span>
+            <span class="api-path-text">/v1/documents/{id}</span>
+            <span class="api-name-text">קבלת פרטי מסמך ומצביע פעיל</span>
+          </div>
+          <div class="api-nav-item" onclick="showApiDetail(7)">
+            <span class="api-method-badge method-get">GET</span>
+            <span class="api-path-text">/v1/documents/{id}/versions</span>
+            <span class="api-name-text">הצגת היסטוריית גרסאות מלאה</span>
+          </div>
+          <div class="api-nav-item" onclick="showApiDetail(8)">
+            <span class="api-method-badge method-post">POST</span>
+            <span class="api-path-text">/v1/documents/{id}/versions</span>
+            <span class="api-name-text">יצירת גרסת קובץ בינארי חדשה</span>
+          </div>
+          <div class="api-nav-item" onclick="showApiDetail(9)">
+            <span class="api-method-badge method-get">GET</span>
+            <span class="api-path-text">/v1/documents/{id}/versions/{v}</span>
+            <span class="api-name-text">קבלת פרטי גרסה היסטורית ספציפית</span>
+          </div>
+          <div class="api-nav-item" onclick="showApiDetail(10)">
+            <span class="api-method-badge method-get">GET</span>
+            <span class="api-path-text">/v1/documents/{id}/metadata</span>
+            <span class="api-name-text">קריאת אנוטציית מטא-דאטה מוסמכת מ-S3</span>
+          </div>
+          <div class="api-nav-item" onclick="showApiDetail(11)">
+            <span class="api-method-badge method-patch">PATCH</span>
+            <span class="api-path-text">/v1/documents/{id}/metadata</span>
+            <span class="api-name-text">עדכון מטא-דאטה בנעילה אופטימית (OCC)</span>
+          </div>
+          <div class="api-nav-item" onclick="showApiDetail(12)">
+            <span class="api-method-badge method-get">GET</span>
+            <span class="api-path-text">/v1/documents/{id}/download</span>
+            <span class="api-name-text">הנפקת Presigned URL להורדת קובץ</span>
+          </div>
+          <div class="api-nav-item" onclick="showApiDetail(13)">
+            <span class="api-method-badge method-post">POST</span>
+            <span class="api-path-text">/v1/documents/{id}/soft-delete</span>
+            <span class="api-name-text">מחיקה לוגית רכה והסרה מאינדקס</span>
+          </div>
+          <div class="api-nav-item" onclick="showApiDetail(14)">
+            <span class="api-method-badge method-post">POST</span>
+            <span class="api-path-text">/v1/documents/{id}/restore</span>
+            <span class="api-name-text">שחזור מסמך והחזרה לאינדקס</span>
+          </div>
+          <div class="api-nav-item" onclick="showApiDetail(15)">
+            <span class="api-method-badge method-post">POST</span>
+            <span class="api-path-text">/v1/search</span>
+            <span class="api-name-text">חיפוש מבני ב-OpenSearch Serverless</span>
+          </div>
+        </div>
+
+        <!-- API Detail & Sequence Image Container -->
+        <div class="api-detail-pane" id="api-detail-pane">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+            <div>
+              <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.35rem;">
+                <span class="api-method-badge method-post" id="pane-method">POST</span>
+                <h2 style="font-size: 1.25rem; font-weight:700; direction:ltr;" id="pane-path">/v1/documents</h2>
+              </div>
+              <p style="font-size: 0.85rem; color: var(--text-secondary);" id="pane-title">קליטת קובץ ישירה ב-Inline (≤ 4 MiB)</p>
+            </div>
+            <span class="pill pill-mutable" id="pane-role">Document.Writer</span>
+          </div>
+
+          <!-- Clickable Diagram Box -->
+          <div class="img-preview-box" id="pane-img-box" onclick="openCurrentApiLightbox()">
+            <img id="pane-img" src="diagrams/api_sequence_diagrams/02_post_documents_inline.jpg" alt="API Sequence Diagram" />
+            <div class="img-caption">
+              <span id="pane-caption"><strong>תרשים רצף:</strong> זרימת ביצוע POST /v1/documents</span>
+              <span style="color: var(--accent-blue); font-weight:600;">🔍 לחץ להגדלה</span>
+            </div>
+          </div>
+
+          <!-- Description & Sequence Highlights -->
+          <div class="card" style="background: var(--code-bg); padding: 1rem;">
+            <h4 style="font-size: 0.9rem; font-weight:700; margin-bottom: 0.4rem; color: var(--text-primary);">דגשי ביצוע וגבולות סמכות</h4>
+            <p style="font-size: 0.825rem; color: var(--text-secondary); line-height: 1.5;" id="pane-desc">
+              העלאה ישירה לקבצים בינאריים עד 4MB. מוודאת SHA-256 ומעטפת JSON Schema, כותבת את הקובץ ואת אנוטציית ה-JSON המוסמכת ל-Amazon S3, ומבצעת טרנזקציית DynamoDB TransactWriteItems אטומית ליצירת מצביע DOC#, רשומת היסטוריה VER#0000000001 ונעילת Idempotency.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- SLIDE 8: Ingestion Pathways (Inline vs. Direct S3 Presigned Upload) -->
+    <!-- ========================================================================= -->
+    <section class="slide" id="slide-8">
+      <div class="slide-header">
+        <div class="slide-title-group">
+          <h1>ארכיטקטורת קליטה דו-ערוצית: Inline מול Direct S3</h1>
+          <p>אופטימיזציית זמני קליטה ומניעת צווארי בקבוק של מגבלת 10MB ב-API Gateway</p>
+        </div>
+        <span class="slide-tag">מסלולי קליטת קבצים</span>
+      </div>
+
+      <div class="grid-2" style="margin-bottom: 1.25rem;">
+        <!-- Pathway 1 -->
+        <div class="card card-highlight">
+          <div class="card-title">
+            <span class="pill pill-mutable">מסלול 1</span>
+            העלאה ישירה ב-Inline (≤ 4 MiB)
+          </div>
+          <div class="card-desc">
+            בקשת HTTP יחידה המתאימה לחשבוניות סרוקות, קבלות, הסכמים קצרים ומסמכי PDF סטנדרטיים.
+          </div>
+          <div style="background: var(--code-bg); padding: 0.75rem; border-radius: 6px; font-size: 0.8rem; margin-bottom: 0.75rem; direction: ltr; text-align: left;">
+            <code>POST /v1/documents</code> with binary body + headers:
+            <ul style="padding-left: 1.2rem; margin-top: 0.3rem;">
+              <li><code>Content-Type: application/pdf</code></li>
+              <li><code>X-Content-SHA256: {hex_hash}</code></li>
+              <li><code>X-Document-Metadata: {base64_json}</code></li>
+            </ul>
+          </div>
+          <p style="font-size: 0.825rem; color: var(--text-secondary);">
+            <strong>יתרונות:</strong> אפס תיאום מקדים; קליטה אטומית בבקשה אחת בלבד; תגובת 201 Created מיידית.
+          </p>
+        </div>
+
+        <!-- Pathway 2 -->
+        <div class="card card-highlight">
+          <div class="card-title">
+            <span class="pill pill-system">מסלול 2</span>
+            העלאה ישירה ל-S3 באמצעות Presigned URL (&gt; 4 MiB)
+          </div>
+          <div class="card-desc">
+            פרוטוקול דו-שלבי המיועד לתיקי הלוואה כבדים, תיקי משכנתא וסריקות מרובות עמודים.
+          </div>
+          <div style="background: var(--code-bg); padding: 0.75rem; border-radius: 6px; font-size: 0.8rem; margin-bottom: 0.75rem; direction: ltr; text-align: left;">
+            <strong>Step 1:</strong> <code>POST /v1/documents/uploads</code> (אתחול סשן וקבלת Presigned S3 URL ל-15 דק')<br/>
+            <strong>Step 2:</strong> <code>PUT {presigned_url}</code> (הזרמת הקובץ הבינארי ישירות ל-S3)<br/>
+            <strong>Step 3:</strong> <code>POST /v1/uploads/{id}/complete</code> (אימות אובייקט והפעלת מצביע)
+          </div>
+          <p style="font-size: 0.825rem; color: var(--text-secondary);">
+            <strong>יתרונות:</strong> עוקף את מגבלת 10MB ב-API Gateway ואת זיכרון ה-Lambda; מזרים במהירות קו מלאה ישירות ל-S3.
+          </p>
+        </div>
+      </div>
+
+      <!-- Concurrency Comparison Box -->
+      <div class="card">
+        <h3 style="font-size: 1rem; font-weight: 700; margin-bottom: 0.5rem;">פרופיל ביצועים וסילום בקליטה</h3>
+        <div class="grid-3" style="font-size: 0.85rem; color: var(--text-secondary);">
+          <div>
+            <strong style="color:var(--text-primary);">השהיית העלאה ב-Inline:</strong><br/>
+            ~120ms עד 250ms זמן תגובה כולל מקצה-לקצה, כולל טרנזקציית DynamoDB וכתיבת S3 PutObject.
+          </div>
+          <div>
+            <strong style="color:var(--text-primary);">רוחב פס בהעלאה ישירה ל-S3:</strong><br/>
+            תמיכה בקבצים עד 5GB ב-Single-PUT או Multipart Upload ללא שום לחץ זיכרון על שכבת ה-Compute.
+          </div>
+          <div>
+            <strong style="color:var(--text-primary);">פקיעת תוקף סשנים:</strong><br/>
+            סשנים של העלאה ישירה שלא הושלמו נמחקים אוטומטית באמצעות DynamoDB TTL לאחר 24 שעות.
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- SLIDE 9: Concurrency Control & Metadata Evolution -->
+    <!-- ========================================================================= -->
+    <section class="slide" id="slide-9">
+      <div class="slide-header">
+        <div class="slide-title-group">
+          <h1>בקרת מקביליות אופטימית (OCC) והתפתחות סכמות</h1>
+          <p>מניעת דריסת נתונים (Lost Updates) בריבוי משתמשים וניהול תבניות JSON Schema דינמיות</p>
+        </div>
+        <span class="slide-tag">ממשל וניהול מקביליות</span>
+      </div>
+
+      <div class="grid-2" style="margin-bottom: 1.25rem;">
+        <!-- OCC Flow -->
+        <div class="card">
+          <div class="card-title">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 14 14"/></svg>
+            בקרת מקביליות אופטימית (Optimistic Concurrency Control)
+          </div>
+          <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.75rem;">
+            בעת עדכון מטא-דאטה, הלקוח חייב להעביר את מספר הרוויזיה הנוכחי שבידיו דרך <code>expected_metadata_revision</code>:
+          </p>
+          <div style="background: var(--code-bg); padding: 0.75rem; border-radius: 6px; font-size: 0.8rem; font-family: var(--font-mono); margin-bottom: 0.75rem; direction: ltr; text-align: left;">
+            PATCH /v1/documents/{id}/metadata<br/>
+            {<br/>
+            &nbsp;&nbsp;"expected_metadata_revision": 1,<br/>
+            &nbsp;&nbsp;"changes": { "branch_code": "TLV-05" }<br/>
+            }
+          </div>
+          <ul style="font-size: 0.825rem; color: var(--text-secondary); padding-right: 1.2rem; display: flex; flex-direction: column; gap: 0.35rem;">
+            <li><strong>שמירה מותנית ב-DynamoDB:</strong> מריץ <code>ConditionExpression: current_metadata_revision = :expRev</code>.</li>
+            <li><strong>פתרון קונפליקטים:</strong> במידה ומשתמש אחר ערך את המסמך קודם לכן, הבקשה נדחית ב-<code class="pill pill-immutable">409 METADATA_CONFLICT</code> עם מספר הרוויזיה העדכני.</li>
+          </ul>
+        </div>
+
+        <!-- Schema Evolution -->
+        <div class="card">
+          <div class="card-title">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+            התפתחות תבניות סכמת JSON (Schema Evolution)
+          </div>
+          <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.75rem;">
+            אימות קפדני בתקן JSON Schema Draft-07 עם <code style="font-size:0.75rem; direction:ltr;">additionalProperties: false</code>:
+          </p>
+          <div style="display: flex; flex-direction: column; gap: 0.5rem; font-size: 0.825rem;">
+            <div style="background: var(--code-bg); padding: 0.6rem; border-radius: 6px;">
+              <strong>1. מודל GitOps בזמן בנייה (Phase 1):</strong><br/>
+              סכמות מנוהלות ב-Git (<code>schemas/loan_agreement-v1.json</code>) ומקומפלות לזיכרון ה-Lambda ב-Cold Start באמצעות Ajv. אפס השהיות רשת.
+            </div>
+            <div style="background: var(--code-bg); padding: 0.6rem; border-radius: 6px;">
+              <strong>2. רגיסטרי סכמות דינמי בזמן ריצה (Phase 2):</strong><br/>
+              טבלת DynamoDB ייעודית (<code>doc-platform-schemas</code>) המאפשרת למנהלי מערכת להוסיף סכמות בזמן אמת ללא צורך בפריסת קוד מחדש.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Security RBAC Matrix -->
+      <div class="card">
+        <h3 style="font-size: 1rem; font-weight: 700; margin-bottom: 0.75rem;">אכיפת בקרת גישה מבוססת תפקידים ב-Cognito (RBAC Enforcement)</h3>
+        <div class="table-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>פעולה / נתיב API</th>
+                <th><code>Document.Reader</code></th>
+                <th><code>Document.Writer</code></th>
+                <th><code>Document.MetadataEditor</code></th>
+                <th><code>Document.Admin</code></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style="direction:ltr; text-align:right;"><code>POST /documents</code> (Inline & Direct Ingestion)</td>
+                <td>❌ חסום</td>
+                <td>✅ מורשה</td>
+                <td>❌ חסום</td>
+                <td>✅ מורשה</td>
+              </tr>
+              <tr>
+                <td style="direction:ltr; text-align:right;"><code>GET /documents/{id}</code>, <code>GET /versions</code>, <code>GET /download</code></td>
+                <td>✅ מורשה</td>
+                <td>✅ מורשה</td>
+                <td>✅ מורשה</td>
+                <td>✅ מורשה</td>
+              </tr>
+              <tr>
+                <td style="direction:ltr; text-align:right;"><code>PATCH /documents/{id}/metadata</code></td>
+                <td>❌ חסום</td>
+                <td>✅ מורשה</td>
+                <td>✅ מורשה</td>
+                <td>✅ מורשה</td>
+              </tr>
+              <tr>
+                <td style="direction:ltr; text-align:right;"><code>POST /soft-delete</code> & <code>POST /restore</code></td>
+                <td>❌ חסום</td>
+                <td>❌ חסום</td>
+                <td>❌ חסום</td>
+                <td>✅ מורשה בלעדי</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- SLIDE 10: Full-Stack Observability, Tracing & Audit Governance (Hebrew) -->
+    <!-- ========================================================================= -->
+    <section class="slide" id="slide-10">
+      <div class="slide-header">
+        <div class="slide-title-group">
+          <h1>ניטור מלא, מעקב מבוזר ושקיפות ביקורת (Observability & Tracing)</h1>
+          <p>תיעוד מובנה ב-CloudWatch, מעקב חוצה-מערכות באמצעות Correlation ID, התראות אוטומטיות ויומן ביקורת בלתי-הפיך ב-S3</p>
+        </div>
+        <span class="slide-tag">ניטור, בקרה ורגולציה</span>
+      </div>
+
+      <div class="grid-4" style="margin-bottom: 1.25rem;">
+        <div class="card card-highlight">
+          <div class="card-title">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            לוגים מובנים בפורמט JSON
+          </div>
+          <div class="card-desc">
+            כל פונקציות ה-Lambda משתמשות ברכיב <code>Logger</code> מרכזי הפולט JSON מובנה הכולל <code>correlationId</code>, <code>documentId</code>, <code>userId</code>, <code>version</code> ו-<code>route</code>.
+          </div>
+          <ul style="font-size: 0.8rem; color: var(--accent-blue); font-weight: 600; padding-right: 1.1rem; line-height: 1.5;">
+            <li>מיסוך אוטומטי של PII, טוקנים ונתונים רגישים</li>
+            <li>אינדוקס וחיפוש מהיר ב-CloudWatch Logs Insights</li>
+          </ul>
+        </div>
+
+        <div class="card card-highlight">
+          <div class="card-title">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            מעקב מבוזר (Distributed Tracing)
+          </div>
+          <div class="card-desc">
+            כל קריאת REST מוחתמת ב-API Gateway ב-<code>requestId</code> ייחודי המועבר כ-<code>correlationId</code> לאורך כל שרשרת העיבוד: DynamoDB Streams &larr; SQS &larr; Indexer &larr; OpenSearch.
+          </div>
+          <ul style="font-size: 0.8rem; color: var(--accent-emerald); font-weight: 600; padding-right: 1.1rem; line-height: 1.5;">
+            <li>מיפוי תלויות מלא באמצעות AWS X-Ray ו-ServiceLens</li>
+            <li>מעקב סיבתי מדויק אחר אירועים אסינכרוניים</li>
+          </ul>
+        </div>
+
+        <div class="card card-highlight">
+          <div class="card-title">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+            התראות ולוח מחוונים מרכזי
+          </div>
+          <div class="card-desc">
+            ה-Stack הייעודי <code>ObservabilityStack</code> פורס התראות CloudWatch אוטומטיות ולוח בקרה תפעולי מלא (<code>doc-platform-mvp-dashboard</code>).
+          </div>
+          <ul style="font-size: 0.8rem; color: var(--aws-orange); font-weight: 600; padding-right: 1.1rem; line-height: 1.5;">
+            <li>התרעת DLQ מנותק (<code>&ge; 1</code> הודעות) לכשלי אינדוקס</li>
+            <li>התרעת שגיאות שרת (<code>&ge; 5</code> שגיאות 5xx ב-5 דקות)</li>
+          </ul>
+        </div>
+
+        <div class="card card-highlight">
+          <div class="card-title">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+            תיוג משאבים מרכזי (Resource Tagging)
+          </div>
+          <div class="card-desc">
+            תיוג גלובלי אוטומטי לכל המשאבים הפרוסים (S3, DynamoDB, Lambdas, SQS, API Gateway, CloudFront, OpenSearch) לניהול ציי ענן ובקרת עלויות.
+          </div>
+          <ul style="font-size: 0.8rem; color: var(--accent-purple); font-weight: 600; padding-right: 1.1rem; line-height: 1.5;">
+            <li><code>Project: aws-document-management-platform</code></li>
+            <li><code>System: DocPlatform</code> | <code>Env: dev</code> | <code>CDK</code></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="grid-2" style="gap: 1.25rem;">
+        <!-- Left: Diagnostic Queries -->
+        <div class="card">
+          <div class="card-title">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            שאילתות דיאגנוסטיקה ואיתור משאבים ב-AWS
+          </div>
+          <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.65rem;">
+            שאילתות אינטראקטיביות בזמן אמת לרוחב לוגי המערכת וחיפוש ב-AWS Resource Groups:
+          </p>
+          <div style="display: flex; flex-direction: column; gap: 0.5rem; font-size: 0.78rem; font-family: var(--font-mono); direction: ltr; text-align: left;">
+            <div style="background: var(--code-bg); padding: 0.65rem 0.8rem; border-radius: 6px; border-left: 3px solid var(--accent-blue);">
+              <span style="color: var(--text-muted);"># 1. מעקב אחר בקשה ספציפית לפי Correlation ID</span><br/>
+              fields @timestamp, level, message, documentId, userId<br/>
+              | filter correlationId = "c8f94d21-xxxx-xxxx-xxxx-xxxxxxxxxxxx"<br/>
+              | sort @timestamp asc
+            </div>
+            <div style="background: var(--code-bg); padding: 0.65rem 0.8rem; border-radius: 6px; border-left: 3px solid var(--accent-emerald);">
+              <span style="color: var(--text-muted);"># 2. מעקב היסטוריית פעולות לפי Document ID</span><br/>
+              fields @timestamp, level, message, version, userId<br/>
+              | filter documentId = "doc-uuid-here"<br/>
+              | sort @timestamp desc
+            </div>
+            <div style="background: var(--code-bg); padding: 0.65rem 0.8rem; border-radius: 6px; border-left: 3px solid var(--accent-rose);">
+              <span style="color: var(--text-muted);"># 3. איתור חריגות ושגיאות מערכת גלובליות</span><br/>
+              fields @timestamp, @logStream, level, message, error.message<br/>
+              | filter level = "ERROR" | sort @timestamp desc | limit 50
+            </div>
+            <div style="background: var(--code-bg); padding: 0.65rem 0.8rem; border-radius: 6px; border-left: 3px solid var(--accent-purple);">
+              <span style="color: var(--text-muted);"># 4. איתור מיידי של כלל משאבי המערכת לפי תגית פרויקט</span><br/>
+              aws resourcegroupstaggingapi get-resources<br/>
+              &nbsp;&nbsp;--tag-filters Key=Project,Values=aws-document-management-platform
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: Immutable S3 Audit Bucket -->
+        <div class="card">
+          <div class="card-title">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            יומן ביקורת בלתי-הפיך (S3 Audit Trail)
+          </div>
+          <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.65rem;">
+            דלי S3 מוצפן ייעודי (<code>doc-platform-mvp-audit-*</code>) המתעד כל שינוי מצב ומטא-דאטה:
+          </p>
+          <div style="display: flex; flex-direction: column; gap: 0.55rem; font-size: 0.825rem; color: var(--text-secondary);">
+            <div style="background: var(--code-bg); padding: 0.65rem 0.8rem; border-radius: 6px; direction: ltr; text-align: left;">
+              <strong style="color: var(--text-primary);">S3 Date-Partitioned Key Structure:</strong><br/>
+              <code style="color: var(--accent-amber); font-size: 0.78rem;">audit/events/YYYY/MM/DD/{documentId}_{timestamp}.json</code>
+            </div>
+            <div class="authority-card auth-audit" style="margin-bottom: 0;">
+              <h4>קליטת אירועים ללא תקורה (Zero-Overhead CDC) <span>מונע אירועים</span></h4>
+              <p>שינויים ב-DynamoDB מפעילים אסינכרונית את פונקציית העיבוד ומייצרים תיעוד ביקורת קריפטוגרפי ללא פגיעה במהירות ה-API למשתמש.</p>
+            </div>
+            <div class="authority-card auth-content" style="margin-bottom: 0;">
+              <h4>עמידה בתקני רגולציה מחמירים (WORM) <span>SOX / GDPR / בנקאות</span></h4>
+              <p>נעול במדיניות IAM קשיחה המונעת מחיקה או שינוי של רשומות ביקורת, ומבטיחה שקיפות משפטית ואי-התכחשות (Non-Repudiation).</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- SLIDE 11: Strategic Architecture Summary & Value -->
+    <!-- ========================================================================= -->
+    <section class="slide" id="slide-11">
+      <div class="slide-header">
+        <div class="slide-title-group">
+          <h1>סיכום אסטרטגי ותובנות ארכיטקטורה</h1>
+          <p>החלטות ארכיטקטוניות מרכזיות, חיסכון בעלויות בעלות כוללת (TCO) ומוכנות לעתיד</p>
+        </div>
+        <span class="slide-tag">סיכום מנהלים</span>
+      </div>
+
+      <div class="grid-3" style="margin-bottom: 1.5rem;">
+        <div class="card card-highlight">
+          <div class="card-title" style="color:var(--accent-blue);">
+            1. אפס עלויות במצב סרק (Zero Idle TCO)
+          </div>
+          <div class="card-desc">
+            על ידי הימנעות מהחזקת שרתי EC2, מכולות ECS או קלאסטרים קבועים של OpenSearch הפועלים 24/7, העלות התפעולית מתאימה במדויק לנפח הפעילות. סביבות פיתוח ובדיקות ללא תנועה עולות $0.
+          </div>
+        </div>
+
+        <div class="card card-highlight">
+          <div class="card-title" style="color:var(--accent-emerald);">
+            2. עמידות מקסימלית ועמידה ב-WORM
+          </div>
+          <div class="card-desc">
+            עמידות של 11 תשיעיות (11 9s) ב-Amazon S3 בשילוב ניהול גרסאות מובנה וחסימה מוחלטת של <code class="pill pill-immutable">s3:DeleteObjectVersion</code> ב-IAM מעניקים עמידה רגולטורית מוכחת.
+          </div>
+        </div>
+
+        <div class="card card-highlight">
+          <div class="card-title" style="color:var(--accent-purple);">
+            3. בידוד תקלות מלא (Blast Radius Isolation)
+          </div>
+          <div class="card-desc">
+            ארכיטקטורת CQRS מנותקת מבטיחה שבנייה מחדש של אינדקס, עומסי חיפוש או תקלות זמניות ב-OpenSearch לעולם לא ישפיעו על הורדת מסמכים, קליטת קבצים או עדכוני מטא-דאטה.
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 style="font-size: 1.05rem; font-weight: 700; margin-bottom: 0.75rem; color: var(--text-primary);">
+          תקציר תיעוד החלטות ארכיטקטורה (ADR Summary)
+        </h3>
+        <div class="table-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>תחום החלטה</th>
+                <th>ארכיטקטורה שנבחרה</th>
+                <th>חלופות שנפסלו</th>
+                <th>הנימוק הארכיטקטוני המכריע</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>אחסון מטא-דאטה</strong></td>
+                <td>S3 Native Object Annotations</td>
+                <td>כותרות S3 Metadata (מגבלת 2KB), קובצי Sidecar נפרדים, עמודות JSONB במסד נתונים יחסי</td>
+                <td>מבטל את מגבלת 2KB; מונע פיצול קבצי Sidecar; מאפשר עריכת מטא-דאטה ללא שכפול קובץ בינארי; מוכן לאנליטיקת Apache Iceberg.</td>
+              </tr>
+              <tr>
+                <td><strong>שכבת בקרה (Control Plane)</strong></td>
+                <td>DynamoDB Single-Table Design</td>
+                <td>Amazon Aurora PostgreSQL, MongoDB Atlas</td>
+                <td>השהיה חד-ספרתית של מילישניות בכל עומס; זרימת אירועי CDC מובנית; טרנזקציות רב-פריטיות אטומיות ללא מגבלות Connection Pool.</td>
+              </tr>
+              <tr>
+                <td><strong>שכבת חיפוש (Search Tier)</strong></td>
+                <td>OpenSearch Serverless (AOSS)</td>
+                <td>קלאסטרים מנוהלים של OpenSearch, שאילתות DynamoDB GSI</td>
+                <td>אפס ניהול/עדכון גרסאות קלאסטר; סקיילינג דינמי של יחידות OCU; תמיכה בשאילתות טווח ומסננים מורכבים שאינם נתמכים במפתחות DynamoDB.</td>
+              </tr>
+              <tr>
+                <td><strong>מנוע חישוב (Compute Engine)</strong></td>
+                <td>AWS Lambda (Node.js 20.x TS)</td>
+                <td>ECS Fargate Containers, EKS Kubernetes</td>
+                <td>פשטות תפעולית אמיתית של Serverless; סקיילינג בתת-שנייה; מיקרו-פרימטרים של הרשאות IAM הדוקות ביותר.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Image Lightbox Modal -->
+  <div class="lightbox-modal" id="lightbox" onclick="closeLightbox(event)">
+    <div class="lightbox-content" onclick="event.stopPropagation()">
+      <button class="lightbox-close" onclick="closeLightbox()">&times;</button>
+      <img id="lightbox-img" src="" alt="Enlarged Diagram" />
+      <div id="lightbox-caption" style="margin-top: 0.75rem; font-size: 0.9rem; color: var(--text-primary); font-weight: 600;"></div>
+    </div>
+  </div>
+
+  <!-- Bottom Bar Navigation -->
+  <footer class="bottom-bar">
+    <div class="keyboard-hint">
+      <span>ניווט במקלדת:</span>
+      <span class="kbd">←</span>
+      <span class="kbd">→</span>
+      <span>או</span>
+      <span class="kbd">Space</span>
+      <span style="margin-right: 0.75rem;">מסך מלא:</span>
+      <span class="kbd">F</span>
+    </div>
+
+    <!-- Interactive Dot Timeline -->
+    <div class="timeline-nav" id="timeline-dots">
+      <!-- Generated via JS -->
+    </div>
+
+    <div style="font-size: 0.75rem; color: var(--text-muted);">
+      פלטפורמת ניהול מסמכים ב-AWS • מפרט ארכיטקטורה
+    </div>
+  </footer>
+
+  <!-- Interactive JavaScript Logic -->
+  <script>
+    const totalSlides = 11;
+    let currentSlide = 1;
+
+    // API Database for Interactive Explorer (Slide 7)
+    const apiData = {
+      2: {
+        method: "POST",
+        methodClass: "method-post",
+        path: "/v1/documents",
+        title: "קליטת קובץ ישירה ב-Inline (≤ 4 MiB)",
+        role: "Document.Writer",
+        img: "diagrams/api_sequence_diagrams/02_post_documents_inline.jpg",
+        caption: "תרשים רצף: זרימת ביצוע POST /v1/documents",
+        desc: "העלאה ישירה לקבצים בינאריים עד 4MB. מוודאת SHA-256 ומעטפת JSON Schema, כותבת את הקובץ ואת אנוטציית ה-JSON המוסמכת ל-Amazon S3, ומבצעת טרנזקציית DynamoDB TransactWriteItems אטומית ליצירת מצביע DOC#, רשומת היסטוריה VER#0000000001 ונעילת Idempotency."
+      },
+      3: {
+        method: "POST",
+        methodClass: "method-post",
+        path: "/v1/documents/uploads",
+        title: "אתחול סשן העלאה ישירה (> 4 MiB)",
+        role: "Document.Writer",
+        img: "diagrams/api_sequence_diagrams/03_post_documents_uploads_init.jpg",
+        caption: "תרשים רצף: זרימת ביצוע POST /v1/documents/uploads",
+        desc: "מאתחלת סשן העלאה דו-שלבי לקבצים גדולים עד 5GB. מנפיקה כתובת S3 Presigned PUT קצרת-מועד (15 דקות) ויוצרת רשומת UPLOAD#{upload_id} במצב INITIATED ב-DynamoDB, המאפשרת ללקוח להזרים בתים ישירות ל-S3."
+      },
+      4: {
+        method: "POST",
+        methodClass: "method-post",
+        path: "/v1/uploads/{upload_id}/complete",
+        title: "השלמת סשן העלאה ישירה",
+        role: "Document.Writer",
+        img: "diagrams/api_sequence_diagrams/04_post_uploads_complete.jpg",
+        caption: "תרשים רצף: זרימת ביצוע POST /v1/uploads/{id}/complete",
+        desc: "נקראת לאחר שהלקוח סיים להעלות את הקובץ ישירות ל-S3. מאמתת את קיום האובייקט הפיזי באמצעות HeadObject, שולפת את ה-S3 VersionId הבלתי ניתן לשינוי, מצמידה את אנוטציית ה-JSON המוסמכת ישירות לגרסת ה-S3, ורושמת את מצביע ה-DOC# ופריט ה-VER#0000000001 ב-DynamoDB."
+      },
+      5: {
+        method: "DELETE",
+        methodClass: "method-delete",
+        path: "/v1/uploads/{upload_id}",
+        title: "ביטול / הפסקת סשן העלאה",
+        role: "Document.Writer",
+        img: "diagrams/api_sequence_diagrams/05_delete_uploads_cancel.jpg",
+        caption: "תרשים רצף: זרימת ביצוע DELETE /v1/uploads/{id}",
+        desc: "מבטלת סשן העלאה ישירה שאותחל טרם השלמתו. מעבירה אטומית את מצב ה-UPLOAD#{upload_id} ב-DynamoDB מ-INITIATED ל-ABORTED, ובכך מונעת רישום של קבצים יתומים שלא אומתו."
+      },
+      6: {
+        method: "GET",
+        methodClass: "method-get",
+        path: "/v1/documents/{document_id}",
+        title: "קבלת פרטי מסמך ומצביע פעיל",
+        role: "Document.Reader",
+        img: "diagrams/api_sequence_diagrams/06_get_documents_document_id.jpg",
+        caption: "תרשים רצף: זרימת ביצוע GET /v1/documents/{id}",
+        desc: "שולפת את מצביע המסמך הפעיל מ-DynamoDB בעקביות חזקה (Strong Consistency), קוראת את אנוטציית המטא-דאטה המוסמכת מ-S3, ומנפיקה כתובת S3 Presigned GET קצרת-מועד (15 דקות) לצפייה מיידית במסמך."
+      },
+      7: {
+        method: "GET",
+        methodClass: "method-get",
+        path: "/v1/documents/{document_id}/versions",
+        title: "הצגת היסטוריית גרסאות מלאה",
+        role: "Document.Reader",
+        img: "diagrams/api_sequence_diagrams/07_get_documents_versions.jpg",
+        caption: "תרשים רצף: זרימת ביצוע GET /v1/documents/{id}/versions",
+        desc: "מבצעת שאילתה ב-DynamoDB (pk = DOC#{id}, sk begins_with 'VER#', ScanIndexForward: false) ומחזירה היסטוריה כרונולוגית יורדת של כלל גרסאות האפליקציה, מזהי גרסאות S3, קודי SHA-256 ורוויזיות מטא-דאטה."
+      },
+      8: {
+        method: "POST",
+        methodClass: "method-post",
+        path: "/v1/documents/{document_id}/versions",
+        title: "יצירת גרסת קובץ בינארי חדשה",
+        role: "Document.Writer",
+        img: "diagrams/api_sequence_diagrams/08_post_documents_versions.jpg",
+        caption: "תרשים רצף: זרימת ביצוע POST /v1/documents/{id}/versions",
+        desc: "קולטת קובץ בינארי חדש עבור מסמך קיים. כותבת בתים ל-S3 ליצירת S3 VersionId חדש, משמרת את המאפיינים העסקיים תוך איפוס metadata_revision ל-1, כותבת אנוטציית S3 מעודכנת, ומעדכנת אטומית את מצביע ה-DOC# ורשומת ה-VER# ב-DynamoDB."
+      },
+      9: {
+        method: "GET",
+        methodClass: "method-get",
+        path: "/v1/documents/{document_id}/versions/{version}",
+        title: "קבלת פרטי גרסה היסטורית ספציפית",
+        role: "Document.Reader",
+        img: "diagrams/api_sequence_diagrams/09_get_documents_version_id.jpg",
+        caption: "תרשים רצף: זרימת ביצוע GET /v1/documents/{id}/versions/{version}",
+        desc: "שולפת רשומת גרסה היסטורית מ-DynamoDB (pk = DOC#{id}, sk = VER#{padded_version}), קוראת את אנוטציית ה-S3 של אותה גרסה ספציפית, ומנפיקה כתובת הורדה מאובטחת הקשורה מפורשות לאותו S3 VersionId היסטורי."
+      },
+      10: {
+        method: "GET",
+        methodClass: "method-get",
+        path: "/v1/documents/{document_id}/metadata",
+        title: "קריאת אנוטציית מטא-דאטה מוסמכת מ-S3",
+        role: "Document.Reader",
+        img: "diagrams/api_sequence_diagrams/10_get_documents_metadata.jpg",
+        caption: "תרשים רצף: זרימת ביצוע GET /v1/documents/{id}/metadata",
+        desc: "קוראת ישירות את אנוטציית המטא-דאטה המוסמכת (JSON) מ-S3 עבור הגרסה הפעילה של המסמך, ומחזירה את מעטפת הסכמה המלאה הכוללת חותמות זמן, חתימות SHA-256 ושדות עסקיים."
+      },
+      11: {
+        method: "PATCH",
+        methodClass: "method-patch",
+        path: "/v1/documents/{document_id}/metadata",
+        title: "עדכון מטא-דאטה בנעילה אופטימית (OCC)",
+        role: "Document.MetadataEditor",
+        img: "diagrams/api_sequence_diagrams/11_patch_documents_metadata.jpg",
+        caption: "תרשים רצף: זרימת ביצוע PATCH /v1/documents/{id}/metadata",
+        desc: "מבצעת עריכת מטא-דאטה במקום (In-Place) ללא שינוי הקובץ הבינארי. אוכפת נעילה אופטימית מול expected_metadata_revision. מעדכנת את אנוטציית ה-JSON ב-S3 ומבצעת עדכון מותנה ב-DynamoDB. מחזירה 409 Conflict במקרה של קונפליקט גרסאות."
+      },
+      12: {
+        method: "GET",
+        methodClass: "method-get",
+        path: "/v1/documents/{document_id}/download",
+        title: "הנפקת Presigned URL להורדת קובץ",
+        role: "Document.Reader",
+        img: "diagrams/api_sequence_diagrams/12_get_documents_download.jpg",
+        caption: "תרשים רצף: זרימת ביצוע GET /v1/documents/{id}/download",
+        desc: "מזהה את ה-S3 VersionId המבוקש מ-DynamoDB (גרסה נוכחית או גרסה ספציפית) ומנפיקה כתובת S3 GetObject מאובטחת ומוגבלת בזמן (15 דקות), המאפשרת ללקוח להזרים את הקובץ ישירות מ-S3."
+      },
+      13: {
+        method: "POST",
+        methodClass: "method-post",
+        path: "/v1/documents/{document_id}/soft-delete",
+        title: "מחיקה לוגית רכה והסרה מאינדקס",
+        role: "Document.Admin",
+        img: "diagrams/api_sequence_diagrams/13_post_documents_soft_delete.jpg",
+        caption: "תרשים רצף: זרימת ביצוע POST /v1/documents/{id}/soft-delete",
+        desc: "מעדכנת את סטטוס מצביע המסמך ב-DynamoDB ל-SOFT_DELETED ומוחקת מיד את היטל המסמך מ-OpenSearch Serverless. הקבצים הבינאריים הפיזיים ב-S3 ורשומות הגרסאות ההיסטוריות נשמרים בשלמותם לצרכי ממשל ורגולציה."
+      },
+      14: {
+        method: "POST",
+        methodClass: "method-post",
+        path: "/v1/documents/{document_id}/restore",
+        title: "שחזור מסמך והחזרה לאינדקס",
+        role: "Document.Admin",
+        img: "diagrams/api_sequence_diagrams/14_post_documents_restore.jpg",
+        caption: "תרשים רצף: זרימת ביצוע POST /v1/documents/{id}/restore",
+        desc: "משחזרת מסמך שנמחק רכית בחזרה לסטטוס ACTIVE ב-DynamoDB, קוראת את אנוטציית ה-S3 המוסמכת, ומחזירה את היטל המסמך ל-OpenSearch Serverless ובכך משיבה אותו לתוצאות החיפוש."
+      },
+      15: {
+        method: "POST",
+        methodClass: "method-post",
+        path: "/v1/search",
+        title: "חיפוש מבני ב-OpenSearch Serverless",
+        role: "Document.Reader",
+        img: "diagrams/api_sequence_diagrams/15_post_search.jpg",
+        caption: "תרשים רצף: זרימת ביצוע POST /v1/search",
+        desc: "מבצעת שאילתות מרובות-מאפיינים מול קולקציית OpenSearch Serverless (documents-v1). מתרגמת מסננים ל-DSL עם אכיפת status: ACTIVE, תומכת בטווחי תאריכים וסכומים, מיון ודפדוף סמן באמצעות search_after."
+      }
+    };
+
+    let currentSelectedApiId = 2;
+
+    function initPresentation() {
+      renderTimelineDots();
+      updateSlideView();
+
+      // Keyboard Listeners (Right arrow in RTL = next, Left arrow = prev)
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "ArrowLeft" || e.key === " " || e.key === "PageDown") {
+          nextSlide();
+        } else if (e.key === "ArrowRight" || e.key === "PageUp") {
+          prevSlide();
+        } else if (e.key.toLowerCase() === "f") {
+          toggleFullscreen();
+        } else if (e.key === "Escape") {
+          closeLightbox();
+        }
+      });
+
+      // Theme toggle
+      const themeBtn = document.getElementById("btn-theme-toggle");
+      themeBtn.addEventListener("click", () => {
+        const isLight = document.documentElement.getAttribute("data-theme") === "light";
+        if (isLight) {
+          document.documentElement.removeAttribute("data-theme");
+        } else {
+          document.documentElement.setAttribute("data-theme", "light");
+        }
+      });
+    }
+
+    function renderTimelineDots() {
+      const container = document.getElementById("timeline-dots");
+      container.innerHTML = "";
+      for (let i = 1; i <= totalSlides; i++) {
+        const dot = document.createElement("div");
+        dot.className = "timeline-dot " + (i === currentSlide ? "active" : "");
+        dot.title = "מעבר לשקף " + i;
+        dot.onclick = () => goToSlide(i);
+        container.appendChild(dot);
+      }
+    }
+
+    function updateSlideView() {
+      document.querySelectorAll(".slide").forEach((s, idx) => {
+        if (idx + 1 === currentSlide) {
+          s.classList.add("active");
+        } else {
+          s.classList.remove("active");
+        }
+      });
+
+      document.getElementById("slide-display").textContent = "שקף " + currentSlide + " / " + totalSlides;
+      document.getElementById("btn-prev").disabled = currentSlide === 1;
+      document.getElementById("btn-next").disabled = currentSlide === totalSlides;
+
+      renderTimelineDots();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    function nextSlide() {
+      if (currentSlide < totalSlides) {
+        currentSlide++;
+        updateSlideView();
+      }
+    }
+
+    function prevSlide() {
+      if (currentSlide > 1) {
+        currentSlide--;
+        updateSlideView();
+      }
+    }
+
+    function goToSlide(n) {
+      if (n >= 1 && n <= totalSlides) {
+        currentSlide = n;
+        updateSlideView();
+      }
+    }
+
+    function toggleFullscreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {});
+      } else {
+        document.exitFullscreen().catch(() => {});
+      }
+    }
+
+    // Lightbox Modal
+    function openLightbox(imgSrc, caption) {
+      const modal = document.getElementById("lightbox");
+      const img = document.getElementById("lightbox-img");
+      const cap = document.getElementById("lightbox-caption");
+      img.src = imgSrc;
+      cap.textContent = caption || "";
+      modal.classList.add("open");
+    }
+
+    function closeLightbox() {
+      const modal = document.getElementById("lightbox");
+      modal.classList.remove("open");
+    }
+
+    function openCurrentApiLightbox() {
+      const data = apiData[currentSelectedApiId];
+      if (data) {
+        openLightbox(data.img, data.method + " " + data.path + " - " + data.title);
+      }
+    }
+
+    // API Explorer Pane Update
+    function showApiDetail(apiId) {
+      currentSelectedApiId = apiId;
+      const data = apiData[apiId];
+      if (!data) return;
+
+      // Update Nav active styling
+      const items = document.querySelectorAll(".api-nav-item");
+      items.forEach((it, idx) => {
+        if (idx === (apiId - 2)) {
+          it.classList.add("active");
+        } else {
+          it.classList.remove("active");
+        }
+      });
+
+      // Update Detail Pane
+      document.getElementById("pane-method").textContent = data.method;
+      document.getElementById("pane-method").className = "api-method-badge " + data.methodClass;
+      document.getElementById("pane-path").textContent = data.path;
+      document.getElementById("pane-title").textContent = data.title;
+      document.getElementById("pane-role").textContent = data.role;
+      document.getElementById("pane-img").src = data.img;
+      document.getElementById("pane-caption").innerHTML = "<strong>תרשים רצף:</strong> זרימת ביצוע " + data.method + " " + data.path;
+      document.getElementById("pane-desc").textContent = data.desc;
+    }
+
+    // Run on load
+    window.addEventListener("DOMContentLoaded", initPresentation);
+  </script>
+</body>
+</html>

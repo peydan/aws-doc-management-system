@@ -69,19 +69,39 @@ const apiStack = new ApiStack(app, 'DocPlatformApiStack', {
 });
 
 // 8. Observability Stack
-new ObservabilityStack(app, 'DocPlatformObservabilityStack', {
+const observabilityStack = new ObservabilityStack(app, 'DocPlatformObservabilityStack', {
   env,
   indexDlq: messagingStack.indexDlq,
   api: apiStack.api,
 });
 
 // 9. 100% Serverless Frontend Stack (CloudFront + S3 SPA - Zero Idle Cost)
-new ServerlessFrontendStack(app, 'DocPlatformServerlessFrontendStack', {
+const serverlessFrontendStack = new ServerlessFrontendStack(app, 'DocPlatformServerlessFrontendStack', {
   env,
   api: apiStack.api,
   userPool: securityStack.userPool,
   userPoolClient: securityStack.userPoolClient,
 });
+
+// Apply standard tags to all stacks (excluding SearchStack due to CloudFormation CfnCollection replacement limitation)
+const environment = process.env.ENVIRONMENT || 'dev';
+const taggableStacks = [
+  securityStack,
+  storageStack,
+  controlPlaneStack,
+  messagingStack,
+  computeStack,
+  apiStack,
+  observabilityStack,
+  serverlessFrontendStack,
+];
+
+for (const stack of taggableStacks) {
+  cdk.Tags.of(stack).add('Project', 'aws-document-management-platform');
+  cdk.Tags.of(stack).add('System', 'DocPlatform');
+  cdk.Tags.of(stack).add('Environment', environment);
+  cdk.Tags.of(stack).add('ManagedBy', 'aws-cdk');
+}
 
 app.synth();
 

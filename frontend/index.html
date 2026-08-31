@@ -222,15 +222,46 @@
             </div>
 
             <div class="form-group">
-              <label class="form-label">Custom Metadata (JSON Key-Value Pairs)</label>
-              <textarea id="direct-metadata" class="form-control code-area" rows="5">{
-  "customer_id": "IL-4492817",
+              <label class="form-label" style="display: flex; justify-content: space-between; align-items: center;">
+                <span>🌐 Shared Banking &amp; DCTM Metadata</span>
+                <span class="badge badge-info" style="font-size: 0.7rem;">Inherited across all classes</span>
+              </label>
+              <div style="font-size: 0.75rem; color: var(--text-dim); margin-bottom: 4px;">
+                Common to all document classes. Remains preserved when switching document classes.
+              </div>
+              <textarea id="direct-shared-metadata" class="form-control code-area" rows="5">{
+  "customer_id": 1094827,
+  "complete_customer_id_code": {
+    "id_number": "123456789",
+    "id_type": 1
+  },
+  "account_id": {
+    "bank_id": 10,
+    "branch_id": 802,
+    "account_number": 123456
+  },
+  "business_area_code": 100,
+  "business_sub_area_code": 101,
+  "document_group_id": "GRP-FIN-001"
+}</textarea>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" style="display: flex; justify-content: space-between; align-items: center;">
+                <span>📑 Class-Specific Business Metadata</span>
+                <span id="direct-class-badge" class="badge badge-warning" style="font-size: 0.7rem;">loan_agreement</span>
+              </label>
+              <div style="font-size: 0.75rem; color: var(--text-dim); margin-bottom: 4px;">
+                Domain-specific attributes (updates automatically when you change Document Class).
+              </div>
+              <textarea id="direct-class-metadata" class="form-control code-area" rows="5">{
+  "document_type": "SIGNED_AGREEMENT",
   "loan_number": "LN-2026-88821",
   "loan_amount_minor_units": 150000000,
   "currency": "ILS",
   "loan_type": "MORTGAGE",
-  "document_type": "SIGNED_AGREEMENT",
-  "branch_code": "TLV-01"
+  "branch_code": "TLV-01",
+  "signed_date": "2026-08-31"
 }</textarea>
             </div>
 
@@ -274,15 +305,40 @@
             </div>
 
             <div class="form-group">
-              <label class="form-label">Custom Metadata (JSON)</label>
-              <textarea id="inline-metadata" class="form-control code-area" rows="5">{
-  "customer_id": "IL-7788990",
+              <label class="form-label" style="display: flex; justify-content: space-between; align-items: center;">
+                <span>🌐 Shared Banking &amp; DCTM Metadata</span>
+                <span class="badge badge-info" style="font-size: 0.7rem;">Inherited across all classes</span>
+              </label>
+              <textarea id="inline-shared-metadata" class="form-control code-area" rows="5">{
+  "customer_id": 1094827,
+  "complete_customer_id_code": {
+    "id_number": "123456789",
+    "id_type": 1
+  },
+  "account_id": {
+    "bank_id": 10,
+    "branch_id": 802,
+    "account_number": 123456
+  },
+  "business_area_code": 100,
+  "business_sub_area_code": 101,
+  "document_group_id": "GRP-FIN-001"
+}</textarea>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" style="display: flex; justify-content: space-between; align-items: center;">
+                <span>📑 Class-Specific Business Metadata</span>
+                <span id="inline-class-badge" class="badge badge-warning" style="font-size: 0.7rem;">loan_agreement</span>
+              </label>
+              <textarea id="inline-class-metadata" class="form-control code-area" rows="5">{
+  "document_type": "SIGNED_AGREEMENT",
   "loan_number": "LN-2026-99001",
   "loan_amount_minor_units": 75000000,
   "currency": "USD",
   "loan_type": "MORTGAGE",
-  "document_type": "SIGNED_AGREEMENT",
-  "branch_code": "NYC-04"
+  "branch_code": "NYC-04",
+  "signed_date": "2026-08-31"
 }</textarea>
             </div>
 

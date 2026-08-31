@@ -1402,21 +1402,22 @@
   <span class="token-key">"$schema"</span>: <span class="token-str">"http://json-schema.org/draft-07/schema#"</span>,
   <span class="token-key">"$id"</span>: <span class="token-str">"bank.document-metadata/1"</span>,
   <span class="token-key">"title"</span>: <span class="token-str">"LoanAgreementMetadataV1"</span>,
-  <span class="token-key">"type"</span>: <span class="token-str">"object"</span>,
-  <span class="token-key">"required"</span>: [
-    <span class="token-str">"document_id"</span>, <span class="token-str">"document_class"</span>, <span class="token-str">"customer_id"</span>,
-    <span class="token-str">"loan_number"</span>, <span class="token-str">"loan_amount_minor_units"</span>, <span class="token-str">"currency"</span>,
-    <span class="token-str">"loan_type"</span>, <span class="token-str">"signed_date"</span>, <span class="token-str">"content_checksum"</span>
-  ],
-  <span class="token-key">"properties"</span>: {
-    <span class="token-key">"document_class"</span>: { <span class="token-key">"type"</span>: <span class="token-str">"string"</span>, <span class="token-key">"const"</span>: <span class="token-str">"loan_agreement"</span> },
-    <span class="token-key">"customer_id"</span>: { <span class="token-key">"type"</span>: <span class="token-str">"string"</span>, <span class="token-key">"minLength"</span>: 1 },
-    <span class="token-key">"loan_number"</span>: { <span class="token-key">"type"</span>: <span class="token-str">"string"</span>, <span class="token-key">"minLength"</span>: 1 },
-    <span class="token-key">"loan_amount_minor_units"</span>: { <span class="token-key">"type"</span>: <span class="token-str">"integer"</span>, <span class="token-key">"minimum"</span>: 0 },
-    <span class="token-key">"currency"</span>: { <span class="token-key">"type"</span>: <span class="token-str">"string"</span>, <span class="token-key">"minLength"</span>: 3, <span class="token-key">"maxLength"</span>: 3 },
-    <span class="token-key">"loan_type"</span>: { <span class="token-key">"type"</span>: <span class="token-str">"string"</span>, <span class="token-key">"enum"</span>: [<span class="token-str">"MORTGAGE"</span>, <span class="token-str">"PERSONAL"</span>, <span class="token-str">"COMMERCIAL"</span>, <span class="token-str">"AUTO"</span>] }
-  },
-  <span class="token-key">"additionalProperties"</span>: <span class="token-str">false</span>
+  <span class="token-key">"allOf"</span>: [
+    { <span class="token-key">"$ref"</span>: <span class="token-str">"https://bank.internal/schemas/shared-document-metadata-v1.json"</span> },
+    {
+      <span class="token-key">"type"</span>: <span class="token-str">"object"</span>,
+      <span class="token-key">"required"</span>: [
+        <span class="token-str">"loan_number"</span>, <span class="token-str">"loan_amount_minor_units"</span>,
+        <span class="token-str">"currency"</span>, <span class="token-str">"loan_type"</span>, <span class="token-str">"signed_date"</span>
+      ],
+      <span class="token-key">"properties"</span>: {
+        <span class="token-key">"loan_number"</span>: { <span class="token-key">"type"</span>: <span class="token-str">"string"</span>, <span class="token-key">"minLength"</span>: 1 },
+        <span class="token-key">"loan_amount_minor_units"</span>: { <span class="token-key">"type"</span>: <span class="token-str">"integer"</span>, <span class="token-key">"minimum"</span>: 0 },
+        <span class="token-key">"currency"</span>: { <span class="token-key">"type"</span>: <span class="token-str">"string"</span>, <span class="token-key">"minLength"</span>: 3, <span class="token-key">"maxLength"</span>: 3 },
+        <span class="token-key">"loan_type"</span>: { <span class="token-key">"type"</span>: <span class="token-str">"string"</span>, <span class="token-key">"enum"</span>: [<span class="token-str">"MORTGAGE"</span>, <span class="token-str">"PERSONAL"</span>, <span class="token-str">"COMMERCIAL"</span>, <span class="token-str">"AUTO"</span>] }
+      }
+    }
+  ]
 }
           </div>
         </div>
@@ -1432,12 +1433,14 @@
         <div class="code-box">
 <span class="token-key">import</span> Ajv <span class="token-key">from</span> <span class="token-str">'ajv'</span>;
 <span class="token-key">import</span> addFormats <span class="token-key">from</span> <span class="token-str">'ajv-formats'</span>;
-<span class="token-key">import</span> * <span class="token-key">as</span> loanAgreementSchema <span class="token-key">from</span> <span class="token-str">'../../schemas/loan_agreement-v1.json'</span>;
+<span class="token-key">import</span> sharedSchema <span class="token-key">from</span> <span class="token-str">'../../schemas/shared_document_metadata-v1.json'</span>;
+<span class="token-key">import</span> loanAgreementSchema <span class="token-key">from</span> <span class="token-str">'../../schemas/loan_agreement-v1.json'</span>;
 
 <span class="token-key">const</span> ajv = <span class="token-key">new</span> Ajv({ allErrors: <span class="token-key">true</span>, strict: <span class="token-key">false</span> });
 addFormats(ajv);
 
-<span class="token-comment">// קימפול חד-פעמי בזמן עליית ה-Lambda (Cold Start) שרץ ב-0ms בכל בקשה חמה</span>
+<span class="token-comment">// רישום סכמת הבסיס המשותפת וקומפילציה מהירה ב-Cold Start</span>
+ajv.addSchema(sharedSchema);
 <span class="token-key">const</span> validateLoanAgreement = ajv.compile(loanAgreementSchema);
         </div>
       </div>

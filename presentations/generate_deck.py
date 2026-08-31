@@ -607,7 +607,7 @@ def build_presentation(output_path="AWS_Document_Management_Platform_Architectur
         ("document_id, document_class, created_at, created_by", "System Identity", "Strictly Immutable", "Assigned once on initial document creation. Reject modification with 400 error."),
         ("application_version, content_type, content_length, content_checksum", "Binary Specifier", "Immutable for Version", "Cryptographically bound to raw bytes (SHA-256). Updates only on POST /versions."),
         ("metadata_revision, metadata_updated_at, metadata_updated_by", "Concurrency Tracking", "System Monotonic", "Automatically managed by Lambda and DynamoDB OCC conditional expressions."),
-        ("customer_id, loan_number, loan_amount_minor_units, currency, loan_type, branch_code, signed_date", "Domain Attributes", "Mutable via PATCH", "Modifiable via PATCH /metadata with Ajv JSON Schema validation and expected_metadata_revision.")
+        ("customer_id, complete_customer_id_code, account_id, business_area_code, loan_number, currency...", "Domain & Shared Traits", "Mutable via PATCH", "Modifiable via PATCH /metadata with Ajv JSON Schema validation and expected_metadata_revision.")
     ]
 
     mat_table_shape = slide7.shapes.add_table(len(mat_rows), 4, Inches(0.8), mat_y, Inches(11.733), Inches(3.45))
@@ -1435,7 +1435,7 @@ def build_presentation(output_path="AWS_Document_Management_Platform_Architectur
         ("5. ControlPlaneStack", "DynamoDB Table (doc-platform-mvp-control)", "Provisions single-table design with PITR and DynamoDB Streams enabled.", ACCENT_AMBER),
         ("6. ComputeStack", "8 Dedicated AWS Lambda Functions", "Deploys Command, Query, Search, Stream & Indexer microservices.", ACCENT_BLUE),
         ("7. ApiStack", "Amazon API Gateway REST API & Cognito Authorizer", "Wires routes, authorizer, throttling limits, and CORS configuration.", ACCENT_GREEN),
-        ("8. FrontendStack", "Observability Dashboards & UI Support", "Configures CloudWatch metrics, alarms, and Streamlit UI container tasks.", ACCENT_ROSE)
+        ("8. ObservabilityStack", "CloudWatch Alarms, Dashboards & Global Tagging", "Provisions DLQ/5xx alarms, operational dashboards, and global resource tags.", ACCENT_ROSE)
     ]
 
     st_w = Inches(5.7)

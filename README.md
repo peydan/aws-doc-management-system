@@ -77,10 +77,18 @@ An enterprise-grade, cloud-native document management platform built entirely on
 ├── scripts/                         # Seeding, deployment, E2E scenarios, and migrations
 ├── openapi.yaml                     # OpenAPI 3.0 Specification
 ├── postman_collection.json          # Postman E2E Test Suite
+├── presentations/                   # Architecture slide decks, sequence diagrams, PPTX & calculators
+│   ├── diagrams/                    # System architecture & 15 API sequence diagrams
+│   ├── presentation.html            # English interactive HTML slide deck (11 slides)
+│   ├── presentation_hebrew.html     # Hebrew interactive HTML slide deck (11 slides)
+│   ├── presentation_versions_metadata_hebrew.html # Hebrew deep-dive on metadata & versioning
+│   ├── AWS_Document_Management_Platform_Architecture.pptx # Standalone PowerPoint presentation
+│   ├── generate_deck.py             # Script to generate PPTX deck
+│   └── cost_calculator.html         # Interactive client-side cost calculator
 ├── SOLUTION_ARCHITECTURE_SPECIFICATION.md # Deep-dive 1,300+ line technical architecture specification
 ├── COST_ANALYSIS_AND_ESTIMATION_ISRAEL_REGION.md # Regional TCO & Cost Modeling (AWS Tel Aviv region)
-├── presentation.html                # Executive HTML slide deck
-└── cost_calculator.html             # Interactive client-side cost calculator
+├── openapi.yaml                     # OpenAPI 3.0 Specification
+└── postman_collection.json          # Postman E2E Test Suite
 ```
 
 ---
@@ -121,5 +129,9 @@ npm run gui:local
 
 - 📄 [Solution Architecture Specification](SOLUTION_ARCHITECTURE_SPECIFICATION.md): Exhaustive breakdown of authority models, API sequence diagrams, consistency patterns, and security matrices.
 - 💰 [Israel Region Cost Analysis](COST_ANALYSIS_AND_ESTIMATION_ISRAEL_REGION.md): Capacity planning, multi-year TCO projections, and monthly cost forecasts in `il-central-1`.
-- 📊 [Interactive Cost Calculator](cost_calculator.html): Browser-based dynamic sizing and pricing tool.
+- 📊 [Interactive Cost Calculator](presentations/cost_calculator.html): Browser-based dynamic sizing and pricing tool.
+- 🖥️ [Interactive Architecture Deck (English)](presentations/presentation.html): 11-slide briefing deck with embedded sequence diagrams.
+- 🇮🇱 [Interactive Architecture Deck (Hebrew)](presentations/presentation_hebrew.html): Hebrew translation of the full solution architecture deck.
+- 📊 [PowerPoint Architecture Presentation (English)](presentations/AWS_Document_Management_Platform_Architecture.pptx): 22-slide technical deck with high-res API sequence diagrams.
+- 🇮🇱 [PowerPoint Architecture Presentation (Hebrew)](presentations/AWS_Document_Management_Platform_Architecture_Hebrew.pptx): 22-slide Hebrew technical deck with high-res API sequence diagrams.
 - 📑 [OpenAPI 3.0 Specification](openapi.yaml): Full REST contract for all 15 platform operations.
