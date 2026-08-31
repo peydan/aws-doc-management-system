@@ -136,6 +136,10 @@ def add_footer(slide, current_slide, total_slides):
 
 
 def build_presentation(output_path="AWS_Document_Management_Platform_Architecture.pptx"):
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    if not os.path.isabs(output_path):
+        output_path = os.path.join(script_dir, output_path)
+
     prs = Presentation()
     prs.slide_width = Inches(13.333)
     prs.slide_height = Inches(7.5)
@@ -301,7 +305,7 @@ def build_presentation(output_path="AWS_Document_Management_Platform_Architectur
                "Comprehensive AWS Serverless Topology, Ingress Control, Microservice Compute & Storage Layers",
                "System Topology")
 
-    arch_img_path = "diagrams/aws_document_management_architecture.png"
+    arch_img_path = os.path.join(script_dir, "diagrams/aws_document_management_architecture.png")
     if os.path.exists(arch_img_path):
         slide3.shapes.add_picture(arch_img_path, Inches(0.8), Inches(1.65), Inches(8.2), Inches(5.15))
 
@@ -957,7 +961,7 @@ def build_presentation(output_path="AWS_Document_Management_Platform_Architectur
                "API Sequence 02: POST /v1/documents — Atomic Single-Transaction Upload Flow",
                "API Execution Sequence")
 
-    img_02 = "diagrams/api_sequence_diagrams/02_post_documents_inline.jpg"
+    img_02 = os.path.join(script_dir, "diagrams/api_sequence_diagrams/02_post_documents_inline.jpg")
     if os.path.exists(img_02):
         slide11.shapes.add_picture(img_02, Inches(0.8), Inches(1.65), Inches(7.8), Inches(5.15))
 
@@ -1007,8 +1011,8 @@ def build_presentation(output_path="AWS_Document_Management_Platform_Architectur
                "API Sequences 03 & 04: POST /v1/documents/uploads & POST /v1/uploads/{id}/complete",
                "API Execution Sequence")
 
-    img_03 = "diagrams/api_sequence_diagrams/03_post_documents_uploads_init.jpg"
-    img_04 = "diagrams/api_sequence_diagrams/04_post_uploads_complete.jpg"
+    img_03 = os.path.join(script_dir, "diagrams/api_sequence_diagrams/03_post_documents_uploads_init.jpg")
+    img_04 = os.path.join(script_dir, "diagrams/api_sequence_diagrams/04_post_uploads_complete.jpg")
 
     if os.path.exists(img_03):
         slide12.shapes.add_picture(img_03, Inches(0.8), Inches(1.65), Inches(5.7), Inches(3.8))
@@ -1045,8 +1049,8 @@ def build_presentation(output_path="AWS_Document_Management_Platform_Architectur
                "API Sequences 05 & 06: DELETE /v1/uploads/{id} & GET /v1/documents/{id}",
                "API Execution Sequence")
 
-    img_05 = "diagrams/api_sequence_diagrams/05_delete_uploads_cancel.jpg"
-    img_06 = "diagrams/api_sequence_diagrams/06_get_documents_document_id.jpg"
+    img_05 = os.path.join(script_dir, "diagrams/api_sequence_diagrams/05_delete_uploads_cancel.jpg")
+    img_06 = os.path.join(script_dir, "diagrams/api_sequence_diagrams/06_get_documents_document_id.jpg")
 
     if os.path.exists(img_05):
         slide13.shapes.add_picture(img_05, Inches(0.8), Inches(1.65), Inches(5.7), Inches(3.8))
@@ -1083,8 +1087,8 @@ def build_presentation(output_path="AWS_Document_Management_Platform_Architectur
                "API Sequences 07 & 08: GET /v1/documents/{id}/versions & POST /v1/documents/{id}/versions",
                "API Execution Sequence")
 
-    img_07 = "diagrams/api_sequence_diagrams/07_get_documents_versions.jpg"
-    img_08 = "diagrams/api_sequence_diagrams/08_post_documents_versions.jpg"
+    img_07 = os.path.join(script_dir, "diagrams/api_sequence_diagrams/07_get_documents_versions.jpg")
+    img_08 = os.path.join(script_dir, "diagrams/api_sequence_diagrams/08_post_documents_versions.jpg")
 
     if os.path.exists(img_07):
         slide14.shapes.add_picture(img_07, Inches(0.8), Inches(1.65), Inches(5.7), Inches(3.8))
@@ -1121,8 +1125,8 @@ def build_presentation(output_path="AWS_Document_Management_Platform_Architectur
                "API Sequences 09 & 10: GET /v1/documents/{id}/versions/{v} & GET /v1/documents/{id}/metadata",
                "API Execution Sequence")
 
-    img_09 = "diagrams/api_sequence_diagrams/09_get_documents_version_id.jpg"
-    img_10 = "diagrams/api_sequence_diagrams/10_get_documents_metadata.jpg"
+    img_09 = os.path.join(script_dir, "diagrams/api_sequence_diagrams/09_get_documents_version_id.jpg")
+    img_10 = os.path.join(script_dir, "diagrams/api_sequence_diagrams/10_get_documents_metadata.jpg")
 
     if os.path.exists(img_09):
         slide15.shapes.add_picture(img_09, Inches(0.8), Inches(1.65), Inches(5.7), Inches(3.8))
@@ -1159,7 +1163,7 @@ def build_presentation(output_path="AWS_Document_Management_Platform_Architectur
                "API Sequence 11: PATCH /v1/documents/{id}/metadata — Race-Free Metadata Evolution",
                "API Execution Sequence")
 
-    img_11 = "diagrams/api_sequence_diagrams/11_patch_documents_metadata.jpg"
+    img_11 = os.path.join(script_dir, "diagrams/api_sequence_diagrams/11_patch_documents_metadata.jpg")
     if os.path.exists(img_11):
         slide16.shapes.add_picture(img_11, Inches(0.8), Inches(1.65), Inches(7.8), Inches(5.15))
 
@@ -1209,8 +1213,8 @@ def build_presentation(output_path="AWS_Document_Management_Platform_Architectur
                "API Sequences 12, 13 & 14: Direct Binary Access & Non-Destructive Lifecycle Governance",
                "API Execution Sequence")
 
-    img_12 = "diagrams/api_sequence_diagrams/12_get_documents_download.jpg"
-    img_13 = "diagrams/api_sequence_diagrams/13_post_documents_soft_delete.jpg"
+    img_12 = os.path.join(script_dir, "diagrams/api_sequence_diagrams/12_get_documents_download.jpg")
+    img_13 = os.path.join(script_dir, "diagrams/api_sequence_diagrams/13_post_documents_soft_delete.jpg")
 
     if os.path.exists(img_12):
         slide17.shapes.add_picture(img_12, Inches(0.8), Inches(1.65), Inches(5.7), Inches(3.8))
@@ -1378,8 +1382,8 @@ def build_presentation(output_path="AWS_Document_Management_Platform_Architectur
                "API Sequences 15 & 01: POST /v1/search & GET /health",
                "API Execution Sequence")
 
-    img_15 = "diagrams/api_sequence_diagrams/15_post_search.jpg"
-    img_01 = "diagrams/api_sequence_diagrams/01_get_health.jpg"
+    img_15 = os.path.join(script_dir, "diagrams/api_sequence_diagrams/15_post_search.jpg")
+    img_01 = os.path.join(script_dir, "diagrams/api_sequence_diagrams/01_get_health.jpg")
 
     if os.path.exists(img_15):
         slide19.shapes.add_picture(img_15, Inches(0.8), Inches(1.65), Inches(5.7), Inches(3.8))
@@ -1416,7 +1420,7 @@ def build_presentation(output_path="AWS_Document_Management_Platform_Architectur
                "CloudFront + S3 SPA, Cognito JWT Authentication & Client-Side SHA256 Checksums",
                "Client Integration Architecture")
 
-    ui_img = "diagrams/ui_backend_integration_architecture.png"
+    ui_img = os.path.join(script_dir, "diagrams/ui_backend_integration_architecture.png")
     if os.path.exists(ui_img):
         slide20.shapes.add_picture(ui_img, Inches(0.8), Inches(1.65), Inches(8.0), Inches(5.15))
 
