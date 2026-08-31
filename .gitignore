@@ -10,7 +10,13 @@
 # AWS CDK Output & Context
 cdk.out/
 .cdk.staging/
+cdk.context.json
 *.template.json
+
+# Frontend Configuration & Bundles
+frontend/config.json
+!frontend/config.example.json
+
 
 # Node & TypeScript Build Outputs
 node_modules/

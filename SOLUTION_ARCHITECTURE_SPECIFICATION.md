@@ -1330,7 +1330,7 @@ The `BackgroundWorker` Lambda includes a scheduled reconciliation cycle that sca
 
 ## 10. Step-by-Step E2E Verification & Demonstration Script
 
-The solution includes an end-to-end verification scenario executed via `npm run demo` or the CloudFront Serverless Web Portal (`https://d1ic1jcz65ca9j.cloudfront.net` or locally via `npm run gui`):
+The solution includes an end-to-end verification scenario executed via `npm run demo` or the CloudFront Serverless Web Portal (`https://<distribution-domain>.cloudfront.net` or locally via `npm run gui`):
 
 1. **Authentication:** Authenticate with AWS Cognito User Pools to obtain a valid JWT token with `Document.Admin` / `Document.Writer` claims.
 2. **Inline Document Ingestion:** Ingest a synthetic loan agreement PDF ($300\text{ KB}$) via `POST /v1/documents`.

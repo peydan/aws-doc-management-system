@@ -3,9 +3,9 @@
 // Global Application State
 const state = {
   config: {
-    apiUrl: 'https://k0urmbeen9.execute-api.us-east-1.amazonaws.com/v1',
-    userPoolId: 'us-east-1_aMUcSBi6e',
-    userPoolClientId: '3fcn104kkvrb642f33khd5c0p6',
+    apiUrl: '',
+    userPoolId: '',
+    userPoolClientId: '',
     region: 'us-east-1',
   },
   auth: {
@@ -32,7 +32,11 @@ async function initApp() {
       state.config = { ...state.config, ...cfg };
     }
   } catch (err) {
-    console.warn('Using default config fallback:', err);
+    console.warn('Unable to load runtime config.json:', err);
+  }
+
+  if (!state.config.apiUrl || state.config.apiUrl.includes('<api-id>')) {
+    console.warn('Frontend configuration is using placeholder values. Please update config.json with deployed AWS resource endpoints.');
   }
 
   const regionSpan = document.getElementById('health-card-region');

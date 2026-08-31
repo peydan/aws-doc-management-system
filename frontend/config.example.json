@@ -1,0 +1,7 @@
+{
+  "apiUrl": "https://<api-id>.execute-api.<region>.amazonaws.com/v1",
+  "userPoolId": "<region>_xxxxxxxxx",
+  "userPoolClientId": "<cognito-app-client-id>",
+  "region": "us-east-1",
+  "authFlow": "USER_PASSWORD_AUTH"
+}

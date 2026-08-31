@@ -3,7 +3,13 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 const region = process.env.CDK_DEFAULT_REGION || process.env.AWS_REGION || 'us-east-1';
-const account = process.env.CDK_DEFAULT_ACCOUNT || process.env.AWS_ACCOUNT_ID || '216662987392';
+const account = process.env.CDK_DEFAULT_ACCOUNT || process.env.AWS_ACCOUNT_ID;
+
+if (!account) {
+  console.error('❌ Error: Missing AWS Account ID. Please set CDK_DEFAULT_ACCOUNT or AWS_ACCOUNT_ID environment variable.');
+  process.exit(1);
+}
+
 const bucketName = `doc-platform-serverless-ui-${account}-${region}`;
 
 const s3 = new S3Client({ region });
