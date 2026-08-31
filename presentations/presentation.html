@@ -776,8 +776,8 @@
           </div>
 
           <div class="authority-card auth-audit">
-            <h4>5. Non-Repudiation Audit <span>S3 Audit Bucket</span></h4>
-            <p>Immutable CDC mutation stream logs automatically written to a KMS-encrypted date-partitioned audit bucket for compliance and forensics.</p>
+            <h4>5. Derived Read Projections <span>S3 Cached Derivatives</span></h4>
+            <p>Transient format conversions (e.g. JPEG/PNG to PDF under <code>derivatives/</code>) with 14-day auto-purge S3 Lifecycle. Origin tracked via S3 user metadata; never mutates WORM source.</p>
           </div>
         </div>
       </div>
@@ -789,8 +789,8 @@
     <section class="slide" id="slide-2">
       <div class="slide-header">
         <div class="slide-title-group">
-          <h1>Pure Serverless Architecture & AWS Lambda Compute</h1>
-          <p>Zero Server Management, Instant Elasticity, and Fine-Grained Least-Privilege Micro-Perimeters</p>
+          <h1>Pure Serverless Architecture & AWS Graviton Compute</h1>
+          <p>Zero Server Management, Instant Elasticity, ARM64 Graviton Performance, and Fine-Grained Least-Privilege Micro-Perimeters</p>
         </div>
         <span class="slide-tag">Compute & Serverless Foundations</span>
       </div>
@@ -799,14 +799,14 @@
         <div class="card card-highlight">
           <div class="card-title">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
-            Event-Driven Execution
+            Event-Driven Graviton ARM64
           </div>
           <div class="card-desc">
-            All compute is 100% stateless and reactive. Functions activate on HTTP REST ingress, DynamoDB CDC Streams, or SQS worker queues, scaling to zero when idle.
+            All 21 Lambda functions run on AWS Graviton (ARM64) architecture, delivering up to 20% price-performance improvement. Functions scale to zero when idle.
           </div>
           <div style="font-size: 0.8rem; color: var(--accent-blue); font-weight: 600;">
             • Pay only for exact millisecond runtimes<br/>
-            • Automatic multi-AZ high availability
+            • 20% lower cost per ms with ARM64 Graviton
           </div>
         </div>
 
@@ -1856,7 +1856,7 @@
         role: "Document.Reader",
         img: "diagrams/api_sequence_diagrams/06_get_documents_document_id.jpg",
         caption: "Sequence Diagram: GET /v1/documents/{id} Execution Flow",
-        desc: "Fetches active document pointer from DynamoDB with strong consistency, retrieves the authoritative JSON metadata annotation from S3, and mints a short-lived (15-minute) presigned S3 GET URL for instant document viewing."
+        desc: "Fetches active document pointer from DynamoDB with strong consistency, retrieves the authoritative JSON metadata annotation from S3, and mints a short-lived (15-minute) presigned S3 GET URL for instant document viewing. Supports `?format=pdf` for on-demand in-memory JPEG/PNG to PDF conversion cached in S3."
       },
       7: {
         method: "GET",

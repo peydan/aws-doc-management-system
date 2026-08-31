@@ -790,8 +790,8 @@
           </div>
 
           <div class="authority-card auth-audit">
-            <h4>5. תיעוד ביקורת בלתי מחיק <span>S3 Audit Bucket</span></h4>
-            <p>תיעוד שינויים (CDC) הנכתב אוטומטית לקובצי JSON חתומים ומוצפני KMS במבנה מחולק לפי תאריכים לצרכי רגולציה וחקירה פורנזית.</p>
+            <h4>5. שכבת נגזרות קריאה <span>S3 Cached Derivatives</span></h4>
+            <p>המרות פורמטים זמניות (JPEG/PNG ל-PDF תחת <code>derivatives/</code>) עם מחיקה אוטומטית כעבור 14 יום. מעקב שושלת ב-S3 User Metadata; אפס פגיעה במקור ה-WORM.</p>
           </div>
         </div>
       </div>
@@ -803,8 +803,8 @@
     <section class="slide" id="slide-2">
       <div class="slide-header">
         <div class="slide-title-group">
-          <h1>ארכיטקטורת Serverless מלאה ומנוע חישוב AWS Lambda</h1>
-          <p>אפס ניהול שרתים, גמישות אלסטית מיידית ומיקרו-פרימטרים של הרשאות מינימליות (Least Privilege)</p>
+          <h1>ארכיטקטורת Serverless מלאה ומנוע חישוב AWS Graviton (ARM64)</h1>
+          <p>אפס ניהול שרתים, גמישות אלסטית מיידית, ביצועי מעבדי Graviton ומיקרו-פרימטרים של הרשאות מינימליות</p>
         </div>
         <span class="slide-tag">תשתית מחשוב ו-Serverless</span>
       </div>
@@ -813,14 +813,14 @@
         <div class="card card-highlight">
           <div class="card-title">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
-            הרצה מונחית אירועים (Event-Driven)
+            הרצה מונחית אירועים ב-Graviton ARM64
           </div>
           <div class="card-desc">
-            כלל רכיבי המחשוב הם 100% חסרי מצב (Stateless) ומגיבים לאירועים: בקשות HTTP REST, אירועי CDC ב-DynamoDB Streams, או תורי משימות SQS — עם Scale to Zero במצב סרק.
+            כל 21 פונקציות ה-Lambda מבוססות מעבדי AWS Graviton (ARM64), המספקים שיפור של עד 20% ביחס עלות-ביצועים. פונקציות נסגרות לאפס במצב סרק (Scale to Zero).
           </div>
           <div style="font-size: 0.8rem; color: var(--accent-blue); font-weight: 600;">
             • תשלום מדויק לפי מילישניות ריצה בלבד<br/>
-            • שרידות וזמינות גבוהה אוטומטית ב-Multi-AZ
+            • עלות נמוכה ב-20% למילישנייה עם מעבדי Graviton ARM64
           </div>
         </div>
 
