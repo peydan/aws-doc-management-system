@@ -538,6 +538,53 @@ For multi-tenant or enterprise-scale deployments requiring runtime schema update
    - `POST /v1/admin/schemas/{class}/versions/{version}/activate` — Atomically activate a schema version for new ingestion pipelines.
 4. **Lambda In-Memory Cache with Event-Driven Invalidation:**
    - Ingestion and mutation Lambdas cache compiled Ajv validators in memory with a 5-minute TTL, refreshed instantly via EventBridge notifications upon schema activation.
+
+---
+
+### 3.8 On-Demand Format Conversion & Derivative Caching Architecture
+
+To support client delivery preferences while preserving the platform's WORM content authority, the platform provides automated on-demand conversion of image files (`image/jpeg`, `image/png`) to PDF representations upon retrieval (`GET /v1/documents/{id}?format=pdf`).
+
+```
+                              ON-DEMAND PDF DERIVATIVE RESOLUTION
+                              
+  Client Request: GET /v1/documents/{id}?format=pdf
+                        │
+                        ▼
+            +───────────────────────+
+            |      GetDocLambda     |
+            +───────────────────────+
+                        │
+                        ├─ 1. Content-Type is PDF? ─────────► Return S3 Presigned URL (Original)
+                        │
+                        └─ 2. Content-Type is JPEG/PNG?
+                                    │
+                                    ▼
+                     +─────────────────────────────+
+                     |  S3 HeadObject Cache Check  |
+                     |  derivatives/{class}/{id}/  |
+                     |  {s3_version_id}.pdf        |
+                     +─────────────────────────────+
+                                    │
+                    ┌───────────────┴──────────────┐
+                    ▼ (Cache Hit)                  ▼ (Cache Miss)
+          +───────────────────+          +─────────────────────────────+
+          | Return Presigned  |          | 1. Fetch S3 WORM image      |
+          | Derivative URL    |          | 2. Convert to PDF (pdf-lib) |
+          +───────────────────+          | 3. PutObject + x-amz-meta-* |
+                                         | 4. Return Presigned URL     |
+                                         +─────────────────────────────+
+```
+
+#### Key Architecture & FinOps Invariants:
+1. **Deterministic S3 Cache Keying**:
+   - Cached under `derivatives/{document_class}/{document_id}/{s3_version_id}.pdf`.
+   - Keying directly against `s3_version_id` ensures automatic cache invalidation when a new document content version is uploaded.
+2. **Metadata-Only Origin Lineage**:
+   - Origin lineage is preserved in S3 Object User Metadata (`x-amz-meta-source-document-id`, `x-amz-meta-source-s3-version-id`, `x-amz-meta-source-content-checksum`, `x-amz-meta-source-content-type`, `x-amz-meta-converted-at`), maintaining forensic auditability without modifying the PDF binary.
+3. **Automated Storage Expiration**:
+   - An S3 Lifecycle rule automatically purges cached derivative objects under `derivatives/` after 14 days, bounding storage costs.
+
 5. **Schema Compatibility Rules:**
    - Strict backward compatibility checks prevent breaking existing document annotations during schema evolution.
 

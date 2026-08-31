@@ -171,9 +171,58 @@ describe('Metadata Validator Unit Tests', () => {
       expect(fullMeta.account_id).toEqual({ bank_id: 10, branch_id: 802, account_number: 123456 });
       expect(fullMeta.business_area_code).toBe(100);
       expect(fullMeta.business_sub_area_code).toBe(101);
-
-      // Verify that this generated metadata passes validation cleanly
       expect(() => validateMetadataSchema(fullMeta)).not.toThrow();
+    });
+
+    it('should coerce string numbers and booleans seamlessly without throwing validation errors', () => {
+      const fullMeta = buildFullMetadata({
+        documentId: '550e8400-e29b-41d4-a716-446655440000',
+        documentClass: 'loan_agreement',
+        filename: 'loan_doc.pdf',
+        contentType: 'application/pdf',
+        contentLength: 1024,
+        checksum: 'sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+        userId: 'USER-123',
+        clientMetadata: {
+          customer_id: '4492817',
+          business_area_code: '200',
+          business_sub_area_code: '201',
+          loan_amount_minor_units: '50000000',
+          loan_number: 'LN-TEST-001',
+          currency: 'ILS',
+          loan_type: 'MORTGAGE',
+          branch_code: 'TLV-01',
+          signed_date: '2026-08-31',
+        },
+      });
+
+      expect(fullMeta.customer_id).toBe(4492817);
+      expect(fullMeta.business_area_code).toBe(200);
+      expect(fullMeta.loan_amount_minor_units).toBe(50000000);
+      expect(() => validateMetadataSchema(fullMeta)).not.toThrow();
+    });
+
+    it('should handle compliance_retention and security_classification with string booleans', () => {
+      const retentionMeta = buildFullMetadata({
+        documentId: '550e8400-e29b-41d4-a716-446655440001',
+        documentClass: 'compliance_retention',
+        filename: 'retention.pdf',
+        contentType: 'application/pdf',
+        contentLength: 2048,
+        checksum: 'sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+        userId: 'USER-123',
+        clientMetadata: {
+          legal_hold_active: 'false',
+          retention_period_years: '10',
+          disposal_action: 'ARCHIVE_GLACIER',
+          regulatory_framework: 'HIPAA',
+          document_type: 'TAX_RECORD',
+        },
+      });
+
+      expect(retentionMeta.legal_hold_active).toBe(false);
+      expect(retentionMeta.retention_period_years).toBe(10);
+      expect(() => validateMetadataSchema(retentionMeta)).not.toThrow();
     });
   });
 

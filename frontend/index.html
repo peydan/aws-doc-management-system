@@ -144,7 +144,10 @@
             <div class="card">
               <div class="card-header">
                 <div class="card-title">📄 In-Browser Document Preview</div>
-                <a id="btn-download-file" href="#" target="_blank" class="btn btn-secondary btn-sm">⬇️ Open Download Link</a>
+                <div style="display: flex; gap: 0.5rem;">
+                  <a id="btn-download-file" href="#" target="_blank" class="btn btn-secondary btn-sm">⬇️ Original</a>
+                  <button id="btn-download-pdf" class="btn btn-primary btn-sm" onclick="downloadActiveDocPdf()">⬇️ Download as PDF</button>
+                </div>
               </div>
 
               <div id="doc-preview-container">
@@ -224,7 +227,10 @@
             <div class="form-group">
               <label class="form-label" style="display: flex; justify-content: space-between; align-items: center;">
                 <span>🌐 Shared Banking &amp; DCTM Metadata</span>
-                <span class="badge badge-info" style="font-size: 0.7rem;">Inherited across all classes</span>
+                <div>
+                  <button type="button" class="btn btn-secondary btn-sm" style="font-size: 0.7rem; padding: 2px 6px;" onclick="resetDirectSharedMeta()">🔄 Reset Template</button>
+                  <span class="badge badge-info" style="font-size: 0.7rem; margin-left: 4px;">Inherited across all classes</span>
+                </div>
               </label>
               <div style="font-size: 0.75rem; color: var(--text-dim); margin-bottom: 4px;">
                 Common to all document classes. Remains preserved when switching document classes.
@@ -249,7 +255,10 @@
             <div class="form-group">
               <label class="form-label" style="display: flex; justify-content: space-between; align-items: center;">
                 <span>📑 Class-Specific Business Metadata</span>
-                <span id="direct-class-badge" class="badge badge-warning" style="font-size: 0.7rem;">loan_agreement</span>
+                <div>
+                  <button type="button" class="btn btn-secondary btn-sm" style="font-size: 0.7rem; padding: 2px 6px;" onclick="resetDirectClassMeta()">🔄 Reset Template</button>
+                  <span id="direct-class-badge" class="badge badge-warning" style="font-size: 0.7rem; margin-left: 4px;">loan_agreement</span>
+                </div>
               </label>
               <div style="font-size: 0.75rem; color: var(--text-dim); margin-bottom: 4px;">
                 Domain-specific attributes (updates automatically when you change Document Class).
@@ -307,7 +316,10 @@
             <div class="form-group">
               <label class="form-label" style="display: flex; justify-content: space-between; align-items: center;">
                 <span>🌐 Shared Banking &amp; DCTM Metadata</span>
-                <span class="badge badge-info" style="font-size: 0.7rem;">Inherited across all classes</span>
+                <div>
+                  <button type="button" class="btn btn-secondary btn-sm" style="font-size: 0.7rem; padding: 2px 6px;" onclick="resetInlineSharedMeta()">🔄 Reset Template</button>
+                  <span class="badge badge-info" style="font-size: 0.7rem; margin-left: 4px;">Inherited across all classes</span>
+                </div>
               </label>
               <textarea id="inline-shared-metadata" class="form-control code-area" rows="5">{
   "customer_id": 1094827,
@@ -329,7 +341,10 @@
             <div class="form-group">
               <label class="form-label" style="display: flex; justify-content: space-between; align-items: center;">
                 <span>📑 Class-Specific Business Metadata</span>
-                <span id="inline-class-badge" class="badge badge-warning" style="font-size: 0.7rem;">loan_agreement</span>
+                <div>
+                  <button type="button" class="btn btn-secondary btn-sm" style="font-size: 0.7rem; padding: 2px 6px;" onclick="resetInlineClassMeta()">🔄 Reset Template</button>
+                  <span id="inline-class-badge" class="badge badge-warning" style="font-size: 0.7rem; margin-left: 4px;">loan_agreement</span>
+                </div>
               </label>
               <textarea id="inline-class-metadata" class="form-control code-area" rows="5">{
   "document_type": "SIGNED_AGREEMENT",

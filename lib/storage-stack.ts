@@ -39,6 +39,14 @@ export class StorageStack extends cdk.Stack {
           maxAge: 3000,
         },
       ],
+      lifecycleRules: [
+        {
+          id: 'ExpireCachedDerivatives',
+          prefix: 'derivatives/',
+          expiration: cdk.Duration.days(14),
+          abortIncompleteMultipartUploadAfter: cdk.Duration.days(1),
+        },
+      ],
     });
 
     // Audit Bucket

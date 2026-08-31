@@ -16,9 +16,46 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       throw new ValidationError('document_id is required');
     }
 
+    const requestedFormat = event.queryStringParameters?.format?.toLowerCase();
     const doc = await DynamoManager.getDocument(documentId);
     const anno = await S3Manager.getAnnotation(doc.document_class, documentId, doc.current_s3_version_id);
-    const downloadUrl = await S3Manager.generatePresignedDownloadUrl(doc.current_s3_key, doc.current_s3_version_id, 900);
+    const originalContentType = anno.metadata.content_type || 'application/octet-stream';
+
+    let targetKey = doc.current_s3_key;
+    let targetVersionId: string | undefined = doc.current_s3_version_id;
+    let deliveryFormat = originalContentType;
+    let isDerivative = false;
+    let derivativeOrigin: Record<string, any> | undefined;
+
+    if (requestedFormat === 'pdf') {
+      if (originalContentType === 'image/jpeg' || originalContentType === 'image/jpg' || originalContentType === 'image/png') {
+        targetKey = await S3Manager.getOrCreatePdfDerivative(doc.document_class, doc.current_s3_key, {
+          documentId: doc.document_id,
+          sourceVersionId: doc.current_s3_version_id,
+          sourceChecksum: anno.metadata.content_checksum || '',
+          sourceContentType: originalContentType,
+          applicationVersion: doc.current_application_version,
+        });
+        targetVersionId = undefined;
+        deliveryFormat = 'application/pdf';
+        isDerivative = true;
+        derivativeOrigin = {
+          source_content_type: originalContentType,
+          source_s3_version_id: doc.current_s3_version_id,
+          source_content_checksum: anno.metadata.content_checksum || '',
+          converted_at: new Date().toISOString(),
+        };
+      } else if (originalContentType === 'application/pdf') {
+        deliveryFormat = 'application/pdf';
+        isDerivative = false;
+      } else {
+        throw new ValidationError(
+          `Format conversion to PDF is only supported for JPEG and PNG images (current content_type: ${originalContentType})`
+        );
+      }
+    }
+
+    const downloadUrl = await S3Manager.generatePresignedDownloadUrl(targetKey, targetVersionId, 900);
 
     return {
       statusCode: 200,
@@ -31,6 +68,9 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         current_s3_version_id: doc.current_s3_version_id,
         current_metadata_revision: doc.current_metadata_revision,
         metadata: anno.metadata,
+        delivery_format: deliveryFormat,
+        is_derivative: isDerivative,
+        ...(derivativeOrigin ? { derivative_origin: derivativeOrigin } : {}),
         download_url: downloadUrl,
         download_url_expires_at: new Date(Date.now() + 900 * 1000).toISOString(),
         created_at: doc.created_at,

@@ -22,9 +22,48 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       throw new ValidationError('version parameter must be a valid integer');
     }
 
+    const requestedFormat = event.queryStringParameters?.format?.toLowerCase();
     const doc = await DynamoManager.getDocument(documentId);
     const ver = await DynamoManager.getVersion(documentId, versionNum);
-    const downloadUrl = await S3Manager.generatePresignedDownloadUrl(ver.s3_key, ver.s3_version_id, 900);
+
+    let targetKey = ver.s3_key;
+    let targetVersionId: string | undefined = ver.s3_version_id;
+    let deliveryFormat: string | undefined;
+    let isDerivative = false;
+    let derivativeOrigin: Record<string, any> | undefined;
+
+    if (requestedFormat === 'pdf') {
+      const anno = await S3Manager.getAnnotation(doc.document_class, documentId, ver.s3_version_id);
+      const originalContentType = anno.metadata.content_type || 'application/octet-stream';
+
+      if (originalContentType === 'image/jpeg' || originalContentType === 'image/jpg' || originalContentType === 'image/png') {
+        targetKey = await S3Manager.getOrCreatePdfDerivative(doc.document_class, ver.s3_key, {
+          documentId,
+          sourceVersionId: ver.s3_version_id,
+          sourceChecksum: ver.content_checksum || anno.metadata.content_checksum || '',
+          sourceContentType: originalContentType,
+          applicationVersion: ver.application_version,
+        });
+        targetVersionId = undefined;
+        deliveryFormat = 'application/pdf';
+        isDerivative = true;
+        derivativeOrigin = {
+          source_content_type: originalContentType,
+          source_s3_version_id: ver.s3_version_id,
+          source_content_checksum: ver.content_checksum || anno.metadata.content_checksum || '',
+          converted_at: new Date().toISOString(),
+        };
+      } else if (originalContentType === 'application/pdf') {
+        deliveryFormat = 'application/pdf';
+        isDerivative = false;
+      } else {
+        throw new ValidationError(
+          `Format conversion to PDF is only supported for JPEG and PNG images (current content_type: ${originalContentType})`
+        );
+      }
+    }
+
+    const downloadUrl = await S3Manager.generatePresignedDownloadUrl(targetKey, targetVersionId, 900);
 
     return {
       statusCode: 200,
@@ -37,6 +76,9 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         checksum: ver.content_checksum,
         state: ver.state,
         download_url: downloadUrl,
+        ...(deliveryFormat ? { delivery_format: deliveryFormat } : {}),
+        is_derivative: isDerivative,
+        ...(derivativeOrigin ? { derivative_origin: derivativeOrigin } : {}),
       }),
     };
   } catch (err: any) {

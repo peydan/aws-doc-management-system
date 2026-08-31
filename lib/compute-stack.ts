@@ -50,6 +50,7 @@ export class ComputeStack extends cdk.Stack {
     // 1. Command API Function
     this.commandApiFunction = new nodejs.NodejsFunction(this, 'CommandApiFunction', {
       runtime: lambda.Runtime.NODEJS_20_X,
+      architecture: lambda.Architecture.ARM_64,
       entry: path.join(__dirname, '../src/command-api/upload-inline.ts'),
       handler: 'handler',
       timeout: cdk.Duration.seconds(30),
@@ -92,6 +93,7 @@ export class ComputeStack extends cdk.Stack {
     // 2. Query API Function
     this.queryApiFunction = new nodejs.NodejsFunction(this, 'QueryApiFunction', {
       runtime: lambda.Runtime.NODEJS_20_X,
+      architecture: lambda.Architecture.ARM_64,
       entry: path.join(__dirname, '../src/query-api/get-document.ts'),
       handler: 'handler',
       timeout: cdk.Duration.seconds(15),
@@ -102,7 +104,7 @@ export class ComputeStack extends cdk.Stack {
       environment: commonEnv,
     });
 
-    props.documentBucket.grantRead(this.queryApiFunction);
+    props.documentBucket.grantReadWrite(this.queryApiFunction);
     props.controlTable.grantReadData(this.queryApiFunction);
     this.queryApiFunction.addToRolePolicy(s3AnnotationReadPolicy);
     this.queryApiFunction.addToRolePolicy(denyDeleteVersionPolicy);
@@ -110,6 +112,7 @@ export class ComputeStack extends cdk.Stack {
     // 3. Search API Function
     this.searchApiFunction = new nodejs.NodejsFunction(this, 'SearchApiFunction', {
       runtime: lambda.Runtime.NODEJS_20_X,
+      architecture: lambda.Architecture.ARM_64,
       entry: path.join(__dirname, '../src/search-api/search-documents.ts'),
       handler: 'handler',
       timeout: cdk.Duration.seconds(15),
@@ -131,6 +134,7 @@ export class ComputeStack extends cdk.Stack {
     // 4. Background Stream Processor Worker
     this.backgroundWorkerFunction = new nodejs.NodejsFunction(this, 'BackgroundWorkerFunction', {
       runtime: lambda.Runtime.NODEJS_20_X,
+      architecture: lambda.Architecture.ARM_64,
       entry: path.join(__dirname, '../src/background-worker/stream-processor.ts'),
       handler: 'handler',
       timeout: cdk.Duration.seconds(60),
@@ -158,6 +162,7 @@ export class ComputeStack extends cdk.Stack {
     // 5. Indexer Consumer Function
     this.indexerFunction = new nodejs.NodejsFunction(this, 'IndexerFunction', {
       runtime: lambda.Runtime.NODEJS_20_X,
+      architecture: lambda.Architecture.ARM_64,
       entry: path.join(__dirname, '../src/background-worker/indexer.ts'),
       handler: 'handler',
       timeout: cdk.Duration.seconds(30),

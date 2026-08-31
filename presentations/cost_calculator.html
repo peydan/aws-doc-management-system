@@ -919,6 +919,17 @@
           <input type="range" id="slider-patches" min="0" max="5000000" step="10000" value="150000" oninput="updateValues(); recalculate();" />
         </div>
 
+        <div class="slider-block">
+          <div class="slider-header">
+            <span class="slider-label">PDF On-Demand Delivery (% of Image Reads)</span>
+            <span class="slider-display" id="val-pdf-pct">25%</span>
+          </div>
+          <input type="range" id="slider-pdf-pct" min="0" max="100" step="5" value="25" oninput="updateValues(); recalculate();" />
+          <div style="font-size: 11px; color: var(--color-text-muted); margin-top: 2px;">
+            Converts JPEG/PNG images to PDF on retrieval; cached in S3 with 14-day TTL.
+          </div>
+        </div>
+
         <div class="divider"></div>
 
         <!-- Architecture Options -->
@@ -1088,20 +1099,15 @@
       lambda_arm_gbs: 0.0000133334,
       apigw_req_1m: 3.80,
       sqs_req_1m: 0.40,
-      kms_cmk: 1.00,
-      kms_op_10k: 0.03,
-      cw_ingest_gb: 0.55,
-      egress_gb: 0.090
-    };
-
-    const PRESETS = {
-      poc: {
+      kms_cmk: 1.00,    const PRESETS = {
+      dev: {
         ingest: 10000,
         size: 1.0,
         totalDocs: 50000,
         downloads: 50000,
         searches: 25000,
         patches: 10000,
+        pdfPct: 20,
         ocu: '1.0',
         arch: 'arm64',
         ia: false
@@ -1113,6 +1119,7 @@
         downloads: 1000000,
         searches: 500000,
         patches: 150000,
+        pdfPct: 25,
         ocu: '2.0',
         arch: 'arm64',
         ia: false
@@ -1120,10 +1127,11 @@
       enterprise: {
         ingest: 2000000,
         size: 1.0,
-        totalDocs: 15000000,
+        totalDocs: 1500000,
         downloads: 10000000,
         searches: 5000000,
         patches: 1000000,
+        pdfPct: 30,
         ocu: '4.0',
         arch: 'arm64',
         ia: true
@@ -1135,6 +1143,7 @@
         downloads: 50000000,
         searches: 25000000,
         patches: 5000000,
+        pdfPct: 15,
         ocu: '8.0',
         arch: 'arm64',
         ia: true
@@ -1171,6 +1180,7 @@
       document.getElementById('slider-downloads').value = p.downloads;
       document.getElementById('slider-searches').value = p.searches;
       document.getElementById('slider-patches').value = p.patches;
+      if (document.getElementById('slider-pdf-pct')) document.getElementById('slider-pdf-pct').value = p.pdfPct || 25;
       document.getElementById('opt-ocu').value = p.ocu;
       document.getElementById('opt-arch').value = p.arch;
       document.getElementById('opt-ia').checked = p.ia;
@@ -1194,6 +1204,7 @@
       const downloads = parseInt(document.getElementById('slider-downloads').value, 10);
       const searches = parseInt(document.getElementById('slider-searches').value, 10);
       const patches = parseInt(document.getElementById('slider-patches').value, 10);
+      const pdfPct = parseInt(document.getElementById('slider-pdf-pct')?.value || 25, 10);
 
       document.getElementById('val-ingest').innerText = formatNumber(ingest);
       document.getElementById('val-size').innerText = size.toFixed(1) + ' MB';
@@ -1201,6 +1212,7 @@
       document.getElementById('val-downloads').innerText = formatNumber(downloads);
       document.getElementById('val-searches').innerText = formatNumber(searches);
       document.getElementById('val-patches').innerText = formatNumber(patches);
+      if (document.getElementById('val-pdf-pct')) document.getElementById('val-pdf-pct').innerText = pdfPct + '%';
 
       const totalGB = (totalDocs * size) / 1024;
       const totalTB = totalGB / 1024;
@@ -1218,6 +1230,7 @@
       const downloads = parseInt(document.getElementById('slider-downloads').value, 10);
       const searches = parseInt(document.getElementById('slider-searches').value, 10);
       const patches = parseInt(document.getElementById('slider-patches').value, 10);
+      const pdfPct = parseInt(document.getElementById('slider-pdf-pct')?.value || 25, 10);
       const ocuCount = parseFloat(document.getElementById('opt-ocu').value);
       const arch = document.getElementById('opt-arch').value;
       const useIA = document.getElementById('opt-ia').checked;
@@ -1225,12 +1238,18 @@
       const rateInput = parseFloat(document.getElementById('fxRate').value);
       if (!isNaN(rateInput) && rateInput > 0) fxRate = rateInput;
 
-      // S3 Storage & Requests
-      const totalGB = (totalDocs * sizeMB) / 1024;
+      // S3 Storage & Requests (including 14-day cached PDF derivatives)
+      const primaryGB = (totalDocs * sizeMB) / 1024;
+      const pdfConversions = Math.round(downloads * (pdfPct / 100));
+      const pdfDerivativeStorageGB = (pdfConversions * 0.35 * (14 / 30)) / 1024;
+      const totalGB = primaryGB + pdfDerivativeStorageGB;
+
       const s3StorageRate = useIA ? (RATES.s3_standard_gb * 0.3 + RATES.s3_ia_gb * 0.7) : RATES.s3_standard_gb;
       const s3StorageCost = totalGB * s3StorageRate;
-      const s3PutRequests = (ingest * 2) + patches;
-      const s3GetRequests = downloads;
+      
+      const pdfMissCount = Math.round(pdfConversions * 0.2); // 20% cache miss rate generating new derivative
+      const s3PutRequests = (ingest * 2) + patches + pdfMissCount;
+      const s3GetRequests = downloads + pdfMissCount;
       const s3PutCost = (s3PutRequests / 1000) * RATES.s3_put_1k;
       const s3GetCost = (s3GetRequests / 1000) * RATES.s3_get_1k;
       const s3TotalCost = s3StorageCost + s3PutCost + s3GetCost;
@@ -1247,16 +1266,18 @@
 
       // OpenSearch Serverless (AOSS)
       const aossComputeCost = 730 * ocuCount * RATES.aoss_ocu_hr;
-      const aossStorageGB = Math.max(1, totalGB * 0.03);
+      const aossStorageGB = Math.max(1, primaryGB * 0.03);
       const aossStorageCost = aossStorageGB * RATES.aoss_storage_gb;
       const aossTotalCost = aossComputeCost + aossStorageCost;
 
-      // Lambda Compute
+      // Lambda Compute (ARM64 Graviton)
       const lambdaInvocations = (ingest * 3) + downloads + searches + patches;
       const lambdaInvCost = (lambdaInvocations / 1000000) * RATES.lambda_inv_1m;
       const avgDurationSec = 0.150;
       const memoryGB = 0.512;
-      const totalGBSeconds = lambdaInvocations * avgDurationSec * memoryGB;
+      const baseGBSeconds = lambdaInvocations * avgDurationSec * memoryGB;
+      const conversionGBSeconds = pdfMissCount * 0.120 * memoryGB; // on-demand conversion compute
+      const totalGBSeconds = baseGBSeconds + conversionGBSeconds;
       const gbsRate = (arch === 'arm64') ? RATES.lambda_arm_gbs : RATES.lambda_x86_gbs;
       const lambdaDurationCost = totalGBSeconds * gbsRate;
       const lambdaTotalCost = lambdaInvCost + lambdaDurationCost;
@@ -1294,12 +1315,17 @@
         downloads,
         searches,
         patches,
+        pdfPct,
+        pdfConversions,
+        primaryGB,
+        pdfDerivativeStorageGB,
         totalGB,
         s3StorageCost,
         ddbWRU,
         ddbRRU,
         aossStorageGB,
         lambdaInvocations,
+        totalGBSeconds,
         totalApiRequests,
         logsGB,
         totalEgressGB,
@@ -1353,9 +1379,9 @@
           usd: c.aossTotalCost
         },
         {
-          name: 'Amazon S3 Standard (Binaries + S3 Annotations)',
+          name: 'Amazon S3 Standard (Binaries + Annotations + Derivatives)',
           rate: '$' + c.s3StorageRate.toFixed(4) + ' / GB-mo + $0.0055/1k PUT',
-          vol: Math.round(c.totalGB) + ' GB storage + ' + formatNumber((c.ingest * 2) + c.patches) + ' PUTs + ' + formatNumber(c.downloads) + ' GETs',
+          vol: Math.round(c.primaryGB) + ' GB primary + ' + Math.round(c.pdfDerivativeStorageGB) + ' GB derivatives + ' + formatNumber(c.downloads) + ' GETs',
           usd: c.s3TotalCost
         },
         {
@@ -1367,7 +1393,7 @@
         {
           name: 'AWS Lambda (ARM64 Graviton)',
           rate: '$0.20 / 1M req + $0.0000133 / GB-s',
-          vol: formatNumber(c.lambdaInvocations) + ' invocations (' + Math.round(c.lambdaInvocations * 0.15 * 0.512) + ' GB-s)',
+          vol: formatNumber(c.lambdaInvocations) + ' invocations (' + Math.round(c.totalGBSeconds) + ' GB-s, incl. PDF on-demand)',
           usd: c.lambdaTotalCost
         },
         {

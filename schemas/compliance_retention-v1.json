@@ -37,12 +37,14 @@
             "FINANCIAL_LEDGER",
             "AUDIT_EVIDENCE",
             "CONTRACT_ARCHIVE",
-            "COMMUNICATION_LOG"
+            "COMMUNICATION_LOG",
+            "TAX_RECORD",
+            "AUDIT_TRAIL"
           ]
         },
         "retention_schedule_code": {
           "type": "string",
-          "pattern": "^RET-[A-Z0-9_-]+$"
+          "pattern": "^RET-[A-Za-z0-9_-]+$"
         },
         "retention_period_years": {
           "type": "integer",
@@ -56,7 +58,9 @@
             "FINRA",
             "GDPR",
             "BASEL_III",
-            "LOCAL_BANKING_DIRECTIVE"
+            "LOCAL_BANKING_DIRECTIVE",
+            "HIPAA",
+            "LOCAL_BANKING_REG"
           ]
         },
         "retention_start_date": {
@@ -76,7 +80,9 @@
           "enum": [
             "PERMANENT_DELETE",
             "TRANSITION_TO_GLACIER",
-            "MANUAL_DISPOSAL_REVIEW"
+            "ARCHIVE_GLACIER",
+            "MANUAL_DISPOSAL_REVIEW",
+            "REVIEW_REQUIRED"
           ]
         },
         "compliance_officer_id": {

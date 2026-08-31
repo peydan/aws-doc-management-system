@@ -11,6 +11,7 @@ import {
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { NotFoundError } from './errors';
+import { convertImageToPdf } from './pdf-converter';
 
 const s3Client = new S3Client({ region: process.env.AWS_REGION || 'us-east-1' });
 
@@ -50,7 +51,90 @@ export interface S3PutResult {
   eTag: string;
 }
 
+export interface DerivativeMetadata {
+  documentId: string;
+  sourceVersionId: string;
+  sourceChecksum: string;
+  sourceContentType: string;
+  applicationVersion: number;
+}
+
 export class S3Manager {
+  static getDerivativeKey(documentClass: string, documentId: string, versionId: string): string {
+    return `derivatives/${documentClass}/${documentId}/${versionId}.pdf`;
+  }
+
+  static async getOrCreatePdfDerivative(
+    documentClass: string,
+    rawKey: string,
+    meta: DerivativeMetadata
+  ): Promise<string> {
+    const derivativeKey = this.getDerivativeKey(documentClass, meta.documentId, meta.sourceVersionId);
+
+    if (process.env.MOCK_STORAGE_BYPASS === 'true') {
+      const mockKey = `${derivativeKey}#mock-pdf`;
+      if (!inMemoryS3Content.has(mockKey) && !inMemoryS3Content.has(derivativeKey)) {
+        const sourceData =
+          inMemoryS3Content.get(`${rawKey}#${meta.sourceVersionId}`) ||
+          inMemoryS3Content.get(rawKey);
+        let pdfBuffer: Buffer;
+        if (sourceData && sourceData.body) {
+          pdfBuffer = await convertImageToPdf(sourceData.body, meta.sourceContentType);
+        } else {
+          // Fallback mock 1x1 image converted to PDF
+          const dummyPng = Buffer.from(
+            'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+            'base64'
+          );
+          pdfBuffer = await convertImageToPdf(dummyPng, 'image/png');
+        }
+        inMemoryS3Content.set(derivativeKey, {
+          body: pdfBuffer,
+          contentType: 'application/pdf',
+          versionId: 'mock-derivative-v1',
+        });
+      }
+      return derivativeKey;
+    }
+
+    // 1. Check if derivative already exists in S3 (Cache Hit)
+    try {
+      await this.verifyObjectExists(derivativeKey);
+      return derivativeKey;
+    } catch {
+      // 2. Cache Miss: Fetch original image from S3
+      const getCmd = new GetObjectCommand({
+        Bucket: getBucketName(),
+        Key: rawKey,
+        VersionId: meta.sourceVersionId,
+      });
+      const response = await s3Client.send(getCmd);
+      const originalBuffer = Buffer.from(await response.Body!.transformToByteArray());
+
+      // 3. Convert image to PDF
+      const pdfBuffer = await convertImageToPdf(originalBuffer, meta.sourceContentType);
+
+      // 4. Save derivative to S3 with origin user metadata (x-amz-meta-*)
+      await s3Client.send(
+        new PutObjectCommand({
+          Bucket: getBucketName(),
+          Key: derivativeKey,
+          Body: pdfBuffer,
+          ContentType: 'application/pdf',
+          Metadata: {
+            'source-document-id': meta.documentId,
+            'source-app-version': String(meta.applicationVersion),
+            'source-s3-version-id': meta.sourceVersionId,
+            'source-content-checksum': meta.sourceChecksum,
+            'source-content-type': meta.sourceContentType,
+            'converted-at': new Date().toISOString(),
+          },
+        })
+      );
+
+      return derivativeKey;
+    }
+  }
   static getDocumentKey(documentClass: string, documentId: string): string {
     return `documents/${documentClass}/${documentId}`;
   }
@@ -227,11 +311,12 @@ export class S3Manager {
 
   static async generatePresignedDownloadUrl(
     key: string,
-    versionId: string,
+    versionId?: string,
     expiresInSeconds = 900
   ): Promise<string> {
     if (process.env.MOCK_STORAGE_BYPASS === 'true') {
-      return `https://mock-s3-download.local/${key}?versionId=${versionId}`;
+      const vParam = versionId ? `?versionId=${versionId}` : '';
+      return `https://mock-s3-download.local/${key}${vParam}`;
     }
     const command = new GetObjectCommand({
       Bucket: getBucketName(),

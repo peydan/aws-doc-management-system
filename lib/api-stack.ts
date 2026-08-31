@@ -89,6 +89,7 @@ export class ApiStack extends cdk.Stack {
     const createHandlerLambda = (name: string, filePath: string, extraEnv: Record<string, string> = {}): nodejs.NodejsFunction => {
       const fn = new nodejs.NodejsFunction(this, name, {
         runtime: lambda.Runtime.NODEJS_20_X,
+        architecture: lambda.Architecture.ARM_64,
         entry: path.join(__dirname, filePath),
         handler: 'handler',
         timeout: cdk.Duration.seconds(30),
@@ -171,7 +172,7 @@ export class ApiStack extends cdk.Stack {
       healthLambda,
     ];
     for (const fn of queryLambdas) {
-      props.documentBucket.grantRead(fn);
+      props.documentBucket.grantReadWrite(fn);
       props.controlTable.grantReadData(fn);
       fn.addToRolePolicy(s3AnnotationReadPolicy);
     }

@@ -505,6 +505,54 @@ const METADATA_TEMPLATES = {
   },
 };
 
+function parseJsonRelaxed(str) {
+  if (!str || typeof str !== 'string' || !str.trim()) return {};
+  const trimmed = str.trim();
+  try {
+    return JSON.parse(trimmed);
+  } catch (err1) {
+    try {
+      const sanitized = trimmed
+        .replace(/,\s*([}\]])/g, '$1') // remove trailing commas
+        .replace(/(['"])?([a-zA-Z0-9_]+)(['"])?:/g, '"$2":') // ensure quoted keys
+        .replace(/'/g, '"');
+      return JSON.parse(sanitized);
+    } catch (err2) {
+      throw new Error(err1.message);
+    }
+  }
+}
+
+function resetDirectSharedMeta() {
+  const el = document.getElementById('direct-shared-metadata');
+  if (el) el.value = JSON.stringify(SHARED_BASE_TEMPLATE, null, 2);
+  showToast('Shared metadata reset to default template', 'info');
+}
+
+function resetDirectClassMeta() {
+  const docClass = document.getElementById('direct-doc-class')?.value || 'loan_agreement';
+  const el = document.getElementById('direct-class-metadata');
+  if (el && CLASS_SPECIFIC_TEMPLATES[docClass]) {
+    el.value = JSON.stringify(CLASS_SPECIFIC_TEMPLATES[docClass], null, 2);
+    showToast(`Class metadata reset to ${docClass} template`, 'info');
+  }
+}
+
+function resetInlineSharedMeta() {
+  const el = document.getElementById('inline-shared-metadata');
+  if (el) el.value = JSON.stringify(SHARED_BASE_TEMPLATE, null, 2);
+  showToast('Shared metadata reset to default template', 'info');
+}
+
+function resetInlineClassMeta() {
+  const docClass = document.getElementById('inline-doc-class')?.value || 'loan_agreement';
+  const el = document.getElementById('inline-class-metadata');
+  if (el && CLASS_SPECIFIC_TEMPLATES[docClass]) {
+    el.value = JSON.stringify(CLASS_SPECIFIC_TEMPLATES[docClass], null, 2);
+    showToast(`Class metadata reset to ${docClass} template`, 'info');
+  }
+}
+
 function onDirectClassChange(className) {
   const badge = document.getElementById('direct-class-badge');
   if (badge) badge.innerText = className;
@@ -537,17 +585,17 @@ async function executeDirectUpload() {
 
   try {
     const sharedRaw = document.getElementById('direct-shared-metadata')?.value || '{}';
-    sharedMeta = JSON.parse(sharedRaw);
+    sharedMeta = parseJsonRelaxed(sharedRaw);
   } catch (e) {
-    showToast('Invalid JSON in Shared Banking Metadata', 'danger');
+    showToast(`Invalid JSON in Shared Metadata: ${e.message}`, 'danger');
     return;
   }
 
   try {
     const classRaw = document.getElementById('direct-class-metadata')?.value || '{}';
-    classMeta = JSON.parse(classRaw);
+    classMeta = parseJsonRelaxed(classRaw);
   } catch (e) {
-    showToast('Invalid JSON in Class-Specific Metadata', 'danger');
+    showToast(`Invalid JSON in Class Metadata: ${e.message}`, 'danger');
     return;
   }
 
@@ -657,17 +705,17 @@ async function executeInlineUpload() {
 
   try {
     const sharedRaw = document.getElementById('inline-shared-metadata')?.value || '{}';
-    sharedMeta = JSON.parse(sharedRaw);
+    sharedMeta = parseJsonRelaxed(sharedRaw);
   } catch (e) {
-    showToast('Invalid JSON in Shared Banking Metadata', 'danger');
+    showToast(`Invalid JSON in Shared Metadata: ${e.message}`, 'danger');
     return;
   }
 
   try {
     const classRaw = document.getElementById('inline-class-metadata')?.value || '{}';
-    classMeta = JSON.parse(classRaw);
+    classMeta = parseJsonRelaxed(classRaw);
   } catch (e) {
-    showToast('Invalid JSON in Class-Specific Metadata', 'danger');
+    showToast(`Invalid JSON in Class Metadata: ${e.message}`, 'danger');
     return;
   }
 
@@ -678,7 +726,8 @@ async function executeInlineUpload() {
   try {
     const fileBytes = await selectedInlineFile.arrayBuffer();
     const checksum = await calculateSHA256(fileBytes);
-    const metadataHeader = btoa(JSON.stringify({ ...metadata, document_class: docClass, filename: selectedInlineFile.name }));
+    const metaPayload = JSON.stringify({ ...metadata, document_class: docClass, filename: selectedInlineFile.name });
+    const metadataHeader = btoa(unescape(encodeURIComponent(metaPayload)));
 
     const res = await apiCall('POST', '/documents', new Uint8Array(fileBytes), {
       'Content-Type': selectedInlineFile.type || 'application/pdf',
@@ -753,15 +802,52 @@ async function fetchDocumentDetails(docId = null) {
     // Load Preview
     const previewIframe = document.getElementById('doc-preview-iframe');
     const downloadBtn = document.getElementById('btn-download-file');
+    const downloadPdfBtn = document.getElementById('btn-download-pdf');
     if (doc.download_url) {
       previewIframe.src = doc.download_url;
       downloadBtn.href = doc.download_url;
+    }
+
+    if (downloadPdfBtn) {
+      downloadPdfBtn.style.display = 'inline-flex';
     }
 
     fetchVersionHistory(targetId);
     showToast('Document details loaded', 'success');
   } catch (err) {
     showToast(`Fetch document failed: ${err.message}`, 'danger');
+  }
+}
+
+async function downloadActiveDocPdf() {
+  const targetId = document.getElementById('viewer-doc-id')?.value?.trim() || state.activeDocument?.document_id;
+  if (!targetId) {
+    showToast('Please fetch or select a document first', 'warning');
+    return;
+  }
+  try {
+    showToast('Preparing PDF derivative on AWS Graviton...', 'info');
+    const res = await apiCall('GET', `/documents/${targetId}?format=pdf`);
+    if (res.download_url) {
+      window.open(res.download_url, '_blank');
+      showToast('PDF opened in new tab!', 'success');
+    }
+  } catch (err) {
+    showToast(`PDF download failed: ${err.message}`, 'danger');
+  }
+}
+
+async function downloadPdfDirect(docId) {
+  if (!docId) return;
+  try {
+    showToast('Generating PDF derivative...', 'info');
+    const res = await apiCall('GET', `/documents/${docId}?format=pdf`);
+    if (res.download_url) {
+      window.open(res.download_url, '_blank');
+      showToast('PDF opened in new tab!', 'success');
+    }
+  } catch (err) {
+    showToast(`PDF generation failed: ${err.message}`, 'danger');
   }
 }
 
@@ -782,6 +868,7 @@ async function fetchVersionHistory(docId = null) {
           <td style="font-family: var(--font-mono); font-size: 0.75rem;">${(v.checksum || '').substring(0, 16)}...</td>
           <td>
             <button class="btn btn-secondary btn-sm" onclick="downloadSpecificVersion('${targetId}', ${v.application_version})">⬇️ View</button>
+            <button class="btn btn-primary btn-sm" style="margin-left: 4px;" onclick="downloadSpecificVersionPdf('${targetId}', ${v.application_version})">⬇️ PDF</button>
           </td>
         </tr>
       `
@@ -806,6 +893,19 @@ async function downloadSpecificVersion(docId, versionNum) {
   }
 }
 
+async function downloadSpecificVersionPdf(docId, versionNum) {
+  try {
+    showToast(`Generating PDF for version v${versionNum}...`, 'info');
+    const res = await apiCall('GET', `/documents/${docId}/versions/${versionNum}?format=pdf`);
+    if (res.download_url) {
+      window.open(res.download_url, '_blank');
+      showToast(`v${versionNum} PDF ready!`, 'success');
+    }
+  } catch (err) {
+    showToast(`Failed to load v${versionNum} PDF: ${err.message}`, 'danger');
+  }
+}
+
 // ==========================================
 // 7. METADATA & CONCURRENCY EDITOR
 // ==========================================
@@ -821,9 +921,9 @@ async function executeMetadataPatch() {
 
   let changes = {};
   try {
-    changes = JSON.parse(document.getElementById('meta-edit-changes').value);
+    changes = parseJsonRelaxed(document.getElementById('meta-edit-changes').value);
   } catch (e) {
-    showToast('Invalid JSON in metadata changes', 'danger');
+    showToast(`Invalid JSON in metadata changes: ${e.message}`, 'danger');
     return;
   }
 
@@ -947,6 +1047,7 @@ async function executeSearch() {
               <td style="font-size: 0.8rem; color: var(--text-dim);">${dateStr}</td>
               <td>
                 <button class="btn btn-secondary btn-sm" onclick="loadSearchedDoc('${doc.document_id}')">📂 Inspect</button>
+                <button class="btn btn-primary btn-sm" style="margin-left: 4px;" onclick="downloadPdfDirect('${doc.document_id}')">⬇️ PDF</button>
               </td>
             </tr>
           `;
@@ -1061,10 +1162,12 @@ function updateCalculator() {
   document.getElementById('slider-val-cumulative').innerText = `${docsCumulative.toLocaleString()} docs`;
   document.getElementById('slider-val-queries').innerText = `${queriesMonthly.toLocaleString()} queries`;
 
-  // Storage
-  const totalStorageGb = (docsCumulative * avgSizeMb) / 1024;
+  // Storage (Primary WORM + 14-day cached PDF derivatives)
+  const primaryStorageGb = (docsCumulative * avgSizeMb) / 1024;
+  const derivativeStorageGb = (queriesMonthly * 0.25 * 0.35 * (14 / 30)) / 1024; // 25% PDF requests @ 350KB with 14d TTL
+  const totalStorageGb = primaryStorageGb + derivativeStorageGb;
   const s3StorageCost = totalStorageGb * PRICING_IL.s3_storage_gb_mo;
-  const s3PutCost = (docsMonthly * 2 * PRICING_IL.s3_put_1k) / 1000;
+  const s3PutCost = ((docsMonthly * 2 + queriesMonthly * 0.25 * 0.2) * PRICING_IL.s3_put_1k) / 1000;
   const s3GetCost = (queriesMonthly * PRICING_IL.s3_get_1k) / 1000;
   const totalS3Cost = s3StorageCost + s3PutCost + s3GetCost;
 
@@ -1078,7 +1181,7 @@ function updateCalculator() {
   const ocuCount = docsMonthly > 500000 ? 4.0 : 2.0;
   const aossCost = ocuCount * 730 * PRICING_IL.aoss_ocu_hr;
 
-  // Lambda
+  // Lambda (ARM64 Graviton)
   const lambdaInvocations = docsMonthly * 3 + queriesMonthly;
   const lambdaCost = (lambdaInvocations / 1000000) * PRICING_IL.lambda_invocations_million + lambdaInvocations * 0.15 * 0.5 * PRICING_IL.lambda_gb_sec;
 
@@ -1115,7 +1218,7 @@ function updateCalculator() {
       </tr>
       <tr>
         <td><strong>Amazon S3 Standard</strong></td>
-        <td>${totalStorageGb.toFixed(1)} GB storage + Annotations + API PUT/GET</td>
+        <td>${primaryStorageGb.toFixed(1)} GB primary + ${derivativeStorageGb.toFixed(1)} GB cached derivatives + Annotations</td>
         <td style="text-align: right; font-family: var(--font-mono);">${formatCost(totalS3Cost)}</td>
       </tr>
       <tr>

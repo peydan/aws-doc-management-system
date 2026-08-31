@@ -292,6 +292,18 @@
               "type": "string",
               "format": "uuid"
             }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "pdf"
+              ]
+            },
+            "description": "Optional target delivery format. When 'pdf' is requested on a JPEG/PNG document, delivers an on-demand converted PDF derivative."
           }
         ],
         "responses": {
@@ -429,6 +441,18 @@
               "type": "integer",
               "minimum": 1
             }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "pdf"
+              ]
+            },
+            "description": "Optional target delivery format."
           }
         ],
         "responses": {
@@ -461,7 +485,25 @@
         ],
         "responses": {
           "200": {
-            "description": "Metadata retrieved."
+            "description": "Authoritative metadata retrieved.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "document_id": {
+                      "type": "string"
+                    },
+                    "metadata": {
+                      "$ref": "#/components/schemas/DocumentMetadata"
+                    },
+                    "annotation_e_tag": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       },
@@ -540,6 +582,18 @@
               "type": "integer"
             },
             "description": "Optional historical application version number."
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "pdf"
+              ]
+            },
+            "description": "Optional target delivery format."
           }
         ],
         "responses": {
@@ -559,6 +613,15 @@
                     "download_url": {
                       "type": "string",
                       "format": "uri"
+                    },
+                    "delivery_format": {
+                      "type": "string"
+                    },
+                    "is_derivative": {
+                      "type": "boolean"
+                    },
+                    "derivative_origin": {
+                      "type": "object"
                     },
                     "expires_at": {
                       "type": "string",
@@ -814,6 +877,32 @@
           },
           "metadata": {
             "$ref": "#/components/schemas/DocumentMetadata"
+          },
+          "delivery_format": {
+            "type": "string",
+            "example": "application/pdf"
+          },
+          "is_derivative": {
+            "type": "boolean",
+            "example": true
+          },
+          "derivative_origin": {
+            "type": "object",
+            "properties": {
+              "source_content_type": {
+                "type": "string"
+              },
+              "source_s3_version_id": {
+                "type": "string"
+              },
+              "source_content_checksum": {
+                "type": "string"
+              },
+              "converted_at": {
+                "type": "string",
+                "format": "date-time"
+              }
+            }
           },
           "download_url": {
             "type": "string",

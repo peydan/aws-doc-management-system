@@ -218,6 +218,32 @@
       "response": []
     },
     {
+      "name": "03b - Get Document Converted as PDF",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/documents/{{documentId}}?format=pdf",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "documents",
+            "{{documentId}}"
+          ],
+          "query": [
+            {
+              "key": "format",
+              "value": "pdf",
+              "description": "Requests on-demand PDF conversion if document is JPEG or PNG."
+            }
+          ]
+        },
+        "description": "Retrieves the document metadata and generates a presigned URL pointing to an on-demand cached PDF derivative with S3 origin metadata."
+      },
+      "response": []
+    },
+    {
       "name": "04 - Update Metadata (Optimistic Revision 1 -> 2)",
       "request": {
         "method": "PATCH",

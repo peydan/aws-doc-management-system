@@ -26,6 +26,10 @@ Agents must never violate the core authority boundaries:
 | 4. SEARCH PROJECTION: Amazon OpenSearch Serverless (`documents-v1`)                              |
 |    - Derived, asynchronous read-model. Never treated as an authoritative datastore.              |
 +--------------------------------------------------------------------------------------------------+
+| 5. DERIVED READ PROJECTIONS: S3 Cached Derivatives (`derivatives/{class}/{id}/{versionId}.pdf`)   |
+|    - Transient, on-demand format conversions (e.g. JPEG/PNG to PDF).                             |
+|    - Never mutate canonical WORM versions or DynamoDB pointers. Origin tracked via S3 user meta. |
++--------------------------------------------------------------------------------------------------+
 ```
 
 ---
@@ -154,3 +158,5 @@ Enforced via Cognito User Pools and JWT Role claims:
 3. **Always validate with Ajv**: All metadata mutation endpoints must validate against precompiled Ajv schemas in `src/shared/validator.ts`.
 4. **Maintain OpenSearch as projection**: When updating document properties, ensure the DynamoDB Stream event structure propagates to `src/background-worker/indexer.ts` and updates OpenSearch index mappings.
 5. **No floating-point money**: Always store currency in minor units (`loan_amount_minor_units` as integer).
+6. **Preserve Authority Boundaries for Derivatives**: Format conversions (e.g., JPEG/PNG to PDF) are transient read projections stored under `derivatives/` with S3 user metadata tags (`x-amz-meta-*`). Never create new DynamoDB version records for derived formats.
+

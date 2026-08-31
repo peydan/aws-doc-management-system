@@ -184,6 +184,11 @@ To maximize ROI and minimize ongoing AWS operational expense, implement the foll
 ### 5. Presigned S3 Direct Downloads
 - Bypassing API Gateway and Lambda for document payloads (>4 MB) and utilizing presigned S3 GET URLs saves **$3.80 per million requests** on API Gateway binary payload overhead and prevents Lambda execution duration timeout padding.
 
+### 6. On-Demand PDF Format Conversion & 14-Day Cached Derivatives
+- Transforming JPEG and PNG images to PDF on retrieval (`GET /v1/documents/{id}?format=pdf`) utilizes **pure in-memory conversion on Graviton (ARM64)** (~100ms duration per conversion).
+- Generated PDF derivatives are cached under the `derivatives/` S3 prefix and automatically expired after **14 days** via S3 Lifecycle rules.
+- **Cost Impact**: Temporary cached derivatives add less than **$0.02 – $0.15 / month** in storage per 100,000 requests, while avoiding continuous batch pre-conversion costs for images that are never retrieved as PDF.
+
 ---
 
 ## 6. Multi-Year Total Cost of Ownership (TCO) Projections
