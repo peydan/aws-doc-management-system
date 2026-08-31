@@ -769,6 +769,23 @@ function loadUploadedDocToViewer() {
 // ==========================================
 // 6. DOCUMENT VIEWER & PREVIEW
 // ==========================================
+function isConvertibleImage(doc) {
+  if (!doc) return false;
+  const contentType = (doc.metadata?.content_type || doc.content_type || '').toLowerCase();
+  const filename = (doc.metadata?.filename || doc.filename || '').toLowerCase();
+  if (contentType === 'application/pdf' || filename.endsWith('.pdf')) {
+    return false;
+  }
+  return (
+    contentType === 'image/jpeg' ||
+    contentType === 'image/jpg' ||
+    contentType === 'image/png' ||
+    filename.endsWith('.jpg') ||
+    filename.endsWith('.jpeg') ||
+    filename.endsWith('.png')
+  );
+}
+
 async function fetchDocumentDetails(docId = null) {
   const targetId = docId || document.getElementById('viewer-doc-id').value.trim();
   if (!targetId) {
@@ -809,7 +826,11 @@ async function fetchDocumentDetails(docId = null) {
     }
 
     if (downloadPdfBtn) {
-      downloadPdfBtn.style.display = 'inline-flex';
+      if (isConvertibleImage(doc)) {
+        downloadPdfBtn.style.display = 'inline-flex';
+      } else {
+        downloadPdfBtn.style.display = 'none';
+      }
     }
 
     fetchVersionHistory(targetId);
@@ -1037,6 +1058,10 @@ async function executeSearch() {
           const descriptor = doc.customer_id ? `Cust: ${doc.customer_id}` : (doc.document_type || doc.filename || 'N/A');
           const dateStr = doc.created_at ? new Date(doc.created_at).toLocaleDateString() : 'N/A';
           const statusBadge = doc.status === 'ACTIVE' ? 'badge-success' : 'badge-danger';
+          const showPdf = isConvertibleImage(doc);
+          const pdfButtonHtml = showPdf
+            ? `<button class="btn btn-primary btn-sm" style="margin-left: 4px;" onclick="downloadPdfDirect('${doc.document_id}')">⬇️ PDF</button>`
+            : '';
           return `
             <tr>
               <td><code style="color: #38bdf8; font-size: 0.8rem;">${doc.document_id}</code></td>
@@ -1047,7 +1072,7 @@ async function executeSearch() {
               <td style="font-size: 0.8rem; color: var(--text-dim);">${dateStr}</td>
               <td>
                 <button class="btn btn-secondary btn-sm" onclick="loadSearchedDoc('${doc.document_id}')">📂 Inspect</button>
-                <button class="btn btn-primary btn-sm" style="margin-left: 4px;" onclick="downloadPdfDirect('${doc.document_id}')">⬇️ PDF</button>
+                ${pdfButtonHtml}
               </td>
             </tr>
           `;
