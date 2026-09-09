@@ -608,7 +608,7 @@ All APIs (except `/health`) require an `Authorization: Bearer <Cognito-JWT-Token
   {
     "status": "HEALTHY",
     "service": "aws-document-management-platform",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "timestamp": "2026-08-18T14:30:00.000Z"
   }
   ```

@@ -8,7 +8,7 @@ export async function handler(): Promise<APIGatewayProxyResult> {
     body: JSON.stringify({
       status: 'HEALTHY',
       service: 'aws-document-management-platform',
-      version: '0.1.0',
+      version: '0.1.1',
       timestamp: new Date().toISOString(),
     }),
   };

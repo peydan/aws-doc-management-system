@@ -2,7 +2,7 @@
 
 **Document Version:** 1.0.0  
 **Target Environment:** AWS Cloud-Native / Serverless  
-**API Version:** `v1` (`0.1.0`)  
+**API Version:** `v1` (`0.1.1`)  
 **Core Authority Specification:** Tri-Partite Source of Truth (S3 WORM, S3 Annotations, DynamoDB Control Plane)
 
 ---

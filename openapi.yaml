@@ -5,7 +5,7 @@ info:
     REST API specification for the AWS Document Management Platform MVP.
     Supports multi-path document uploads, versioning, authoritative S3 metadata annotations,
     optimistic concurrency updates, OpenSearch metadata discovery, soft-delete, and Cognito RBAC.
-  version: 0.1.0
+  version: 0.1.1
   contact:
     name: Engineering Team
 
