@@ -7,6 +7,7 @@ import { UpdateCommand, TransactWriteCommand } from '@aws-sdk/lib-dynamodb';
 import { Logger } from '../shared/logger';
 import { PlatformError, ValidationError } from '../shared/errors';
 import { CORS_HEADERS } from '../shared/headers';
+import { detectFileFormat, getPdfPageCount } from '../shared/pdf-converter';
 
 const TABLE_NAME = process.env.DYNAMODB_TABLE_NAME || 'doc-platform-mvp-control';
 
@@ -45,16 +46,27 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const nextAppVersion = currentDoc.current_application_version + 1;
     const now = new Date().toISOString();
 
+    const format = detectFileFormat(contentType, currentDoc.current_s3_key);
+    let pageCount: number | undefined;
+    if (format === 'pdf') {
+      pageCount = await getPdfPageCount(bodyBuffer);
+    }
+
     const newMetadata: Record<string, any> = {
       ...existingAnno.metadata,
       application_version: nextAppVersion,
       metadata_revision: 1,
       content_type: contentType,
+      format,
+      ...(pageCount !== undefined ? { page_count: pageCount } : {}),
       content_length: bodyBuffer.length,
       content_checksum: `sha256:${calculatedSha256}`,
       metadata_updated_at: now,
       metadata_updated_by: user.userId,
     };
+    if (format !== 'pdf') {
+      delete newMetadata.page_count;
+    }
 
     const annotationResult = await S3Manager.putAnnotation(
       currentDoc.document_class,
@@ -127,6 +139,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         application_version: nextAppVersion,
         s3_version_id: contentResult.versionId,
         metadata_revision: 1,
+        format,
+        ...(pageCount !== undefined ? { page_count: pageCount } : {}),
         created_at: now,
       }),
     };

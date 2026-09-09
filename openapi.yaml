@@ -123,6 +123,54 @@ paths:
         '413':
           $ref: '#/components/responses/413InlineLimitExceeded'
 
+  /documents/batch-download:
+    post:
+      summary: Batch Document Download as ZIP
+      description: >
+        Fetches multiple documents by their UUIDs (and optional specific versions), bundles them
+        into a compressed ZIP archive with an audit manifest and optional metadata, and returns
+        either an S3 presigned download URL or direct binary stream.
+        Requires `Document.Reader`, `Document.Writer`, `Document.MetadataEditor`, or `Document.Admin` role.
+      operationId: batchDownloadDocuments
+      security:
+        - CognitoAuth: []
+      parameters:
+        - name: direct
+          in: query
+          required: false
+          schema:
+            type: boolean
+          description: When true and total size <= 5 MB, returns direct binary zip instead of JSON presigned URL.
+        - name: Accept
+          in: header
+          required: false
+          schema:
+            type: string
+          description: Pass application/zip to request direct binary delivery.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BatchDownloadRequest'
+      responses:
+        '200':
+          description: Batch ZIP created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchDownloadResponse'
+            application/zip:
+              schema:
+                type: string
+                format: binary
+        '400':
+          $ref: '#/components/responses/400ValidationError'
+        '401':
+          $ref: '#/components/responses/401AuthenticationError'
+        '403':
+          $ref: '#/components/responses/403AuthorizationError'
+
   /documents/uploads:
     post:
       summary: Initiate Direct Presigned Upload
@@ -211,7 +259,7 @@ paths:
           schema:
             type: string
             enum: [pdf]
-          description: Optional target delivery format. When 'pdf' is requested on a JPEG/PNG document, delivers an on-demand converted PDF derivative.
+          description: Optional target delivery format. When 'pdf' is requested on an image (JPEG/PNG) or Word (DOCX) document, delivers an on-demand converted PDF derivative.
       responses:
         '200':
           description: Document details retrieved successfully.
@@ -279,6 +327,86 @@ paths:
       responses:
         '201':
           description: New application version created.
+
+  /documents/{document_id}/pages:
+    post:
+      summary: Add Pages to Document PDF
+      description: >
+        Appends or inserts pages from a donor PDF, image, or document into an existing PDF document.
+        Produces a new immutable application version in S3 according to the WORM model.
+      operationId: addPagesToDocument
+      security:
+        - CognitoAuth: []
+      parameters:
+        - name: document_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Unique logical document identifier.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - pages_base64
+              properties:
+                pages_base64:
+                  type: string
+                  description: Base64-encoded bytes of donor PDF or image.
+                content_type:
+                  type: string
+                  default: application/pdf
+                  description: MIME type of pages_base64 (application/pdf, image/jpeg, image/png, application/vnd.openxmlformats-officedocument.wordprocessingml.document).
+                position:
+                  oneOf:
+                    - type: string
+                      enum: [end, start]
+                    - type: integer
+                      minimum: 0
+                  default: end
+                  description: Insertion position ('end', 'start', or 0-indexed page index).
+                page_indices:
+                  type: array
+                  items:
+                    type: integer
+                    minimum: 0
+                  description: Optional subset of 0-indexed page numbers to extract from donor PDF.
+      responses:
+        '201':
+          description: Pages successfully added and new document version created.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  document_id:
+                    type: string
+                    format: uuid
+                  application_version:
+                    type: integer
+                  s3_version_id:
+                    type: string
+                  page_count:
+                    type: integer
+                  pages_added:
+                    type: integer
+                  metadata_revision:
+                    type: integer
+                  created_at:
+                    type: string
+                    format: date-time
+        '400':
+          $ref: '#/components/responses/400ValidationError'
+        '401':
+          $ref: '#/components/responses/401AuthenticationError'
+        '403':
+          $ref: '#/components/responses/403AuthorizationError'
+        '404':
+          $ref: '#/components/responses/404NotFound'
 
   /documents/{document_id}/versions/{version}:
     get:
@@ -599,6 +727,12 @@ components:
             converted_at:
               type: string
               format: date-time
+            format:
+              type: string
+              example: pdf
+            page_count:
+              type: integer
+              example: 1
         download_url:
           type: string
           format: uri
@@ -843,6 +977,12 @@ components:
         content_type:
           type: string
           example: application/pdf
+        format:
+          type: string
+          example: pdf
+        page_count:
+          type: integer
+          example: 1
         content_length:
           type: integer
           example: 204800
@@ -1119,3 +1259,95 @@ components:
             current_revision:
               type: integer
               example: 2
+
+    BatchDownloadRequest:
+      type: object
+      properties:
+        document_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: Array of document UUIDs to retrieve (latest active versions).
+          example:
+            - "550e8400-e29b-41d4-a716-446655440000"
+            - "6ba7b810-9dad-11d1-80b4-00c04fd430c8"
+        items:
+          type: array
+          items:
+            type: object
+            required:
+              - document_id
+            properties:
+              document_id:
+                type: string
+                format: uuid
+              version:
+                type: integer
+                minimum: 1
+          description: Granular items specifying document UUID and specific application version.
+        format:
+          type: string
+          enum: [original, pdf]
+          default: original
+          description: Delivery format. When 'pdf', convertible formats (JPEG, PNG, DOCX) are converted to PDF.
+        include_metadata:
+          type: boolean
+          default: false
+          description: When true, includes individual JSON metadata files inside the ZIP archive.
+
+    BatchDownloadResponse:
+      type: object
+      properties:
+        batch_id:
+          type: string
+          example: batch-1725880000000-abcd
+        zip_filename:
+          type: string
+          example: documents_export_2026-09-09_103000.zip
+        download_url:
+          type: string
+          format: uri
+          description: S3 presigned download URL for the ZIP file (valid for 15 minutes).
+        expires_at:
+          type: string
+          format: date-time
+        file_count:
+          type: integer
+          example: 2
+        total_bytes:
+          type: integer
+          example: 1048576
+        documents:
+          type: array
+          items:
+            type: object
+            properties:
+              document_id:
+                type: string
+              document_class:
+                type: string
+              application_version:
+                type: integer
+              s3_version_id:
+                type: string
+              filename_in_zip:
+                type: string
+              original_filename:
+                type: string
+              content_type:
+                type: string
+              size_bytes:
+                type: integer
+              is_derivative:
+                type: boolean
+        failed_documents:
+          type: array
+          items:
+            type: object
+            properties:
+              document_id:
+                type: string
+              reason:
+                type: string
+

@@ -769,7 +769,7 @@ function loadUploadedDocToViewer() {
 // ==========================================
 // 6. DOCUMENT VIEWER & PREVIEW
 // ==========================================
-function isConvertibleImage(doc) {
+function isConvertibleFormat(doc) {
   if (!doc) return false;
   const contentType = (doc.metadata?.content_type || doc.content_type || '').toLowerCase();
   const filename = (doc.metadata?.filename || doc.filename || '').toLowerCase();
@@ -780,11 +780,18 @@ function isConvertibleImage(doc) {
     contentType === 'image/jpeg' ||
     contentType === 'image/jpg' ||
     contentType === 'image/png' ||
+    contentType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+    contentType === 'application/docx' ||
+    contentType === 'application/msword' ||
     filename.endsWith('.jpg') ||
     filename.endsWith('.jpeg') ||
-    filename.endsWith('.png')
+    filename.endsWith('.png') ||
+    filename.endsWith('.docx') ||
+    filename.endsWith('.doc')
   );
 }
+
+const isConvertibleImage = isConvertibleFormat;
 
 async function fetchDocumentDetails(docId = null) {
   const targetId = docId || document.getElementById('viewer-doc-id').value.trim();
@@ -840,6 +847,40 @@ async function fetchDocumentDetails(docId = null) {
   }
 }
 
+async function openDocumentDirect(docId, versionNum = null, format = null) {
+  const queryParams = new URLSearchParams({ direct: 'true' });
+  if (versionNum) queryParams.set('version', String(versionNum));
+  if (format) queryParams.set('format', format);
+
+  const url = `${state.config.apiUrl.replace(/\/$/, '')}/documents/${docId}/download?${queryParams.toString()}`;
+  const headers = {};
+  if (state.auth.token) headers['Authorization'] = `Bearer ${state.auth.token}`;
+
+  const res = await fetch(url, { headers });
+  if (!res.ok) {
+    let errMsg = `HTTP ${res.status}`;
+    try {
+      const errJson = await res.json();
+      errMsg = errJson.error?.message || errJson.message || errMsg;
+    } catch {}
+    throw new Error(errMsg);
+  }
+
+  const contentType = res.headers.get('content-type') || '';
+  if (contentType.includes('application/json')) {
+    const json = await res.json();
+    if (json.download_url) {
+      window.open(json.download_url, '_blank');
+      return;
+    }
+  }
+
+  const blob = await res.blob();
+  const blobUrl = window.URL.createObjectURL(blob);
+  window.open(blobUrl, '_blank');
+  setTimeout(() => window.URL.revokeObjectURL(blobUrl), 30000);
+}
+
 async function downloadActiveDocPdf() {
   const targetId = document.getElementById('viewer-doc-id')?.value?.trim() || state.activeDocument?.document_id;
   if (!targetId) {
@@ -848,11 +889,8 @@ async function downloadActiveDocPdf() {
   }
   try {
     showToast('Preparing PDF derivative on AWS Graviton...', 'info');
-    const res = await apiCall('GET', `/documents/${targetId}?format=pdf`);
-    if (res.download_url) {
-      window.open(res.download_url, '_blank');
-      showToast('PDF opened in new tab!', 'success');
-    }
+    await openDocumentDirect(targetId, null, 'pdf');
+    showToast('PDF opened in new tab!', 'success');
   } catch (err) {
     showToast(`PDF download failed: ${err.message}`, 'danger');
   }
@@ -862,11 +900,8 @@ async function downloadPdfDirect(docId) {
   if (!docId) return;
   try {
     showToast('Generating PDF derivative...', 'info');
-    const res = await apiCall('GET', `/documents/${docId}?format=pdf`);
-    if (res.download_url) {
-      window.open(res.download_url, '_blank');
-      showToast('PDF opened in new tab!', 'success');
-    }
+    await openDocumentDirect(docId, null, 'pdf');
+    showToast('PDF opened in new tab!', 'success');
   } catch (err) {
     showToast(`PDF generation failed: ${err.message}`, 'danger');
   }
@@ -905,10 +940,7 @@ async function fetchVersionHistory(docId = null) {
 
 async function downloadSpecificVersion(docId, versionNum) {
   try {
-    const res = await apiCall('GET', `/documents/${docId}/versions/${versionNum}`);
-    if (res.download_url) {
-      window.open(res.download_url, '_blank');
-    }
+    await openDocumentDirect(docId, versionNum);
   } catch (err) {
     showToast(`Failed to load version ${versionNum}: ${err.message}`, 'danger');
   }
@@ -917,13 +949,129 @@ async function downloadSpecificVersion(docId, versionNum) {
 async function downloadSpecificVersionPdf(docId, versionNum) {
   try {
     showToast(`Generating PDF for version v${versionNum}...`, 'info');
-    const res = await apiCall('GET', `/documents/${docId}/versions/${versionNum}?format=pdf`);
-    if (res.download_url) {
-      window.open(res.download_url, '_blank');
-      showToast(`v${versionNum} PDF ready!`, 'success');
-    }
+    await openDocumentDirect(docId, versionNum, 'pdf');
+    showToast(`v${versionNum} PDF ready!`, 'success');
   } catch (err) {
     showToast(`Failed to load v${versionNum} PDF: ${err.message}`, 'danger');
+  }
+}
+
+// ==========================================
+// 6.1 ADD PAGES TO PDF
+// ==========================================
+let selectedAddPagesFile = null;
+
+function toggleAddPagesSection() {
+  const content = document.getElementById('add-pages-content');
+  const btn = document.getElementById('btn-toggle-add-pages');
+  if (!content) return;
+  const isHidden = content.style.display === 'none';
+  content.style.display = isHidden ? 'block' : 'none';
+  if (btn) btn.innerText = isHidden ? '▲ Hide' : '▼ Show';
+}
+
+function handleAddPagesFileSelect(input) {
+  if (input.files && input.files[0]) {
+    selectedAddPagesFile = input.files[0];
+    const info = document.getElementById('add-pages-file-info');
+    if (info) {
+      info.innerHTML = `<span style="color: var(--color-success);">Selected: <strong>${selectedAddPagesFile.name}</strong> (${(selectedAddPagesFile.size / 1024).toFixed(1)} KB, ${selectedAddPagesFile.type || 'application/pdf'})</span>`;
+    }
+  }
+}
+
+function onAddPagesPositionChange(value) {
+  const customGroup = document.getElementById('add-pages-custom-index-group');
+  if (customGroup) {
+    customGroup.style.display = value === 'custom' ? 'block' : 'none';
+  }
+}
+
+async function executeAddPages() {
+  const docId = state.activeDocument?.document_id || document.getElementById('viewer-doc-id')?.value?.trim();
+  if (!docId) {
+    showToast('Please fetch a document first', 'warning');
+    return;
+  }
+
+  if (!selectedAddPagesFile) {
+    showToast('Please select a PDF or image file to add', 'warning');
+    return;
+  }
+
+  const posType = document.getElementById('add-pages-position-type')?.value || 'end';
+  let position = posType;
+  if (posType === 'custom') {
+    const customIdx = parseInt(document.getElementById('add-pages-custom-index')?.value, 10);
+    position = isNaN(customIdx) || customIdx < 0 ? 0 : customIdx;
+  }
+
+  const indicesRaw = document.getElementById('add-pages-page-indices')?.value?.trim() || '';
+  let pageIndices = undefined;
+  if (indicesRaw) {
+    pageIndices = indicesRaw
+      .split(',')
+      .map((s) => parseInt(s.trim(), 10))
+      .filter((n) => !isNaN(n) && n >= 0);
+  }
+
+  const btn = document.getElementById('btn-execute-add-pages');
+  const statusEl = document.getElementById('add-pages-status');
+
+  try {
+    if (btn) {
+      btn.disabled = true;
+      btn.innerText = '⏳ Processing & Merging Pages...';
+    }
+    if (statusEl) {
+      statusEl.style.color = '#38bdf8';
+      statusEl.innerText = 'Reading binary content and preparing mutation...';
+    }
+
+    const fileBytes = await selectedAddPagesFile.arrayBuffer();
+    const base64Bytes = btoa(
+      new Uint8Array(fileBytes).reduce((data, byte) => data + String.fromCharCode(byte), '')
+    );
+
+    const payload = {
+      pages_base64: base64Bytes,
+      content_type: selectedAddPagesFile.type || 'application/pdf',
+      position,
+    };
+    if (pageIndices && pageIndices.length > 0) {
+      payload.page_indices = pageIndices;
+    }
+
+    if (statusEl) statusEl.innerText = 'Sending POST /documents/{id}/pages to API Gateway...';
+
+    const res = await apiCall('POST', `/documents/${docId}/pages`, payload);
+
+    if (statusEl) {
+      statusEl.style.color = 'var(--color-success)';
+      statusEl.innerText = `Success! New version v${res.application_version} created (Total pages: ${res.page_count}).`;
+    }
+    showToast(`Pages added successfully! New Version: v${res.application_version}`, 'success');
+
+    // Reset file selection
+    selectedAddPagesFile = null;
+    const fileInput = document.getElementById('add-pages-file-input');
+    if (fileInput) fileInput.value = '';
+    const info = document.getElementById('add-pages-file-info');
+    if (info) info.innerText = '';
+
+    // Immediately reload document in viewer to show new pages and new version
+    await fetchDocumentDetails(docId);
+  } catch (err) {
+    if (statusEl) {
+      statusEl.style.color = '#f87171';
+      statusEl.innerText = `Error: ${err.message}`;
+    }
+    showToast(`Failed to add pages: ${err.message}`, 'danger');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerText = '➕ Add Pages & Create New Version';
+    }
   }
 }
 
@@ -1056,17 +1204,24 @@ async function executeSearch() {
       tbody.innerHTML = res.items
         .map((doc) => {
           const descriptor = doc.customer_id ? `Cust: ${doc.customer_id}` : (doc.document_type || doc.filename || 'N/A');
+          const formatBadge = doc.format
+            ? `<span class="badge badge-secondary" style="font-size:0.75rem; text-transform: uppercase; margin-left: 4px;">${doc.format}${doc.page_count ? ` (${doc.page_count}p)` : ''}</span>`
+            : '';
           const dateStr = doc.created_at ? new Date(doc.created_at).toLocaleDateString() : 'N/A';
           const statusBadge = doc.status === 'ACTIVE' ? 'badge-success' : 'badge-danger';
           const showPdf = isConvertibleImage(doc);
+          const isSelected = selectedSearchDocIds.has(doc.document_id);
           const pdfButtonHtml = showPdf
             ? `<button class="btn btn-primary btn-sm" style="margin-left: 4px;" onclick="downloadPdfDirect('${doc.document_id}')">⬇️ PDF</button>`
             : '';
           return `
             <tr>
+              <td style="text-align: center;">
+                <input type="checkbox" class="search-doc-checkbox" data-doc-id="${doc.document_id}" onchange="toggleDocSelection('${doc.document_id}', this.checked)" ${isSelected ? 'checked' : ''} />
+              </td>
               <td><code style="color: #38bdf8; font-size: 0.8rem;">${doc.document_id}</code></td>
               <td><span class="badge badge-info">${doc.document_class || 'loan_agreement'}</span></td>
-              <td><span style="font-size: 0.82rem; color: #f8fafc;">${descriptor}</span></td>
+              <td><span style="font-size: 0.82rem; color: #f8fafc;">${descriptor}</span>${formatBadge}</td>
               <td><span class="badge ${statusBadge}">${doc.status || 'ACTIVE'}</span></td>
               <td>v${doc.application_version || 1}</td>
               <td style="font-size: 0.8rem; color: var(--text-dim);">${dateStr}</td>
@@ -1078,8 +1233,10 @@ async function executeSearch() {
           `;
         })
         .join('');
+      updateSearchBatchToolbar();
     } else {
-      tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-dim); padding: 1.5rem;">No documents matched the specified filters. Try selecting "All Document Classes" or clicking "Reset & View All".</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--text-dim); padding: 1.5rem;">No documents matched the specified filters. Try selecting "All Document Classes" or clicking "Reset & View All".</td></tr>`;
+      updateSearchBatchToolbar();
     }
   } catch (err) {
     if (diagBox && diagContent) {
@@ -1275,5 +1432,199 @@ function updateCalculator() {
   }
 }
 
+// ============================================================================
+// BATCH ZIP DOWNLOAD & MULTI-DOC EXPORT
+// ============================================================================
+const selectedSearchDocIds = new Set();
+
+function updateSearchBatchToolbar() {
+  const toolbar = document.getElementById('search-batch-toolbar');
+  const countBadge = document.getElementById('search-selected-count');
+  const selectAllBox = document.getElementById('search-select-all');
+
+  if (toolbar && countBadge) {
+    if (selectedSearchDocIds.size > 0) {
+      toolbar.style.display = 'flex';
+      countBadge.innerText = `${selectedSearchDocIds.size} selected`;
+    } else {
+      toolbar.style.display = 'none';
+    }
+  }
+
+  if (selectAllBox) {
+    const pageCheckboxes = document.querySelectorAll('.search-doc-checkbox');
+    if (pageCheckboxes.length > 0) {
+      const allChecked = Array.from(pageCheckboxes).every((cb) => cb.checked);
+      const someChecked = Array.from(pageCheckboxes).some((cb) => cb.checked);
+      selectAllBox.checked = allChecked;
+      selectAllBox.indeterminate = !allChecked && someChecked;
+    } else {
+      selectAllBox.checked = false;
+      selectAllBox.indeterminate = false;
+    }
+  }
+}
+
+function toggleDocSelection(docId, isChecked) {
+  if (isChecked) {
+    selectedSearchDocIds.add(docId);
+  } else {
+    selectedSearchDocIds.delete(docId);
+  }
+  updateSearchBatchToolbar();
+}
+
+function toggleSelectAllSearchResults(isChecked) {
+  const pageCheckboxes = document.querySelectorAll('.search-doc-checkbox');
+  pageCheckboxes.forEach((cb) => {
+    cb.checked = isChecked;
+    const id = cb.getAttribute('data-doc-id');
+    if (id) {
+      if (isChecked) selectedSearchDocIds.add(id);
+      else selectedSearchDocIds.delete(id);
+    }
+  });
+  updateSearchBatchToolbar();
+}
+
+function clearSelectedSearchDocs() {
+  selectedSearchDocIds.clear();
+  const pageCheckboxes = document.querySelectorAll('.search-doc-checkbox');
+  pageCheckboxes.forEach((cb) => (cb.checked = false));
+  updateSearchBatchToolbar();
+}
+
+
+async function triggerBatchZipDownload(payload) {
+  const url = `${state.config.apiUrl.replace(/\/$/, '')}/documents/batch-download?direct=true`;
+  const headers = {
+    'Content-Type': 'application/json',
+    'Accept': 'application/zip, application/json',
+  };
+  if (state.auth.token) {
+    headers['Authorization'] = `Bearer ${state.auth.token}`;
+  }
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ ...payload, direct: true }),
+  });
+
+  if (!res.ok) {
+    let errMsg = `HTTP ${res.status}`;
+    try {
+      const errJson = await res.json();
+      errMsg = errJson.error?.message || errJson.message || errMsg;
+    } catch {}
+    throw new Error(errMsg);
+  }
+
+  const contentType = res.headers.get('content-type') || '';
+  if (contentType.includes('application/zip') || contentType.includes('application/octet-stream')) {
+    // 1. Direct in-band binary delivery (bypasses S3 and corporate S3 VPC Endpoint)
+    const blob = await res.blob();
+    const downloadUrl = window.URL.createObjectURL(blob);
+    const contentDisposition = res.headers.get('content-disposition') || '';
+    const filenameMatch = contentDisposition.match(/filename="?([^";]+)"?/i);
+    const filename = filenameMatch ? filenameMatch[1] : `documents_export_${Date.now()}.zip`;
+
+    const a = document.createElement('a');
+    a.href = downloadUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => window.URL.revokeObjectURL(downloadUrl), 20000);
+    showToast(`ZIP downloaded directly (${(blob.size / 1024).toFixed(1)} KB)!`, 'success');
+    return { direct: true, filename, size: blob.size };
+  } else {
+    // 2. Fallback to S3 presigned URL if payload > 5 MB
+    const json = await res.json();
+    if (json.download_url) {
+      showToast(`ZIP created (${json.file_count} files). Starting download...`, 'info');
+      const a = document.createElement('a');
+      a.href = json.download_url;
+      a.download = json.zip_filename || 'documents_export.zip';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      return { direct: false, filename: json.zip_filename, url: json.download_url };
+    }
+    return json;
+  }
+}
+
+async function downloadSelectedSearchDocsZip(format = 'original') {
+  if (selectedSearchDocIds.size === 0) {
+    showToast('Please select at least one document first', 'warning');
+    return;
+  }
+
+  const docIds = Array.from(selectedSearchDocIds);
+  const includeMeta = document.getElementById('search-batch-include-meta')?.checked ?? true;
+
+  showToast(`Packaging ${docIds.length} documents into ZIP (${format})...`, 'info');
+
+  try {
+    await triggerBatchZipDownload({
+      document_ids: docIds,
+      format,
+      include_metadata: includeMeta,
+      direct: true,
+    });
+  } catch (err) {
+    showToast(`Batch ZIP export failed: ${err.message}`, 'danger');
+  }
+}
+
+function toggleBatchViewerSection() {
+  const content = document.getElementById('batch-viewer-content');
+  const btn = document.getElementById('btn-toggle-batch-viewer');
+  if (!content) return;
+  const isHidden = content.style.display === 'none';
+  content.style.display = isHidden ? 'block' : 'none';
+  if (btn) btn.innerText = isHidden ? '▲ Hide' : '▼ Show';
+}
+
+async function executeBatchFetchZip() {
+  const idsInput = document.getElementById('batch-viewer-doc-ids')?.value || '';
+  const format = document.getElementById('batch-viewer-format')?.value || 'original';
+  const includeMeta = document.getElementById('batch-viewer-meta')?.checked ?? true;
+  const statusSpan = document.getElementById('batch-viewer-status');
+  const btn = document.getElementById('btn-batch-fetch-zip');
+
+  const docIds = idsInput
+    .split(/[\n,;]+/)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+
+  if (docIds.length === 0) {
+    showToast('Please enter at least one Document ID (UUID)', 'warning');
+    return;
+  }
+
+  if (btn) btn.disabled = true;
+  if (statusSpan) statusSpan.innerText = `Packaging ${docIds.length} documents into ZIP...`;
+
+  try {
+    const result = await triggerBatchZipDownload({
+      document_ids: docIds,
+      format,
+      include_metadata: includeMeta,
+      direct: true,
+    });
+    if (statusSpan) {
+      statusSpan.innerText = `✅ ZIP Ready (${result.filename || 'documents_export.zip'})`;
+    }
+  } catch (err) {
+    if (statusSpan) statusSpan.innerText = `❌ Failed: ${err.message}`;
+    showToast(`Batch download failed: ${err.message}`, 'danger');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
 // Auto-run on DOM ready
 document.addEventListener('DOMContentLoaded', initApp);
+

@@ -14,6 +14,8 @@ const IMMUTABLE_FIELDS = new Set([
   'schema_version',
   'annotation_schema',
   'content_type',
+  'format',
+  'page_count',
   'content_length',
   'content_checksum',
   'created_at',

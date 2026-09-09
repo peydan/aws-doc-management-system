@@ -115,6 +115,7 @@ export class ApiStack extends cdk.Stack {
     const metadataUpdateLambda = createHandlerLambda('MetadataUpdateLambda', '../src/command-api/metadata-update.ts');
     const softDeleteLambda = createHandlerLambda('SoftDeleteLambda', '../src/command-api/soft-delete.ts');
     const restoreLambda = createHandlerLambda('RestoreLambda', '../src/command-api/restore.ts');
+    const addPagesLambda = createHandlerLambda('AddPagesLambda', '../src/command-api/add-pages.ts');
 
     const s3AnnotationWritePolicy = new iam.PolicyStatement({
       actions: [
@@ -149,6 +150,7 @@ export class ApiStack extends cdk.Stack {
       metadataUpdateLambda,
       softDeleteLambda,
       restoreLambda,
+      addPagesLambda,
     ];
     for (const fn of commandLambdas) {
       props.documentBucket.grantReadWrite(fn);
@@ -161,6 +163,7 @@ export class ApiStack extends cdk.Stack {
     const getVersionLambda = createHandlerLambda('GetVersionLambda', '../src/query-api/get-version.ts');
     const getMetadataLambda = createHandlerLambda('GetMetadataLambda', '../src/query-api/get-metadata.ts');
     const getDownloadUrlLambda = createHandlerLambda('GetDownloadUrlLambda', '../src/query-api/get-download-url.ts');
+    const batchDownloadLambda = createHandlerLambda('BatchDownloadLambda', '../src/query-api/batch-download.ts');
     const healthLambda = createHandlerLambda('HealthLambda', '../src/query-api/health.ts');
 
     const queryLambdas = [
@@ -169,6 +172,7 @@ export class ApiStack extends cdk.Stack {
       getVersionLambda,
       getMetadataLambda,
       getDownloadUrlLambda,
+      batchDownloadLambda,
       healthLambda,
     ];
     for (const fn of queryLambdas) {
@@ -221,6 +225,11 @@ export class ApiStack extends cdk.Stack {
     addCors(docUploads);
     docUploads.addMethod('POST', new apigateway.LambdaIntegration(uploadDirectInitLambda), authOptions);
 
+    // /v1/documents/batch-download
+    const docBatchDownload = documents.addResource('batch-download');
+    addCors(docBatchDownload);
+    docBatchDownload.addMethod('POST', new apigateway.LambdaIntegration(batchDownloadLambda), authOptions);
+
     // /v1/uploads/{upload_id}/complete & /v1/uploads/{upload_id}
     const uploadIdRes = uploads.addResource('{upload_id}');
     addCors(uploadIdRes);
@@ -239,6 +248,11 @@ export class ApiStack extends cdk.Stack {
     addCors(docVersions);
     docVersions.addMethod('GET', new apigateway.LambdaIntegration(listVersionsLambda), authOptions);
     docVersions.addMethod('POST', new apigateway.LambdaIntegration(versionCreateLambda), authOptions);
+
+    // /v1/documents/{document_id}/pages
+    const docPagesRes = docIdRes.addResource('pages');
+    addCors(docPagesRes);
+    docPagesRes.addMethod('POST', new apigateway.LambdaIntegration(addPagesLambda), authOptions);
 
     // /v1/documents/{document_id}/versions/{version}
     const docVersionIdRes = docVersions.addResource('{version}');

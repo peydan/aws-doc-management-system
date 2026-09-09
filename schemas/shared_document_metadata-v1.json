@@ -49,6 +49,15 @@
       "type": "string",
       "minLength": 1
     },
+    "format": {
+      "type": "string",
+      "description": "Canonical file format discriminator (e.g. pdf, jpeg, png, docx, tiff)"
+    },
+    "page_count": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Total number of pages (applicable when format is pdf)"
+    },
     "content_length": {
       "type": "integer",
       "minimum": 1

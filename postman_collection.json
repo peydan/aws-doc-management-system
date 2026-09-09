@@ -235,11 +235,39 @@
             {
               "key": "format",
               "value": "pdf",
-              "description": "Requests on-demand PDF conversion if document is JPEG or PNG."
+              "description": "Requests on-demand PDF conversion if document is JPEG, PNG, or MS Word (DOCX)."
             }
           ]
         },
         "description": "Retrieves the document metadata and generates a presigned URL pointing to an on-demand cached PDF derivative with S3 origin metadata."
+      },
+      "response": []
+    },
+    {
+      "name": "03c - Batch Download Documents as ZIP",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"document_ids\": [\"{{documentId}}\"],\n  \"format\": \"original\",\n  \"include_metadata\": true\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/documents/batch-download",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "documents",
+            "batch-download"
+          ]
+        },
+        "description": "Concurrently fetches multiple documents by UUID, bundles them into a ZIP archive with manifest.json and metadata JSON files, returning an S3 presigned download URL."
       },
       "response": []
     },
@@ -335,6 +363,36 @@
           ]
         },
         "description": "Creates application version 2 for the document while keeping the same logical document ID."
+      },
+      "response": []
+    },
+    {
+      "name": "06b - Add Pages to Document PDF",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"pages_base64\": \"JVBERi0xLjQKMSAwIG9iago8PAovVHlwZSAvQ2F0YWxvZwovUGFnZXMgMiAwIFIKPj4KZW5kb2JqCjIgMCBvYmoKPDwKL1R5cGUgL1BhZ2VzCi9LaWRzIFszIDAgUl0KL0NvdW50IDEKPj4KZW5kb2JqCjMgMCBvYmoKPDwKL1R5cGUgL1BhZ2UKL1BhcmVudCAyIDAgUgovTWVkaWFCb3ggWzAgMCA2MTIgNzkyXQo+PgplbmRvYmoKeHJlZgowIDQKMDAwMDAwMDAwMCA2NTUzNSBmIAowMDAwMDAwMDE5IDAwMDAwIG4gCjAwMDAwMDAwNjggMDAwMDAgbiAKMDAwMDAwMDEyNSAwMDAwMCBuIAp0cmFpbGVyCjw8Ci9TaXplIDQKL1Jvb3QgMSAwIFIKPj4Kc3RhcnR4cmVmCjIxNAolJUVPRg==\",\n  \"content_type\": \"application/pdf\",\n  \"position\": \"end\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/documents/{{documentId}}/pages",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "documents",
+            "{{documentId}}",
+            "pages"
+          ]
+        },
+        "description": "Appends or inserts pages from a donor PDF or image into an existing PDF document, creating a new WORM immutable version in S3 and updating the DynamoDB control plane."
       },
       "response": []
     },

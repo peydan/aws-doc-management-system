@@ -609,7 +609,7 @@ def build_presentation(output_path="AWS_Document_Management_Platform_Architectur
     mat_rows = [
         ("Field Names", "Category", "Mutability Rule", "Update & Governance Mechanism"),
         ("document_id, document_class, created_at, created_by", "System Identity", "Strictly Immutable", "Assigned once on initial document creation. Reject modification with 400 error."),
-        ("application_version, content_type, content_length, content_checksum", "Binary Specifier", "Immutable for Version", "Cryptographically bound to raw bytes (SHA-256). Updates only on POST /versions."),
+        ("application_version, content_type, format, page_count, content_length, content_checksum", "Binary Specifier", "Immutable for Version", "Cryptographically bound to raw bytes (SHA-256). Updates only on POST /versions or format conversion."),
         ("metadata_revision, metadata_updated_at, metadata_updated_by", "Concurrency Tracking", "System Monotonic", "Automatically managed by Lambda and DynamoDB OCC conditional expressions."),
         ("customer_id, complete_customer_id_code, account_id, business_area_code, loan_number, currency...", "Domain & Shared Traits", "Mutable via PATCH", "Modifiable via PATCH /metadata with Ajv JSON Schema validation and expected_metadata_revision.")
     ]
@@ -894,7 +894,8 @@ def build_presentation(output_path="AWS_Document_Management_Platform_Architectur
         ("GET /v1/documents/{id}/download", "Get Presigned Download URL", "Lambda, S3 Presign (15 min)", "Document.Reader / All", "Sync"),
         ("POST /v1/documents/{id}/soft-delete", "Soft Delete Document", "Lambda, DynamoDB, CDC De-index", "Document.Admin (Exclusive)", "Sync"),
         ("POST /v1/documents/{id}/restore", "Restore Document", "Lambda, DynamoDB, CDC Re-index", "Document.Admin (Exclusive)", "Sync"),
-        ("POST /v1/search", "Search Documents", "Lambda, OpenSearch Serverless", "Document.Reader / All", "Sync")
+        ("POST /v1/search", "Search Documents", "Lambda, OpenSearch Serverless", "Document.Reader / All", "Sync"),
+        ("POST /v1/documents/batch-download", "Batch ZIP Export", "Lambda, JSZip, S3 Presign", "Document.Reader / All", "Sync")
     ]
 
     api_table_shape = slide10.shapes.add_table(len(api_catalog), 5, Inches(0.8), Inches(1.65), Inches(11.733), Inches(5.1))

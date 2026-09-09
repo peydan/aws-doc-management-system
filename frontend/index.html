@@ -119,6 +119,41 @@
           </div>
         </div>
 
+        <!-- Batch Fetch as ZIP Card -->
+        <div class="card" style="margin-bottom: 1.5rem;">
+          <div class="card-header" style="cursor: pointer;" onclick="toggleBatchViewerSection()">
+            <div>
+              <div class="card-title">📦 Batch Fetch &amp; Export as ZIP</div>
+              <div class="card-subtitle">Retrieve multiple documents concurrently and package them into a compressed ZIP archive</div>
+            </div>
+            <button id="btn-toggle-batch-viewer" class="btn btn-secondary btn-sm" type="button">▼ Show</button>
+          </div>
+
+          <div id="batch-viewer-content" style="display: none; margin-top: 1rem;">
+            <div class="form-group">
+              <label class="form-label">Document IDs (comma-separated or one per line)</label>
+              <textarea id="batch-viewer-doc-ids" class="form-control code-area" rows="3" placeholder="550e8400-e29b-41d4-a716-446655440000&#10;6ba7b810-9dad-11d1-80b4-00c04fd430c8"></textarea>
+            </div>
+            <div style="display: flex; gap: 16px; align-items: center; margin-bottom: 1rem; flex-wrap: wrap;">
+              <div class="form-group" style="margin-bottom: 0; min-width: 180px;">
+                <label class="form-label">Format Conversion</label>
+                <select id="batch-viewer-format" class="form-select">
+                  <option value="original">Original Format</option>
+                  <option value="pdf">Convert to PDF (where applicable)</option>
+                </select>
+              </div>
+              <div class="form-group" style="margin-bottom: 0; display: flex; align-items: center; gap: 8px; margin-top: 1.25rem;">
+                <input type="checkbox" id="batch-viewer-meta" checked />
+                <label for="batch-viewer-meta" style="margin-bottom: 0; font-size: 0.85rem; color: #cbd5e1; cursor: pointer;">Include metadata JSON files</label>
+              </div>
+            </div>
+            <div style="display: flex; gap: 12px; align-items: center;">
+              <button class="btn btn-primary" id="btn-batch-fetch-zip" onclick="executeBatchFetchZip()">⬇️ Generate &amp; Download ZIP</button>
+              <span id="batch-viewer-status" style="font-size: 0.85rem; color: var(--text-dim);"></span>
+            </div>
+          </div>
+        </div>
+
         <div id="viewer-details-section" style="display: none;">
           <div class="grid-4" style="margin-bottom: 1.5rem;">
             <div class="stat-card">
@@ -183,6 +218,46 @@
                       <tr><td colspan="4" style="text-align: center; color: var(--text-dim);">No versions loaded</td></tr>
                     </tbody>
                   </table>
+                </div>
+              </div>
+
+              <!-- Add Pages Card -->
+              <div class="card" style="margin-top: 1rem;">
+                <div class="card-header" style="cursor: pointer;" onclick="toggleAddPagesSection()">
+                  <div class="card-title">➕ Add Pages to PDF</div>
+                  <button id="btn-toggle-add-pages" class="btn btn-secondary btn-sm" type="button">▼ Show</button>
+                </div>
+                <div id="add-pages-content" style="display: none; margin-top: 1rem;">
+                  <div class="form-group">
+                    <label class="form-label">Select Pages / File to Add (PDF, JPEG, PNG)</label>
+                    <input type="file" id="add-pages-file-input" class="form-control" accept=".pdf,image/png,image/jpeg,image/jpg" onchange="handleAddPagesFileSelect(this)" />
+                    <div id="add-pages-file-info" style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;"></div>
+                  </div>
+
+                  <div class="grid-2">
+                    <div class="form-group">
+                      <label class="form-label">Insertion Position</label>
+                      <select id="add-pages-position-type" class="form-select" onchange="onAddPagesPositionChange(this.value)">
+                        <option value="end">At the End (Append)</option>
+                        <option value="start">At the Beginning (Prepend)</option>
+                        <option value="custom">Specific Page Index (0-indexed)</option>
+                      </select>
+                    </div>
+                    <div class="form-group" id="add-pages-custom-index-group" style="display: none;">
+                      <label class="form-label">Page Index (0 = before 1st page)</label>
+                      <input type="number" id="add-pages-custom-index" class="form-control" value="0" min="0" />
+                    </div>
+                  </div>
+
+                  <div class="form-group">
+                    <label class="form-label">Page Selection (Optional, PDF only)</label>
+                    <input type="text" id="add-pages-page-indices" class="form-control" placeholder="e.g. 0, 2 (comma-separated, leave blank for all pages)" />
+                  </div>
+
+                  <button id="btn-execute-add-pages" class="btn btn-primary btn-block" onclick="executeAddPages()">
+                    ➕ Add Pages &amp; Create New Version
+                  </button>
+                  <div id="add-pages-status" style="font-size: 0.85rem; margin-top: 8px; color: var(--text-dim);"></div>
                 </div>
               </div>
             </div>
@@ -462,10 +537,27 @@
             <button class="btn btn-secondary btn-sm" onclick="executeSearch()">🔄 Refresh</button>
           </div>
 
+          <!-- Batch Selection Toolbar -->
+          <div id="search-batch-toolbar" style="display: none; padding: 8px 14px; margin-bottom: 12px; background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 6px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span class="badge badge-info" id="search-selected-count">0 selected</span>
+              <span style="font-size: 0.85rem; color: #cbd5e1;">Selected for batch ZIP export</span>
+            </div>
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <label style="margin: 0; font-size: 0.8rem; display: flex; align-items: center; gap: 4px; color: #94a3b8; cursor: pointer;">
+                <input type="checkbox" id="search-batch-include-meta" checked /> Include Metadata JSON
+              </label>
+              <button class="btn btn-primary btn-sm" onclick="downloadSelectedSearchDocsZip('original')">📦 Download ZIP (Original)</button>
+              <button class="btn btn-secondary btn-sm" onclick="downloadSelectedSearchDocsZip('pdf')">📄 Download ZIP (as PDF)</button>
+              <button class="btn btn-secondary btn-sm" style="color: #f87171;" onclick="clearSelectedSearchDocs()">✕ Clear</button>
+            </div>
+          </div>
+
           <div class="table-container">
             <table>
               <thead>
                 <tr>
+                  <th style="width: 38px; text-align: center;"><input type="checkbox" id="search-select-all" onchange="toggleSelectAllSearchResults(this.checked)" title="Select all on this page" /></th>
                   <th>Document ID</th>
                   <th>Class</th>
                   <th>Customer / Type</th>
@@ -476,7 +568,7 @@
                 </tr>
               </thead>
               <tbody id="search-results-tbody">
-                <tr><td colspan="7" style="text-align: center; color: var(--text-dim); padding: 1.5rem;">Click "Execute Search Query" or a preset above to load documents.</td></tr>
+                <tr><td colspan="8" style="text-align: center; color: var(--text-dim); padding: 1.5rem;">Click "Execute Search Query" or a preset above to load documents.</td></tr>
               </tbody>
             </table>
           </div>

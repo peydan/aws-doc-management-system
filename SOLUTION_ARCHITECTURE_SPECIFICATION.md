@@ -275,6 +275,8 @@ To protect data provenance, auditability, and cryptographic checksums, the platf
 | `annotation_schema` | Contract Identifier | **Strictly Immutable** | Fixed to `bank.document-metadata/1`. |
 | `application_version` | Version Lineage | **Immutable for a Version** | Increments only when a new binary is uploaded (`POST /versions`). |
 | `content_type` | Content Specifier | **Immutable for a Version** | Tied directly to the binary file MIME type. |
+| `format` | File Format | **Immutable for a Version** | Normalized format code (e.g. `pdf`, `jpeg`, `png`, `docx`, `tiff`). |
+| `page_count` | Binary Page Metric | **Immutable for a Version** | Automatically parsed page count for PDF documents. |
 | `content_length` | Binary Metric | **Immutable for a Version** | Computed from the exact file size in bytes. |
 | `content_checksum` | Integrity Hash | **Immutable for a Version** | SHA-256 hash computed directly over raw binary bytes. |
 | `created_at` / `created_by` | Ingestion Audit | **Strictly Immutable** | Captured on initial document upload. |
@@ -541,9 +543,9 @@ For multi-tenant or enterprise-scale deployments requiring runtime schema update
 
 ---
 
-### 3.8 On-Demand Format Conversion & Derivative Caching Architecture
+#### 3.8 On-Demand Format Conversion & Derivative Caching Architecture
 
-To support client delivery preferences while preserving the platform's WORM content authority, the platform provides automated on-demand conversion of image files (`image/jpeg`, `image/png`) to PDF representations upon retrieval (`GET /v1/documents/{id}?format=pdf`).
+To support client delivery preferences while preserving the platform's WORM content authority, the platform provides automated on-demand conversion of raster images (`image/jpeg`, `image/png`) and Microsoft Word documents (`application/vnd.openxmlformats-officedocument.wordprocessingml.document`, `.docx`) to PDF representations upon retrieval (`GET /v1/documents/{id}?format=pdf`).
 
 ```
                               ON-DEMAND PDF DERIVATIVE RESOLUTION
@@ -557,7 +559,7 @@ To support client delivery preferences while preserving the platform's WORM cont
                         │
                         ├─ 1. Content-Type is PDF? ─────────► Return S3 Presigned URL (Original)
                         │
-                        └─ 2. Content-Type is JPEG/PNG?
+                        └─ 2. Content-Type is JPEG/PNG or DOCX?
                                     │
                                     ▼
                      +─────────────────────────────+
@@ -568,12 +570,13 @@ To support client delivery preferences while preserving the platform's WORM cont
                                     │
                     ┌───────────────┴──────────────┐
                     ▼ (Cache Hit)                  ▼ (Cache Miss)
-          +───────────────────+          +─────────────────────────────+
-          | Return Presigned  |          | 1. Fetch S3 WORM image      |
-          | Derivative URL    |          | 2. Convert to PDF (pdf-lib) |
-          +───────────────────+          | 3. PutObject + x-amz-meta-* |
-                                         | 4. Return Presigned URL     |
-                                         +─────────────────────────────+
+          +───────────────────+          +───────────────────────────────────+
+          | Return Presigned  |          | 1. Fetch S3 WORM original         |
+          | Derivative URL    |          | 2. In-memory conversion to PDF    |
+          +───────────────────+          |    (image: pdf-lib; docx: mammoth)|
+                                         | 3. PutObject + x-amz-meta-*       |
+                                         | 4. Return Presigned URL           |
+                                         +───────────────────────────────────+
 ```
 
 #### Key Architecture & FinOps Invariants:
@@ -883,6 +886,50 @@ All APIs (except `/health`) require an `Authorization: Bearer <Cognito-JWT-Token
 
 ---
 
+### 4.8b `POST /v1/documents/{document_id}/pages` (Add / Append Pages to Document PDF)
+- **Purpose:** Appends or inserts pages from a donor PDF, image, or document into an existing PDF document, producing a new immutable S3 version under the platform's WORM model.
+- **Required Role:** `Document.Writer` or `Document.Admin`.
+- **Request Body (JSON):**
+  ```json
+  {
+    "pages_base64": "<base64-encoded bytes of donor PDF or image>",
+    "content_type": "application/pdf",
+    "position": "end",
+    "page_indices": [0, 1]
+  }
+  ```
+- **Response Payload (201 Created):**
+  ```json
+  {
+    "document_id": "550e8400-e29b-41d4-a716-446655440000",
+    "application_version": 2,
+    "s3_version_id": "8_M5cqtKlcpXroDTDmJ+rmSpXd4eJbwk",
+    "page_count": 5,
+    "pages_added": 2,
+    "metadata_revision": 1,
+    "created_at": "2026-08-18T15:10:00.000Z"
+  }
+  ```
+- **Execution Flow:**
+  ```mermaid
+  sequenceDiagram
+    autonumber
+    Client->>API Gateway: POST /v1/documents/{document_id}/pages (JSON with pages_base64)
+    API Gateway->>AddPages Lambda: Invoke
+    AddPages Lambda->>DynamoDB: GetItem DOC#{document_id} (Fetch active version pointer)
+    AddPages Lambda->>S3: GetObject (Fetch canonical document binary bytes)
+    AddPages Lambda->>S3: GetObjectAnnotation (Fetch authoritative document-metadata)
+    Note over AddPages Lambda: Merge pages using pdf-lib (PDF copyPages / Image embed)
+    AddPages Lambda->>S3: PutObject (Write augmented PDF bytes to same S3 key)
+    S3-->>AddPages Lambda: Return new S3 VersionId
+    AddPages Lambda->>S3: PutObjectAnnotation (Attach updated annotation with new checksum & page_count)
+    AddPages Lambda->>DynamoDB: TransactWriteItems (Update DOC# pointer + PutItem VER#0000000002)
+    AddPages Lambda-->>API Gateway: 201 Created (document_id, application_version: 2, page_count: 5)
+    API Gateway-->>Client: 201 Created
+  ```
+
+---
+
 ### 4.9 `GET /v1/documents/{document_id}/versions/{version}` (Get Historical Version Details)
 - **Purpose:** Retrieves metadata and download URL for a specific historical content version.
 - **Required Role:** `Document.Reader`, `Document.Writer`, `Document.MetadataEditor`, or `Document.Admin`.
@@ -1156,6 +1203,73 @@ All APIs (except `/health`) require an `Authorization: Bearer <Cognito-JWT-Token
 
 ---
 
+### 4.16 `POST /v1/documents/batch-download` (Batch Document Fetch & ZIP Export)
+- **Purpose:** Concurrently fetches multiple documents by UUID (and optional version numbers), packages them into a compressed ZIP archive containing document binaries, an audit `manifest.json`, and optional metadata JSON files, returning an S3 presigned download URL (or direct binary if requested).
+- **Required Role:** `Document.Reader`, `Document.Writer`, `Document.MetadataEditor`, or `Document.Admin`.
+- **Request Body:**
+  ```json
+  {
+    "document_ids": [
+      "550e8400-e29b-41d4-a716-446655440000",
+      "6ba7b810-9dad-11d1-80b4-00c04fd430c8"
+    ],
+    "format": "original",
+    "include_metadata": true
+  }
+  ```
+- **Response Payload (200 OK):**
+  ```json
+  {
+    "batch_id": "batch-1725880000000-abcd",
+    "zip_filename": "documents_export_2026-09-09_103000.zip",
+    "download_url": "https://doc-platform-mvp-documents.s3.amazonaws.com/exports/batch-1725880000000-abcd.zip?AWSAccessKeyId=...",
+    "expires_at": "2026-09-09T10:45:00.000Z",
+    "file_count": 2,
+    "total_bytes": 1048576,
+    "documents": [
+      {
+        "document_id": "550e8400-e29b-41d4-a716-446655440000",
+        "document_class": "loan_agreement",
+        "application_version": 1,
+        "s3_version_id": "s3-ver-001",
+        "filename_in_zip": "550e8400_loan_agreement.pdf",
+        "original_filename": "loan_agreement.pdf",
+        "content_type": "application/pdf",
+        "size_bytes": 524288,
+        "is_derivative": false
+      }
+    ],
+    "failed_documents": []
+  }
+  ```
+- **Execution Flow:**
+  ```mermaid
+  sequenceDiagram
+    autonumber
+    Client->>API Gateway: POST /v1/documents/batch-download (document_ids, format, include_metadata)
+    API Gateway->>Batch Download Lambda: Invoke
+    loop For each Document ID
+      Batch Download Lambda->>DynamoDB: GetItem DOC#{id} (Validate status != SOFT_DELETED)
+      Batch Download Lambda->>S3: GetObjectAnnotation (Read metadata)
+      opt format == 'pdf' and convertible
+        Batch Download Lambda->>S3: Get or Create PDF Derivative
+      end
+      Batch Download Lambda->>S3: GetObject (Read raw binary buffer)
+      Batch Download Lambda->>Batch Download Lambda: Add binary + optional metadata JSON to JSZip
+    end
+    Batch Download Lambda->>Batch Download Lambda: Add manifest.json & compress ZIP (Deflate)
+    Batch Download Lambda->>S3: PutObject exports/{batch_id}.zip
+    Batch Download Lambda->>S3: Generate Presigned Download URL (900s)
+    alt Client Accept: application/zip and size <= 5 MB
+      Batch Download Lambda-->>API Gateway: 200 OK (Base64 Binary ZIP)
+    else Standard S3 Download Flow
+      Batch Download Lambda-->>API Gateway: 200 OK (JSON with download_url)
+    end
+    API Gateway-->>Client: 200 OK
+  ```
+
+---
+
 ## 5. Asynchronous Indexing, Event Streaming & Self-Healing Architecture
 
 When document mutations occur, search index projection and audit logging run completely asynchronously to guarantee sub-second API latencies and isolate storage from search infrastructure interruptions.
@@ -1248,6 +1362,7 @@ The solution implements a rigorous **Defense-in-Depth** and **Zero Trust** secur
 | `GET /v1/documents/{id}/metadata` | [x] | [x] | [x] | [x] |
 | `PATCH /v1/documents/{id}/metadata` | [ ] | [x] | [x] | [x] |
 | `GET /v1/documents/{id}/download` | [x] | [x] | [x] | [x] |
+| `POST /v1/documents/batch-download` (Batch ZIP) | [x] | [x] | [x] | [x] |
 | `POST /v1/documents/{id}/soft-delete` | [ ] | [ ] | [ ] | [x] |
 | `POST /v1/documents/{id}/restore` | [ ] | [ ] | [ ] | [x] |
 | `POST /v1/search` | [x] | [x] | [x] | [x] |

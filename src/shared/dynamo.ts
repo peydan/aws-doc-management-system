@@ -306,6 +306,93 @@ export class DynamoManager {
     return docItem;
   }
 
+  // Commit new application version transactionally with OCC
+  static async commitNewVersion(params: {
+    documentId: string;
+    nextAppVersion: number;
+    expectedAppVersion: number;
+    s3Key: string;
+    s3VersionId: string;
+    annotationEtag: string;
+    checksum: string;
+  }): Promise<DocumentItem> {
+    const now = new Date().toISOString();
+    const docPk = `DOC#${params.documentId}`;
+    const verItem: VersionItem = {
+      pk: docPk,
+      sk: `VER#${this.padVersion(params.nextAppVersion)}`,
+      application_version: params.nextAppVersion,
+      s3_key: params.s3Key,
+      s3_version_id: params.s3VersionId,
+      metadata_revision: 1,
+      annotation_etag: params.annotationEtag,
+      content_checksum: params.checksum,
+      state: 'ACTIVE',
+    };
+
+    if (process.env.MOCK_STORAGE_BYPASS === 'true') {
+      const currentDoc = await this.getDocument(params.documentId);
+      if (currentDoc.current_application_version !== params.expectedAppVersion) {
+        throw new VersionConflictError(
+          `Version conflict: expected application version ${params.expectedAppVersion}, but current is ${currentDoc.current_application_version}`
+        );
+      }
+      const updated: DocumentItem = {
+        ...currentDoc,
+        current_application_version: params.nextAppVersion,
+        current_s3_version_id: params.s3VersionId,
+        current_metadata_revision: 1,
+        current_annotation_etag: params.annotationEtag,
+        updated_at: now,
+      };
+      inMemoryTable.set(`${docPk}#DOC`, updated);
+      inMemoryTable.set(`${verItem.pk}#${verItem.sk}`, verItem);
+      return updated;
+    }
+
+    try {
+      await dynamoDocClient.send(
+        new TransactWriteCommand({
+          TransactItems: [
+            {
+              Update: {
+                TableName: TABLE_NAME,
+                Key: { pk: docPk, sk: 'DOC' },
+                UpdateExpression:
+                  'SET current_application_version = :nextVer, current_s3_version_id = :s3Ver, current_metadata_revision = :metRev, current_annotation_etag = :etag, updated_at = :now',
+                ConditionExpression: 'current_application_version = :currVer',
+                ExpressionAttributeValues: {
+                  ':nextVer': params.nextAppVersion,
+                  ':s3Ver': params.s3VersionId,
+                  ':metRev': 1,
+                  ':etag': params.annotationEtag,
+                  ':now': now,
+                  ':currVer': params.expectedAppVersion,
+                },
+              },
+            },
+            {
+              Put: {
+                TableName: TABLE_NAME,
+                Item: verItem,
+              },
+            },
+          ],
+        })
+      );
+    } catch (err: any) {
+      if (err.name === 'TransactionCanceledException') {
+        const latest = await this.getDocument(params.documentId);
+        throw new VersionConflictError(
+          `Version conflict: expected application version ${params.expectedAppVersion}, but current is ${latest.current_application_version}`
+        );
+      }
+      throw err;
+    }
+
+    return await this.getDocument(params.documentId);
+  }
+
   // Update metadata with optimistic concurrency check
   static async updateMetadataRevision(
     documentId: string,

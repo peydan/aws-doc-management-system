@@ -27,8 +27,12 @@ Agents must never violate the core authority boundaries:
 |    - Derived, asynchronous read-model. Never treated as an authoritative datastore.              |
 +--------------------------------------------------------------------------------------------------+
 | 5. DERIVED READ PROJECTIONS: S3 Cached Derivatives (`derivatives/{class}/{id}/{versionId}.pdf`)   |
-|    - Transient, on-demand format conversions (e.g. JPEG/PNG to PDF).                             |
+|    - Transient, on-demand format conversions (e.g. JPEG/PNG/DOCX to PDF).                        |
 |    - Never mutate canonical WORM versions or DynamoDB pointers. Origin tracked via S3 user meta. |
++--------------------------------------------------------------------------------------------------+
+| 6. TRANSIENT EXPORT PROJECTIONS: S3 Export Archives (`exports/{batch_id}.zip`)                    |
+|    - Transient multi-document ZIP bundles generated on-demand via `POST /documents/batch-download`.|
+|    - Served via 15-minute S3 presigned URLs. Never mutate canonical WORM records or DynamoDB.     |
 +--------------------------------------------------------------------------------------------------+
 ```
 
@@ -74,6 +78,8 @@ When extending schemas or writing validators, agents must use these standard pro
 * `metadata_revision` (`integer`, >= 1): Monotonically increasing metadata edit sequence.
 * `schema_version` (`integer`, >= 1): Major version of the JSON schema contract.
 * `content_type` (`string`): MIME type (e.g. `application/pdf`, `image/tiff`).
+* `format` (`string`): Normalized file format identifier (e.g. `pdf`, `jpeg`, `png`, `docx`, `tiff`).
+* `page_count` (`integer`, >= 1): Monotonically counted page count for PDF documents, automatically extracted upon upload or conversion.
 * `content_length` (`integer`, bytes): Exact binary size.
 * `content_checksum` (`string`): SHA-256 hash formatted strictly as `sha256:<hex>`.
 * `filename` (`string`): Original uploaded filename.
@@ -158,5 +164,9 @@ Enforced via Cognito User Pools and JWT Role claims:
 3. **Always validate with Ajv**: All metadata mutation endpoints must validate against precompiled Ajv schemas in `src/shared/validator.ts`.
 4. **Maintain OpenSearch as projection**: When updating document properties, ensure the DynamoDB Stream event structure propagates to `src/background-worker/indexer.ts` and updates OpenSearch index mappings.
 5. **No floating-point money**: Always store currency in minor units (`loan_amount_minor_units` as integer).
-6. **Preserve Authority Boundaries for Derivatives**: Format conversions (e.g., JPEG/PNG to PDF) are transient read projections stored under `derivatives/` with S3 user metadata tags (`x-amz-meta-*`). Never create new DynamoDB version records for derived formats.
+6. **Preserve Authority Boundaries for Derivatives**: Format conversions (e.g., JPEG/PNG/DOCX to PDF) are transient read projections stored under `derivatives/` with S3 user metadata tags (`x-amz-meta-*`). Never create new DynamoDB version records for derived formats.
+7. **Batch Document ZIP Exports**: Multi-document ZIP exports generated via `POST /documents/batch-download` are transient read projections stored under `exports/{batch_id}.zip` and served via S3 presigned URLs. Always include an audit `manifest.json` and never mutate canonical WORM versions or DynamoDB pointers.
+8. **PDF Page Additions & Binary Mutations**: Adding or inserting pages into a document (via `POST /documents/{document_id}/pages`) is an authoritative binary content mutation. It must produce a brand-new versioned S3 object under the canonical document key, update authoritative S3 metadata annotations (`document-metadata`), and atomically increment `current_application_version` via DynamoDB OCC. Historical versions must remain strictly immutable.
+9. **Maintain System Capabilities Catalog in Impact Analysis**: Any architectural mutation, new API endpoint, modified parameter, schema change, or updated RBAC rule must be evaluated in Layer 6 impact analysis and updated in `SYSTEM_CAPABILITIES.md` to ensure the catalog accurately reflects the live system capabilities.
+
 

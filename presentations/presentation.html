@@ -777,7 +777,7 @@
 
           <div class="authority-card auth-audit">
             <h4>5. Derived Read Projections <span>S3 Cached Derivatives</span></h4>
-            <p>Transient format conversions (e.g. JPEG/PNG to PDF under <code>derivatives/</code>) with 14-day auto-purge S3 Lifecycle. Origin tracked via S3 user metadata; never mutates WORM source.</p>
+            <p>Transient format conversions (e.g. JPEG/PNG/DOCX to PDF under <code>derivatives/</code>) with 14-day auto-purge S3 Lifecycle. Origin tracked via S3 user metadata; never mutates WORM source.</p>
           </div>
         </div>
       </div>
@@ -993,10 +993,10 @@
                 <td>Generated once upon initial document creation. Rejection if modified.</td>
               </tr>
               <tr>
-                <td><code>application_version</code>, <code>content_type</code>, <code>content_length</code>, <code>content_checksum</code></td>
+                <td><code>application_version</code>, <code>content_type</code>, <code>format</code>, <code>page_count</code>, <code>content_length</code>, <code>content_checksum</code></td>
                 <td>Binary Specifier</td>
                 <td><span class="pill pill-immutable">Immutable for Version</span></td>
-                <td>Tied cryptographically to raw bytes (SHA-256). Updates only on new version creation.</td>
+                <td>Tied cryptographically to raw bytes (SHA-256). Updates only on new version creation or conversion.</td>
               </tr>
               <tr>
                 <td><code>metadata_revision</code>, <code>metadata_updated_at</code>, <code>metadata_updated_by</code></td>
@@ -1856,7 +1856,7 @@
         role: "Document.Reader",
         img: "diagrams/api_sequence_diagrams/06_get_documents_document_id.jpg",
         caption: "Sequence Diagram: GET /v1/documents/{id} Execution Flow",
-        desc: "Fetches active document pointer from DynamoDB with strong consistency, retrieves the authoritative JSON metadata annotation from S3, and mints a short-lived (15-minute) presigned S3 GET URL for instant document viewing. Supports `?format=pdf` for on-demand in-memory JPEG/PNG to PDF conversion cached in S3."
+        desc: "Fetches active document pointer from DynamoDB with strong consistency, retrieves the authoritative JSON metadata annotation from S3, and mints a short-lived (15-minute) presigned S3 GET URL for instant document viewing. Supports `?format=pdf` for on-demand in-memory JPEG/PNG/DOCX to PDF conversion cached in S3."
       },
       7: {
         method: "GET",

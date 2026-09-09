@@ -43,6 +43,8 @@ async function ensureIndexExists(client: Client): Promise<void> {
               application_version: { type: 'integer' },
               metadata_revision: { type: 'integer' },
               content_type: { type: 'keyword' },
+              format: { type: 'keyword' },
+              page_count: { type: 'integer' },
               content_length: { type: 'long' },
               created_at: { type: 'date' },
               updated_at: { type: 'date' },
@@ -132,6 +134,8 @@ export interface SearchFilters {
   document_int?: string;
   document_ext?: string;
   document_group_id?: string;
+  format?: string;
+  page_count?: number;
 }
 
 export interface SearchParams {

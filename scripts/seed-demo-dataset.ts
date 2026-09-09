@@ -36,6 +36,8 @@ export interface SyntheticDocument {
   signed_date: string;
   filename: string;
   content_type: string;
+  format?: string;
+  page_count?: number;
   content_length: number;
   metadata_revision: number;
   application_version: number;
@@ -46,10 +48,10 @@ const LOAN_TYPES = ['MORTGAGE', 'PERSONAL', 'COMMERCIAL', 'AUTO'];
 const BRANCH_CODES = ['TLV-01', 'TLV-02', 'TLV-04', 'HAIFA-01', 'BEER-02'];
 const CURRENCIES = ['ILS', 'USD', 'EUR'];
 const EXTENSIONS = [
-  { ext: 'pdf', mime: 'application/pdf' },
-  { ext: 'tiff', mime: 'image/tiff' },
-  { ext: 'jpg', mime: 'image/jpeg' },
-  { ext: 'docx', mime: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' },
+  { ext: 'pdf', mime: 'application/pdf', dctm: 'pdf' },
+  { ext: 'tiff', mime: 'image/tiff', dctm: 'tiff' },
+  { ext: 'jpg', mime: 'image/jpeg', dctm: 'jpeg' },
+  { ext: 'docx', mime: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', dctm: 'msw12' },
 ];
 
 export function generateSyntheticDataset(count = 100): SyntheticDocument[] {
@@ -90,7 +92,7 @@ export function generateSyntheticDataset(count = 100): SyntheticDocument[] {
       transaction_id: `TX-2026-${10000 + i}`,
       document_int: `0901234580${String(i).padStart(6, '0')}`,
       document_ext: `EXT-${2026000 + i}`,
-      a_content_type: fileType.mime,
+      a_content_type: fileType.dctm,
       document_form_id: `FORM-${1000 + (i % 10)}`,
       legacy_document_entry_dttm: randomTimestamp,
       r_creation_date: randomTimestamp,
@@ -106,6 +108,8 @@ export function generateSyntheticDataset(count = 100): SyntheticDocument[] {
       signed_date: signedDate,
       filename: `loan_${loanNum}.${fileType.ext}`,
       content_type: fileType.mime,
+      format: fileType.ext === 'jpg' ? 'jpeg' : fileType.ext,
+      ...(fileType.ext === 'pdf' ? { page_count: Math.floor(1 + (i % 10)) } : {}),
       content_length: contentLength,
       metadata_revision: 1,
       application_version: 1,

@@ -127,6 +127,7 @@ npm run gui:local
 
 ## 📖 Key Documentation & Deliverables
 
+- 🧭 [System Capabilities Catalog](SYSTEM_CAPABILITIES.md): Comprehensive inventory of all 25 system capabilities, 17 REST API endpoints, Web Management Portal, and background pipelines.
 - 📄 [Solution Architecture Specification](SOLUTION_ARCHITECTURE_SPECIFICATION.md): Exhaustive breakdown of authority models, API sequence diagrams, consistency patterns, and security matrices.
 - 💰 [Israel Region Cost Analysis](COST_ANALYSIS_AND_ESTIMATION_ISRAEL_REGION.md): Capacity planning, multi-year TCO projections, and monthly cost forecasts in `il-central-1`.
 - 📊 [Interactive Cost Calculator](presentations/cost_calculator.html): Browser-based dynamic sizing and pricing tool.

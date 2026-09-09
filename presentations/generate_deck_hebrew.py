@@ -595,9 +595,9 @@ def build_hebrew_presentation(output_path="AWS_Document_Management_Platform_Arch
 
     mat_y = Inches(3.35)
     mat_rows = [
-        ("שמות שדות במערכת", "קטגוריה", "כלל שינוי (Mutability)", "מנגנון עדכון ומשילות"),
+        ("Field Names (שם שדה)", "קטגוריה", "כלל שינוי (Mutability)", "מנגנון עדכון ומשילות"),
         ("document_id, document_class, created_at, created_by", "זהות מערכתית", "בלתי-הפיך לחלוטין", "מוקצה פעם אחת ביצירת המסמך. ניסיון שינוי נדחה בשגיאת 400 Bad Request."),
-        ("application_version, content_type, content_length, content_checksum", "מפרט בינארי", "בלתי-הפיך עבור הגרסה", "צמוד קריפטוגרפית לקובץ (SHA-256). מתעדכן אך ורק בקריאת POST /versions."),
+        ("application_version, content_type, format, page_count, content_length, content_checksum", "מפרט בינארי", "בלתי-הפיך עבור הגרסה", "צמוד קריפטוגרפית לקובץ (SHA-256). מתעדכן אך ורק בקריאת POST /versions או המרה ל-PDF."),
         ("metadata_revision, metadata_updated_at, metadata_updated_by", "מעקב מקביליות", "מונוטוני אוטומטי", "מנוהל אוטומטית ע\"י פונקציית ה-Lambda ומנגנון ה-OCC ב-DynamoDB."),
         ("customer_id, complete_customer_id_code, account_id, business_area_code, loan_number...", "תכונות עסקיות ומשותפות", "ניתן לעריכה (PATCH)", "ניתן לעדכון ב-PATCH /metadata עם אימות סכמת JSON Schema ובדיקת מונה גרסה.")
     ]
@@ -882,7 +882,8 @@ def build_hebrew_presentation(output_path="AWS_Document_Management_Platform_Arch
         ("GET /v1/documents/{id}/download", "קבלת קישור הורדה חתום", "Lambda, S3 Presign (15 min)", "Document.Reader / כולם", "סינכרוני"),
         ("POST /v1/documents/{id}/soft-delete", "מחיקה לוגית (Soft Delete)", "Lambda, DynamoDB, CDC De-index", "Document.Admin בלבד", "סינכרוני"),
         ("POST /v1/documents/{id}/restore", "שחזור מסמך שנמחק לוגית", "Lambda, DynamoDB, CDC Re-index", "Document.Admin בלבד", "סינכרוני"),
-        ("POST /v1/search", "חיפוש טקסטואלי וסינון", "Lambda, OpenSearch Serverless", "Document.Reader / כולם", "סינכרוני")
+        ("POST /v1/search", "חיפוש טקסטואלי וסינון", "Lambda, OpenSearch Serverless", "Document.Reader / כולם", "סינכרוני"),
+        ("POST /v1/documents/batch-download", "ייצוא מקבץ מסמכים (ZIP)", "Lambda, JSZip, S3 Presign", "Document.Reader / כולם", "סינכרוני")
     ]
 
     api_table_shape = slide10.shapes.add_table(len(api_catalog), 5, Inches(0.8), Inches(1.65), Inches(11.733), Inches(5.1))

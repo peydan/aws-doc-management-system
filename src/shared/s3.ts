@@ -11,7 +11,7 @@ import {
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { NotFoundError } from './errors';
-import { convertImageToPdf } from './pdf-converter';
+import { convertDocumentToPdf, getPdfPageCount } from './pdf-converter';
 
 const s3Client = new S3Client({ region: process.env.AWS_REGION || 'us-east-1' });
 
@@ -43,7 +43,7 @@ async function payloadToString(payload: any): Promise<string> {
   return String(payload);
 }
 
-const inMemoryS3Content = new Map<string, { body: Buffer; contentType: string; versionId: string }>();
+const inMemoryS3Content = new Map<string, { body: Buffer; contentType: string; versionId: string; metadata?: Record<string, any> }>();
 const inMemoryS3Annotations = new Map<string, Record<string, any>>();
 
 export interface S3PutResult {
@@ -59,6 +59,11 @@ export interface DerivativeMetadata {
   applicationVersion: number;
 }
 
+export interface PdfDerivativeResult {
+  derivativeKey: string;
+  pageCount: number;
+}
+
 export class S3Manager {
   static getDerivativeKey(documentClass: string, documentId: string, versionId: string): string {
     return `derivatives/${documentClass}/${documentId}/${versionId}.pdf`;
@@ -68,41 +73,60 @@ export class S3Manager {
     documentClass: string,
     rawKey: string,
     meta: DerivativeMetadata
-  ): Promise<string> {
+  ): Promise<PdfDerivativeResult> {
     const derivativeKey = this.getDerivativeKey(documentClass, meta.documentId, meta.sourceVersionId);
 
     if (process.env.MOCK_STORAGE_BYPASS === 'true') {
       const mockKey = `${derivativeKey}#mock-pdf`;
-      if (!inMemoryS3Content.has(mockKey) && !inMemoryS3Content.has(derivativeKey)) {
+      let cached = inMemoryS3Content.get(mockKey) || inMemoryS3Content.get(derivativeKey);
+      if (!cached) {
         const sourceData =
           inMemoryS3Content.get(`${rawKey}#${meta.sourceVersionId}`) ||
           inMemoryS3Content.get(rawKey);
         let pdfBuffer: Buffer;
         if (sourceData && sourceData.body) {
-          pdfBuffer = await convertImageToPdf(sourceData.body, meta.sourceContentType);
+          pdfBuffer = await convertDocumentToPdf(sourceData.body, meta.sourceContentType);
         } else {
           // Fallback mock 1x1 image converted to PDF
           const dummyPng = Buffer.from(
             'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
             'base64'
           );
-          pdfBuffer = await convertImageToPdf(dummyPng, 'image/png');
+          pdfBuffer = await convertDocumentToPdf(dummyPng, 'image/png');
         }
-        inMemoryS3Content.set(derivativeKey, {
+        const pageCount = await getPdfPageCount(pdfBuffer);
+        cached = {
           body: pdfBuffer,
           contentType: 'application/pdf',
           versionId: 'mock-derivative-v1',
-        });
+          metadata: {
+            'format': 'pdf',
+            'page-count': String(pageCount),
+          },
+        };
+        inMemoryS3Content.set(derivativeKey, cached);
       }
-      return derivativeKey;
+      const pageCount = cached.metadata?.['page-count']
+        ? parseInt(cached.metadata['page-count'], 10)
+        : (await getPdfPageCount(cached.body)) || 1;
+      return { derivativeKey, pageCount };
     }
 
     // 1. Check if derivative already exists in S3 (Cache Hit)
     try {
-      await this.verifyObjectExists(derivativeKey);
-      return derivativeKey;
+      const headCmd = new HeadObjectCommand({
+        Bucket: getBucketName(),
+        Key: derivativeKey,
+      });
+      const headRes = await s3Client.send(headCmd);
+      let pageCount = headRes.Metadata?.['page-count'] ? parseInt(headRes.Metadata['page-count'], 10) : undefined;
+      if (!pageCount) {
+        const obj = await this.getObjectBuffer(derivativeKey);
+        pageCount = await getPdfPageCount(obj.body);
+      }
+      return { derivativeKey, pageCount: pageCount || 1 };
     } catch {
-      // 2. Cache Miss: Fetch original image from S3
+      // 2. Cache Miss: Fetch original content from S3
       const getCmd = new GetObjectCommand({
         Bucket: getBucketName(),
         Key: rawKey,
@@ -111,8 +135,9 @@ export class S3Manager {
       const response = await s3Client.send(getCmd);
       const originalBuffer = Buffer.from(await response.Body!.transformToByteArray());
 
-      // 3. Convert image to PDF
-      const pdfBuffer = await convertImageToPdf(originalBuffer, meta.sourceContentType);
+      // 3. Convert image or DOCX to PDF
+      const pdfBuffer = await convertDocumentToPdf(originalBuffer, meta.sourceContentType);
+      const pageCount = await getPdfPageCount(pdfBuffer);
 
       // 4. Save derivative to S3 with origin user metadata (x-amz-meta-*)
       await s3Client.send(
@@ -128,11 +153,13 @@ export class S3Manager {
             'source-content-checksum': meta.sourceChecksum,
             'source-content-type': meta.sourceContentType,
             'converted-at': new Date().toISOString(),
+            'format': 'pdf',
+            'page-count': String(pageCount),
           },
         })
       );
 
-      return derivativeKey;
+      return { derivativeKey, pageCount };
     }
   }
   static getDocumentKey(documentClass: string, documentId: string): string {
@@ -354,6 +381,52 @@ export class S3Manager {
       };
     } catch (err: any) {
       throw new NotFoundError(`S3 Object key ${key} version ${versionId || 'latest'} not found`);
+    }
+  }
+
+  static async getObjectBuffer(
+    key: string,
+    versionId?: string
+  ): Promise<{ body: Buffer; contentType: string }> {
+    if (process.env.MOCK_STORAGE_BYPASS === 'true') {
+      const mockKey = versionId ? `${key}#${versionId}` : key;
+      const cached = inMemoryS3Content.get(mockKey) || inMemoryS3Content.get(key);
+      if (cached) {
+        return { body: cached.body, contentType: cached.contentType };
+      }
+      return {
+        body: Buffer.from('%PDF-1.4 mock document binary content', 'utf-8'),
+        contentType: 'application/pdf',
+      };
+    }
+
+    try {
+      const command = new GetObjectCommand({
+        Bucket: getBucketName(),
+        Key: key,
+        VersionId: versionId,
+      });
+
+      const response = await s3Client.send(command);
+      if (!response.Body) {
+        throw new NotFoundError(`Empty content body for S3 object ${key}`);
+      }
+
+      const body = Buffer.from(await response.Body.transformToByteArray());
+      return {
+        body,
+        contentType: response.ContentType || 'application/octet-stream',
+      };
+    } catch (err: any) {
+      if (
+        err.name === 'NoSuchKey' ||
+        err.name === 'NotFound' ||
+        err.Code === 'NoSuchKey' ||
+        err.$metadata?.httpStatusCode === 404
+      ) {
+        throw new NotFoundError(`S3 Object key ${key} version ${versionId || 'latest'} not found`);
+      }
+      throw err;
     }
   }
 }

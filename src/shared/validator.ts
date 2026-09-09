@@ -5,6 +5,7 @@ import loanAgreementSchema from '../../schemas/loan_agreement-v1.json';
 import complianceRetentionSchema from '../../schemas/compliance_retention-v1.json';
 import securityClassificationSchema from '../../schemas/security_classification-v1.json';
 import { ValidationError, ErrorDetail } from './errors';
+import { detectFileFormat } from './pdf-converter';
 
 const ajv = new Ajv({ allErrors: true, strict: false, coerceTypes: true });
 addFormats(ajv);
@@ -52,6 +53,8 @@ export function buildFullMetadata(params: {
   applicationVersion?: number;
   metadataRevision?: number;
   schemaVersion?: number;
+  format?: string;
+  pageCount?: number;
 }): Record<string, any> {
   const now = new Date().toISOString();
   const clientMeta = { ...params.clientMetadata };
@@ -62,6 +65,9 @@ export function buildFullMetadata(params: {
       ? 'bank.document-metadata/1'
       : `bank.document-metadata/${docClass}/${schemaVer}`;
 
+  const detectedFormat = params.format || clientMeta.format || detectFileFormat(params.contentType, params.filename);
+  const effectivePageCount = params.pageCount !== undefined ? params.pageCount : clientMeta.page_count;
+
   const baseMetadata: Record<string, any> = {
     ...clientMeta,
     annotation_schema: annotationSchema,
@@ -71,6 +77,8 @@ export function buildFullMetadata(params: {
     metadata_revision: params.metadataRevision || clientMeta.metadata_revision || 1,
     schema_version: schemaVer,
     content_type: params.contentType,
+    format: detectedFormat,
+    ...(effectivePageCount !== undefined && effectivePageCount !== null ? { page_count: effectivePageCount } : {}),
     content_length: params.contentLength,
     content_checksum: params.checksum.startsWith('sha256:') ? params.checksum : `sha256:${params.checksum}`,
     filename: params.filename,
@@ -179,3 +187,143 @@ export function parseJsonBody(event: { body?: string | null; isBase64Encoded?: b
     throw new ValidationError('Invalid JSON request body');
   }
 }
+
+export interface BatchDownloadRequestItem {
+  document_id: string;
+  version?: number;
+}
+
+export interface BatchDownloadRequest {
+  document_ids?: string[];
+  items?: BatchDownloadRequestItem[];
+  format?: 'original' | 'pdf';
+  include_metadata?: boolean;
+}
+
+export function validateBatchDownloadRequest(payload: any): {
+  items: BatchDownloadRequestItem[];
+  format: 'original' | 'pdf';
+  include_metadata: boolean;
+} {
+  if (!payload || typeof payload !== 'object') {
+    throw new ValidationError('Request body must be a valid JSON object');
+  }
+
+  const items: BatchDownloadRequestItem[] = [];
+
+  if (Array.isArray(payload.document_ids)) {
+    for (const id of payload.document_ids) {
+      if (typeof id === 'string' && id.trim()) {
+        items.push({ document_id: id.trim() });
+      }
+    }
+  }
+
+  if (Array.isArray(payload.items)) {
+    for (const item of payload.items) {
+      if (item && typeof item === 'object' && typeof item.document_id === 'string' && item.document_id.trim()) {
+        const vNum = typeof item.version === 'number' ? item.version : undefined;
+        items.push({ document_id: item.document_id.trim(), version: vNum });
+      }
+    }
+  }
+
+  if (items.length === 0) {
+    throw new ValidationError(
+      'At least one valid document_id must be provided in "document_ids" or "items"',
+      [{ field: 'document_ids', error: 'must contain at least one document ID' }]
+    );
+  }
+
+  if (items.length > 100) {
+    throw new ValidationError(
+      'Batch download exceeds maximum allowed limit of 100 documents per request',
+      [{ field: 'document_ids', error: 'max 100 items per request' }]
+    );
+  }
+
+  const format = payload.format ? String(payload.format).toLowerCase() : 'original';
+  if (format !== 'original' && format !== 'pdf') {
+    throw new ValidationError('Invalid format. Supported values are "original" or "pdf"', [
+      { field: 'format', error: 'must be either "original" or "pdf"' },
+    ]);
+  }
+
+  const include_metadata = Boolean(payload.include_metadata);
+
+  return {
+    items,
+    format: format as 'original' | 'pdf',
+    include_metadata,
+  };
+}
+
+export interface ValidatedAddPagesPayload {
+  pages_base64: string;
+  content_type: string;
+  position?: 'end' | 'start' | number;
+  page_indices?: number[];
+}
+
+/**
+ * Validates request payload for POST /documents/{id}/pages.
+ */
+export function validateAddPagesPayload(body: any): ValidatedAddPagesPayload {
+  if (!body || typeof body !== 'object') {
+    throw new ValidationError('Request body must be a JSON object');
+  }
+
+  const pages_base64 = body.pages_base64;
+  if (!pages_base64 || typeof pages_base64 !== 'string' || !pages_base64.trim()) {
+    throw new ValidationError('pages_base64 is required and must be a non-empty base64 string', [
+      { field: 'pages_base64', error: 'must be a non-empty base64 string' },
+    ]);
+  }
+
+  const content_type = body.content_type || 'application/pdf';
+  if (typeof content_type !== 'string' || !content_type.trim()) {
+    throw new ValidationError('content_type must be a non-empty string', [
+      { field: 'content_type', error: 'must be a non-empty string' },
+    ]);
+  }
+
+  let position: 'end' | 'start' | number | undefined;
+  if (body.position !== undefined && body.position !== null) {
+    if (body.position === 'end' || body.position === 'start') {
+      position = body.position;
+    } else if (typeof body.position === 'number' && Number.isInteger(body.position) && body.position >= 0) {
+      position = body.position;
+    } else {
+      throw new ValidationError(
+        'position must be "end", "start", or a non-negative integer page index',
+        [{ field: 'position', error: 'must be "end", "start", or non-negative integer' }]
+      );
+    }
+  }
+
+  let page_indices: number[] | undefined;
+  if (body.page_indices !== undefined && body.page_indices !== null) {
+    if (!Array.isArray(body.page_indices)) {
+      throw new ValidationError('page_indices must be an array of integers', [
+        { field: 'page_indices', error: 'must be an array of integers' },
+      ]);
+    }
+    for (const idx of body.page_indices) {
+      if (typeof idx !== 'number' || !Number.isInteger(idx) || idx < 0) {
+        throw new ValidationError('All elements of page_indices must be non-negative integers', [
+          { field: 'page_indices', error: 'all elements must be non-negative integers' },
+        ]);
+      }
+    }
+    page_indices = body.page_indices;
+  }
+
+  return {
+    pages_base64: pages_base64.trim(),
+    content_type: content_type.trim().toLowerCase(),
+    position,
+    page_indices,
+  };
+}
+
+

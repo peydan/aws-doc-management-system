@@ -84,6 +84,10 @@ When examining the impact of a change, evaluate each of the 6 architectural laye
 ---
 
 ### Layer 6: Specifications, Diagrams & Presentation Assets
+* [ ] **System Capabilities Catalog (`SYSTEM_CAPABILITIES.md`)**:
+  * Are newly exposed capabilities, endpoints, parameters, RBAC roles, or payload contracts reflected in the capability matrix and detailed catalog?
+  * Did any existing capability behavior, payload limit, or storage authority boundary change?
+  * Are all exposable interfaces, error codes, and operational flows kept in exact sync with implementation?
 * [ ] **Domain Guidelines (`AGENTS.md`, `.agents/skills/domain-ontology/SKILL.md`)**:
   * Are domain trait hierarchies and key patterns updated?
 * [ ] **Architecture Specifications (`SOLUTION_ARCHITECTURE_SPECIFICATION.md`)**:

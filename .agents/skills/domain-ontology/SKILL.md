@@ -28,6 +28,8 @@ All document classes compose with the shared schema (`https://bank.internal/sche
 - `document_int` (`string`, max 64): Documentum (DCTM) Internal Chronicle ID.
 - `document_ext` (`string`, max 40): Legacy external system identifier.
 - `a_content_type` (`string`, max 32): Documentum format / content MIME type string.
+- `format` (`string`): Normalized file format identifier (e.g. `pdf`, `jpeg`, `png`, `docx`, `tiff`).
+- `page_count` (`integer`, >= 1): Monotonically counted page count for PDF documents, automatically extracted upon upload or conversion.
 - `document_form_id` (`string`, max 10): Form template code.
 - `legacy_document_entry_dttm` (`string`, ISO 8601 UTC): Legacy ingestion timestamp.
 - `r_creation_date` / `r_modify_date` (`string`, ISO 8601 UTC): Documentum audit timestamps.
@@ -52,3 +54,6 @@ All document classes compose with the shared schema (`https://bank.internal/sche
   - `GSI_Account`: `ACC#{bank_id}#{branch_id}#{account_number}` -> `DOC#{document_id}`
   - `GSI_LegacyDoc`: `DCTM#{document_int}` -> `DOC#{document_id}`
 - **Schema Inheritance**: All class schemas must use `$ref: "https://bank.internal/schemas/shared-document-metadata-v1.json"` with `allOf`.
+- **Content Mutations**: Adding pages or mutating binary content produces a new S3 VersionId, updates S3 annotations, and creates an immutable `VER#{versionNum}` record via DynamoDB OCC.
+- **Capabilities Maintenance**: Any modification to domain models, API routes, or storage invariants must be reflected in `SYSTEM_CAPABILITIES.md` during Layer 6 impact analysis.
+

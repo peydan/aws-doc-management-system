@@ -13,6 +13,7 @@ import {
   ChecksumMismatchError,
 } from '../shared/errors';
 import { CORS_HEADERS } from '../shared/headers';
+import { detectFileFormat, getPdfPageCount } from '../shared/pdf-converter';
 
 const INLINE_MAX_BYTES = parseInt(process.env.INLINE_UPLOAD_MAX_BYTES || '4194304', 10);
 
@@ -64,6 +65,12 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const contentType = event.headers['Content-Type'] || event.headers['content-type'] || 'application/pdf';
     const filename = metadataRaw.filename || `document_${documentId}.pdf`;
 
+    const format = detectFileFormat(contentType, filename);
+    let pageCount: number | undefined;
+    if (format === 'pdf') {
+      pageCount = await getPdfPageCount(bodyBuffer);
+    }
+
     const fullMetadata = buildFullMetadata({
       documentId,
       documentClass,
@@ -73,6 +80,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       checksum: calculatedSha256,
       userId: user.userId,
       clientMetadata: metadataRaw,
+      format,
+      pageCount,
     });
 
     validateMetadataSchema(fullMetadata);
@@ -115,6 +124,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         s3_version_id: contentResult.versionId,
         metadata_revision: 1,
         status: 'ACTIVE',
+        format,
+        ...(pageCount !== undefined ? { page_count: pageCount } : {}),
         created_at: fullMetadata.created_at,
       }),
     };
