@@ -888,6 +888,186 @@ function fillMockInlineMeta() {
   showToast('Filled mock sample metadata for testing', 'info');
 }
 
+// ==========================================
+// 5.1 AI ASSISTED METADATA PRE-FILL
+// ==========================================
+let activeSnippetTargetMode = 'direct';
+
+function openAiSnippetModal(mode = 'direct') {
+  activeSnippetTargetMode = mode;
+  const modal = document.getElementById('ai-snippet-modal');
+  if (modal) {
+    if (typeof modal.showModal === 'function') {
+      modal.showModal();
+    } else {
+      modal.style.display = 'block';
+    }
+  }
+}
+
+async function submitAiSnippet() {
+  const textEl = document.getElementById('ai-snippet-text');
+  const text = textEl ? textEl.value.trim() : '';
+  if (!text) {
+    showToast('Please enter or paste a document excerpt first', 'warning');
+    return;
+  }
+  const modal = document.getElementById('ai-snippet-modal');
+  if (modal && typeof modal.close === 'function') {
+    modal.close();
+  }
+  await executeAiAutoFill(activeSnippetTargetMode, text);
+}
+
+async function extractTextFromFile(file) {
+  if (!file) return '';
+
+  const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+  if (isPdf && window.pdfjsLib) {
+    try {
+      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      const arrayBuffer = await file.arrayBuffer();
+      const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+      const pdf = await loadingTask.promise;
+      let text = '';
+      const maxPages = Math.min(pdf.numPages, 5);
+      for (let i = 1; i <= maxPages; i++) {
+        const page = await pdf.getPage(i);
+        const content = await page.getTextContent();
+        const pageText = content.items.map((it) => it.str).join(' ');
+        text += `\n--- Page ${i} ---\n` + pageText;
+      }
+      if (text.trim().length > 20) {
+        return text.trim();
+      }
+    } catch (pdfErr) {
+      console.warn('pdf.js extraction failed, falling back to chunk read:', pdfErr);
+    }
+  }
+
+  // If text/json/csv/md or plain readable:
+  try {
+    const slice = file.slice(0, 128 * 1024);
+    const text = await slice.text();
+    if (text && !text.includes('\0')) {
+      return text.substring(0, 8000);
+    }
+  } catch (textErr) {
+    console.warn('Text slice read failed:', textErr);
+  }
+
+  // Fallback: convert first 64KB chunk to base64
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file.slice(0, 64 * 1024));
+  });
+}
+
+async function aiAutoFillMetadata(mode = 'direct') {
+  const file = mode === 'direct' ? selectedDirectFile : selectedInlineFile;
+  if (!file) {
+    showToast('Please select a file first, or click "📋 Paste Text" to paste an excerpt', 'warning');
+    return;
+  }
+  await executeAiAutoFill(mode, null, file);
+}
+
+async function executeAiAutoFill(mode = 'direct', explicitSnippet = null, file = null) {
+  const prefix = mode === 'direct' ? 'direct' : 'inline';
+  const btn = document.getElementById(`btn-${prefix}-ai-fill`);
+  const origBtnHtml = btn ? btn.innerHTML : '';
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '⏳ Analyzing...';
+  }
+
+  try {
+    const classSelect = document.getElementById(`${prefix}-doc-class`);
+    const docClass = classSelect ? classSelect.value : 'loan_agreement';
+
+    let textSnippet = explicitSnippet;
+    let fileBase64 = null;
+
+    if (!textSnippet && file) {
+      showToast(`Extracting content from ${file.name}...`, 'info');
+      const extracted = await extractTextFromFile(file);
+      if (typeof extracted === 'string' && extracted.startsWith('data:')) {
+        fileBase64 = extracted;
+      } else if (typeof extracted === 'string') {
+        textSnippet = extracted;
+      }
+    }
+
+    if (!textSnippet && !fileBase64) {
+      showToast('Could not extract text content from the selected file. Please use "📋 Paste Text".', 'warning');
+      return;
+    }
+
+    // Read any existing metadata to preserve
+    let existingMeta = {};
+    try {
+      const curShared = parseJsonRelaxed(document.getElementById(`${prefix}-shared-metadata`)?.value || '{}');
+      const curClass = parseJsonRelaxed(document.getElementById(`${prefix}-class-metadata`)?.value || '{}');
+      existingMeta = { ...curShared, ...curClass };
+    } catch {}
+
+    const payload = {
+      document_class: docClass,
+      text_snippet: textSnippet || undefined,
+      file_base64: fileBase64 || undefined,
+      existing_metadata: existingMeta,
+    };
+
+    showToast('🤖 Amazon Bedrock analyzing document content...', 'info');
+    const response = await apiCall('POST', '/metadata/suggest', payload);
+
+    if (response && response.status === 'SUCCESS') {
+      const sharedEl = document.getElementById(`${prefix}-shared-metadata`);
+      const classEl = document.getElementById(`${prefix}-class-metadata`);
+
+      const baseShared = SHARED_BASE_TEMPLATE || {};
+      const baseClass = (CLASS_SPECIFIC_TEMPLATES && CLASS_SPECIFIC_TEMPLATES[docClass]) || {};
+
+      const newShared = { ...baseShared, ...response.shared_metadata };
+      const newClass = { ...baseClass, ...response.class_metadata };
+
+      delete newClass.skip_enrichment;
+
+      if (sharedEl) {
+        sharedEl.value = JSON.stringify(newShared, null, 2);
+      }
+      if (classEl) {
+        classEl.value = JSON.stringify(newClass, null, 2);
+      }
+
+      updateEnrichmentAdvisor(mode);
+
+      const loanNum = newClass.loan_number || '';
+      const custId = newShared.customer_id || '';
+      const piiFlag = response.pii_detected?.contains_pii ? 'PII detected' : 'No PII';
+      const detailParts = [];
+      if (loanNum) detailParts.push(`Loan: ${loanNum}`);
+      if (custId) detailParts.push(`Customer: ${custId}`);
+      detailParts.push(piiFlag);
+
+      showToast(`✨ AI Pre-Fill Complete! (${detailParts.join(' • ')})`, 'success');
+    } else {
+      showToast('Metadata extraction did not return expected format', 'warning');
+    }
+  } catch (err) {
+    console.error('AI Auto-Fill error:', err);
+    showToast(`AI extraction failed: ${err.message || err}`, 'error');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = origBtnHtml;
+    }
+  }
+}
+
+
 function openTriggerRulesModal() {
   const modal = document.getElementById('trigger-rules-modal');
   if (modal) {

@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>AWS Document Management Platform — Serverless Portal</title>
   <link rel="stylesheet" href="styles.css?v=6" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 </head>
 <body class="unauthenticated">
 
@@ -343,6 +344,25 @@
               <input type="file" id="direct-file-input" style="display: none;" onchange="handleDirectFileSelect(this)" />
             </div>
 
+            <!-- AI Assisted Metadata Pre-Fill Banner -->
+            <div style="background: rgba(255, 153, 0, 0.08); border: 1px dashed rgba(255, 153, 0, 0.4); border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 1.2rem;">✨</span>
+                <div>
+                  <strong style="color: var(--aws-orange); font-size: 0.84rem;">AI-Assisted Metadata Pre-Fill</strong>
+                  <div style="font-size: 0.74rem; color: var(--text-dim);">Extract customer, loan, and compliance attributes from file before upload</div>
+                </div>
+              </div>
+              <div style="display: flex; gap: 6px;">
+                <button type="button" id="btn-direct-ai-fill" class="btn btn-primary btn-sm" style="font-size: 0.75rem; padding: 4px 10px; background: linear-gradient(135deg, #ff9900, #ff5500); border: none; font-weight: 600;" onclick="aiAutoFillMetadata('direct')">
+                  🤖 Extract from File
+                </button>
+                <button type="button" class="btn btn-secondary btn-sm" style="font-size: 0.75rem; padding: 4px 8px;" onclick="openAiSnippetModal('direct')">
+                  📋 Paste Text
+                </button>
+              </div>
+            </div>
+
             <div class="form-group">
               <label class="form-label" style="display: flex; justify-content: space-between; align-items: center;">
                 <span>🌐 Shared Banking &amp; DCTM Metadata</span>
@@ -431,6 +451,25 @@
             <div class="form-group">
               <label class="form-label">Select File</label>
               <input type="file" id="inline-file-input" class="form-control" onchange="handleInlineFileSelect(this)" />
+            </div>
+
+            <!-- Inline AI Assisted Metadata Pre-Fill Banner -->
+            <div style="background: rgba(255, 153, 0, 0.08); border: 1px dashed rgba(255, 153, 0, 0.4); border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 1.2rem;">✨</span>
+                <div>
+                  <strong style="color: var(--aws-orange); font-size: 0.84rem;">AI-Assisted Metadata Pre-Fill</strong>
+                  <div style="font-size: 0.74rem; color: var(--text-dim);">Extract customer, loan, and compliance attributes from file before upload</div>
+                </div>
+              </div>
+              <div style="display: flex; gap: 6px;">
+                <button type="button" id="btn-inline-ai-fill" class="btn btn-primary btn-sm" style="font-size: 0.75rem; padding: 4px 10px; background: linear-gradient(135deg, #ff9900, #ff5500); border: none; font-weight: 600;" onclick="aiAutoFillMetadata('inline')">
+                  🤖 Extract from File
+                </button>
+                <button type="button" class="btn btn-secondary btn-sm" style="font-size: 0.75rem; padding: 4px 8px;" onclick="openAiSnippetModal('inline')">
+                  📋 Paste Text
+                </button>
+              </div>
             </div>
 
             <div class="form-group">
@@ -1193,6 +1232,34 @@
         <div style="margin-top: 1rem; text-align: right;">
           <button class="btn btn-primary btn-sm" onclick="document.getElementById('trigger-rules-modal').close()">Got it</button>
         </div>
+      </div>
+    </dialog>
+
+    <!-- AI Paste Excerpt Dialog -->
+    <dialog id="ai-snippet-modal" style="background: #1e293b; color: #f8fafc; border: 1px solid rgba(255,255,255,0.18); border-radius: 12px; max-width: 620px; width: 92%; padding: 1.5rem; box-shadow: 0 20px 30px -5px rgba(0,0,0,0.7); margin: auto;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 0.75rem;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 1.3rem;">✨</span>
+          <h3 style="margin: 0; font-size: 1.1rem; color: var(--aws-orange);">AI Metadata Extraction from Text</h3>
+        </div>
+        <button class="btn btn-secondary btn-sm" onclick="document.getElementById('ai-snippet-modal').close()">✕ Close</button>
+      </div>
+      <div style="font-size: 0.85rem; line-height: 1.6; color: var(--text-dim); margin-bottom: 1rem;">
+        Paste text from a contract excerpt, loan agreement header, or email. Amazon Bedrock will analyze the excerpt and automatically pre-fill the real metadata into the form.
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="ai-snippet-text">Document Excerpt / Content</label>
+        <textarea id="ai-snippet-text" class="form-control code-area" rows="8" placeholder="Paste document excerpt, e.g.:
+LOAN AGREEMENT #LN-2026-98742
+Borrower: John Doe (ID: 304918274, Customer: 1094827)
+Principal Amount: 750,000 ILS (Mortgage)
+Signed at Tel Aviv branch (TLV-01) on 2026-03-12..."></textarea>
+      </div>
+      <div style="margin-top: 1rem; display: flex; justify-content: flex-end; gap: 8px;">
+        <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('ai-snippet-modal').close()">Cancel</button>
+        <button type="button" id="btn-submit-ai-snippet" class="btn btn-primary btn-sm" style="background: linear-gradient(135deg, #ff9900, #ff5500); border: none; font-weight: 600;" onclick="submitAiSnippet()">
+          🤖 Extract & Pre-Fill Form
+        </button>
       </div>
     </dialog>
 

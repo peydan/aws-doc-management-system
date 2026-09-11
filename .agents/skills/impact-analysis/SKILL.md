@@ -96,6 +96,11 @@ When examining the impact of a change, evaluate each of the 6 architectural laye
   * Are domain trait hierarchies and key patterns updated?
 * [ ] **Architecture Specifications (`SOLUTION_ARCHITECTURE_SPECIFICATION.md`)**:
   * Are design chapters, payload examples, and table matrices kept in sync?
+* [ ] **Cost Analysis & Sizing Calculator (`COST_ANALYSIS_AND_ESTIMATION_ISRAEL_REGION.md`, `presentations/cost_calculator.html`)**:
+  * Did any architectural component, service rate, compute runtime, or storage lifecycle change?
+  * Are new services or pipelines (e.g., Amazon Bedrock AI enrichment/assistant, transient batch export archives, on-demand conversion derivatives, S3 audit logs) represented in the pricing catalog and interactive sizing models?
+  * Are workload sizing presets (`poc`, `mid`, `enterprise`, `archive`) synchronized between specification documents and the interactive HTML calculator?
+  * Is the interactive calculator free of syntax errors and executable in standard browser environments?
 * [ ] **Slide Presentations & Scripts**:
   * `presentations/*.html`: Are interactive slides and code blocks updated?
   * `presentations/generate_deck.py` / `generate_deck_hebrew.py`: Are PowerPoint generator tables updated and `.pptx` decks rebuilt?

@@ -690,6 +690,70 @@ paths:
         '500':
           $ref: '#/components/responses/500InternalError'
 
+  /metadata/suggest:
+    post:
+      summary: AI-Assisted Metadata Suggestion
+      description: Stateless pre-upload AI metadata extraction from document excerpt or file bytes via Amazon Bedrock (Claude 3 Haiku); returns partitioned shared and class-specific attributes.
+      operationId: suggestMetadata
+      security:
+        - CognitoAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [document_class]
+              properties:
+                document_class:
+                  type: string
+                  enum: [loan_agreement, compliance_retention, security_classification]
+                text_snippet:
+                  type: string
+                  description: Optional text excerpt from the document.
+                file_base64:
+                  type: string
+                  description: Optional base64-encoded document content.
+                existing_metadata:
+                  type: object
+                  description: Optional existing metadata to preserve.
+      responses:
+        '200':
+          description: Suggested metadata partitioned into shared and class attributes.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: SUCCESS
+                  document_class:
+                    type: string
+                  shared_metadata:
+                    type: object
+                  class_metadata:
+                    type: object
+                  pii_detected:
+                    type: object
+                    properties:
+                      contains_pii:
+                        type: boolean
+                      pii_categories:
+                        type: array
+                        items:
+                          type: string
+                  audit:
+                    type: object
+        '400':
+          $ref: '#/components/responses/400ValidationError'
+        '401':
+          $ref: '#/components/responses/401AuthenticationError'
+        '403':
+          $ref: '#/components/responses/403AuthorizationError'
+        '500':
+          $ref: '#/components/responses/500InternalError'
+
 components:
   securitySchemes:
     CognitoAuth:

@@ -223,11 +223,50 @@ export class ApiStack extends cdk.Stack {
       })
     );
 
-    const corsLambda = createHandlerLambda('CorsLambdaHandler', '../src/shared/cors-handler.ts');
-    const corsIntegration = new apigateway.LambdaIntegration(corsLambda);
+    const metadataSuggestLambda = createHandlerLambda('MetadataSuggestLambda', '../src/command-api/metadata-suggest.ts', {
+      BEDROCK_MODEL_ID: process.env.BEDROCK_MODEL_ID || 'anthropic.claude-3-haiku-20240307-v1:0',
+    });
+    metadataSuggestLambda.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['bedrock:InvokeModel'],
+        resources: ['*'],
+      })
+    );
+
+    const mockCorsIntegration = new apigateway.MockIntegration({
+      integrationResponses: [
+        {
+          statusCode: '200',
+          responseParameters: {
+            'method.response.header.Access-Control-Allow-Headers': "'Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent,X-Document-Metadata,X-Content-SHA256,x-correlation-id'",
+            'method.response.header.Access-Control-Allow-Methods': "'GET,POST,PATCH,DELETE,OPTIONS'",
+            'method.response.header.Access-Control-Allow-Origin': "'*'",
+            'method.response.header.Access-Control-Expose-Headers': "'Content-Disposition,Content-Type,X-Batch-Id,X-File-Count'",
+          },
+        },
+      ],
+      passthroughBehavior: apigateway.PassthroughBehavior.NEVER,
+      requestTemplates: {
+        'application/json': '{"statusCode": 200}',
+      },
+    });
+
+    const mockMethodOptions: apigateway.MethodOptions = {
+      methodResponses: [
+        {
+          statusCode: '200',
+          responseParameters: {
+            'method.response.header.Access-Control-Allow-Headers': true,
+            'method.response.header.Access-Control-Allow-Methods': true,
+            'method.response.header.Access-Control-Allow-Origin': true,
+            'method.response.header.Access-Control-Expose-Headers': true,
+          },
+        },
+      ],
+    };
 
     const addCors = (resource: apigateway.IResource) => {
-      resource.addMethod('OPTIONS', corsIntegration);
+      resource.addMethod('OPTIONS', mockCorsIntegration, mockMethodOptions);
     };
 
     // API Routes (attached to root since stageName is already 'v1')
@@ -257,6 +296,13 @@ export class ApiStack extends cdk.Stack {
     const agentChat = agent.addResource('chat');
     addCors(agentChat);
     agentChat.addMethod('POST', new apigateway.LambdaIntegration(agentChatLambda), authOptions);
+
+    // /v1/metadata/suggest (AI-Assisted Metadata Pre-Fill for UI)
+    const metadataRoot = this.api.root.addResource('metadata');
+    addCors(metadataRoot);
+    const metadataSuggest = metadataRoot.addResource('suggest');
+    addCors(metadataSuggest);
+    metadataSuggest.addMethod('POST', new apigateway.LambdaIntegration(metadataSuggestLambda), authOptions);
 
     // /v1/documents
     documents.addMethod('POST', new apigateway.LambdaIntegration(uploadInlineLambda), authOptions);

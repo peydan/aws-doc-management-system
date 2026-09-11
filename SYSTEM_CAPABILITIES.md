@@ -82,6 +82,7 @@ The table below catalogs all capabilities exposed across the platform's API Gate
 | **26** | **Automated LLM Metadata & PII Enrichment** | Background Event Pipeline | SQS Enrichment Queue | System / Bedrock | Asynchronously extracts domain metadata and discovers PII via Amazon Bedrock (Claude 3 Haiku); applies non-downgrade safety ratchet; commits revision bump via DynamoDB OCC; persists compliance audit trail in S3. |
 | **27** | **AI Conversational Document Assistant** | REST API & Function URL | `POST /agent/chat` & SSE URL | `Document.Reader` | Managed conversational reasoning via Amazon Bedrock AgentCore Harness and Anthropic Claude Sonnet 5 (1M token window); invokes MCP tools (`search_documents`, `fetch_document`); ephemeral 1-hour session memory; real-time progress and token streaming. |
 | **28** | **Document Audit Trail & LLM Inspection** | REST API & Frontend UI | `GET /documents/{document_id}/audit` | `Document.Reader` | Unified document-specific audit trail combining Amazon Bedrock LLM enrichment metrics (model, prompt/completion tokens, latency, PII safety ratchets, S3 compliance URI) and server-side lifecycle mutations from DynamoDB & S3 WORM audit bucket. |
+| **29** | **AI-Assisted Metadata Pre-Fill for UI** | REST API & Frontend UI | `POST /metadata/suggest` | `Document.Reader` | Stateless pre-upload AI metadata extraction from document excerpt or file bytes via Amazon Bedrock (Claude 3 Haiku); partitions extracted attributes into shared banking and class-specific traits; auto-populates web console inputs prior to immutable persistence. |
 
 ---
 
@@ -595,6 +596,7 @@ The system enforces granular Role-Based Access Control (RBAC) via Amazon Cognito
 | `POST /search` | ✅ | ✅ | ✅ | ✅ |
 | `POST /agent/chat` (Conversational AI Assistant) | ✅ | ✅ | ✅ | ✅ |
 | `GET /documents/{id}/audit` (Audit Trail & LLM Inspection) | ✅ | ✅ | ✅ | ✅ |
+| `POST /metadata/suggest` (AI Metadata Pre-Fill) | ✅ | ✅ | ✅ | ✅ |
 
 ### Governance & Compliance Invariants:
 1. **WORM Enforced via IAM**: Application execution roles have explicit `Deny` policies for `s3:DeleteObjectVersion` and `s3:DeleteBucket`. Once an S3 VersionId is created, it cannot be deleted by the application.

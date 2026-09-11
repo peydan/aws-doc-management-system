@@ -578,6 +578,35 @@
         "description": "Restores soft-deleted document back to ACTIVE status and re-indexes in OpenSearch."
       },
       "response": []
+    },
+    {
+      "name": "13 - AI-Assisted Metadata Suggestion",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"document_class\": \"loan_agreement\",\n  \"text_snippet\": \"MORTGAGE AGREEMENT LN-2026-88821 for Customer 1094827, Amount 50,000.00 ILS signed at Tel Aviv TLV-01 on 2026-03-12.\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/metadata/suggest",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "metadata",
+            "suggest"
+          ]
+        },
+        "description": "Stateless pre-upload AI metadata extraction using Amazon Bedrock Claude 3 Haiku."
+      },
+      "response": []
     }
   ]
 }
