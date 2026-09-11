@@ -785,6 +785,55 @@ function parseJsonRelaxed(str) {
   }
 }
 
+const MOCK_SHARED_METADATA = {
+  "customer_id": 1094827,
+  "complete_customer_id_code": {
+    "id_number": "123456789",
+    "id_type": 1
+  },
+  "account_id": {
+    "bank_id": 10,
+    "branch_id": 802,
+    "account_number": 123456
+  },
+  "business_area_code": 100,
+  "business_sub_area_code": 101,
+  "document_group_id": "GRP-FIN-001"
+};
+
+const MOCK_CLASS_METADATA = {
+  "loan_agreement": {
+    "document_type": "SIGNED_AGREEMENT",
+    "loan_number": "LN-2026-88821",
+    "loan_amount_minor_units": 100000000,
+    "currency": "ILS",
+    "loan_type": "MORTGAGE",
+    "branch_code": "TLV-01",
+    "signed_date": new Date().toISOString().substring(0, 10)
+  },
+  "compliance_retention": {
+    "document_type": "FINANCIAL_LEDGER",
+    "retention_schedule_code": "RET-FIN-001",
+    "retention_period_years": 7,
+    "regulatory_framework": "SOX",
+    "retention_start_date": new Date().toISOString().substring(0, 10),
+    "retention_expiry_date": new Date(Date.now() + 7 * 365.25 * 86400000).toISOString().substring(0, 10),
+    "legal_hold_active": false,
+    "disposal_action": "REVIEW_REQUIRED",
+    "compliance_officer_id": "COMP-OFFICER-01"
+  },
+  "security_classification": {
+    "document_type": "BOARD_RESOLUTION",
+    "confidentiality_tier": "RESTRICTED",
+    "contains_pii": false,
+    "pii_categories": ["NONE"],
+    "minimum_clearance_role": "Document.Reader",
+    "encryption_requirement": "SSE_KMS_DEFAULT",
+    "export_restricted": false,
+    "classification_owner": "SEC-OPS-01"
+  }
+};
+
 function resetDirectSharedMeta() {
   const el = document.getElementById('direct-shared-metadata');
   if (el) el.value = JSON.stringify(SHARED_BASE_TEMPLATE, null, 2);
@@ -800,6 +849,18 @@ function resetDirectClassMeta() {
   }
 }
 
+function fillMockDirectMeta() {
+  const sharedEl = document.getElementById('direct-shared-metadata');
+  if (sharedEl) sharedEl.value = JSON.stringify(MOCK_SHARED_METADATA, null, 2);
+  const docClass = document.getElementById('direct-doc-class')?.value || 'loan_agreement';
+  const classEl = document.getElementById('direct-class-metadata');
+  if (classEl && MOCK_CLASS_METADATA[docClass]) {
+    classEl.value = JSON.stringify(MOCK_CLASS_METADATA[docClass], null, 2);
+  }
+  updateEnrichmentAdvisor('direct');
+  showToast('Filled mock sample metadata for testing', 'info');
+}
+
 function resetInlineSharedMeta() {
   const el = document.getElementById('inline-shared-metadata');
   if (el) el.value = JSON.stringify(SHARED_BASE_TEMPLATE, null, 2);
@@ -813,6 +874,18 @@ function resetInlineClassMeta() {
     el.value = JSON.stringify(CLASS_SPECIFIC_TEMPLATES[docClass], null, 2);
     showToast(`Class metadata reset to ${docClass} template`, 'info');
   }
+}
+
+function fillMockInlineMeta() {
+  const sharedEl = document.getElementById('inline-shared-metadata');
+  if (sharedEl) sharedEl.value = JSON.stringify(MOCK_SHARED_METADATA, null, 2);
+  const docClass = document.getElementById('inline-doc-class')?.value || 'loan_agreement';
+  const classEl = document.getElementById('inline-class-metadata');
+  if (classEl && MOCK_CLASS_METADATA[docClass]) {
+    classEl.value = JSON.stringify(MOCK_CLASS_METADATA[docClass], null, 2);
+  }
+  updateEnrichmentAdvisor('inline');
+  showToast('Filled mock sample metadata for testing', 'info');
 }
 
 function openTriggerRulesModal() {

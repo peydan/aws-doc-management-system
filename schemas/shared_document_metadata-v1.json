@@ -98,29 +98,22 @@
     "customer_id": {
       "type": "integer",
       "minimum": 0,
-      "default": 1094827,
       "description": "CUSTOMER_ID NUMBER(10)"
     },
     "complete_customer_id_code": {
       "type": "object",
       "description": "COMPLEATE_CUSTOMER_ID_CODE Compound Key",
       "required": ["id_number", "id_type"],
-      "default": {
-        "id_number": "123456789",
-        "id_type": 1
-      },
       "properties": {
         "id_number": {
           "type": "string",
           "minLength": 1,
           "maxLength": 16,
-          "default": "123456789",
           "description": "ID_Number VARCHAR2(16)"
         },
         "id_type": {
           "type": "integer",
           "minimum": 0,
-          "default": 1,
           "description": "ID_Type NUMBER(10)"
         }
       },
@@ -130,28 +123,20 @@
       "type": "object",
       "description": "ACCOUNT_ID Compound Key",
       "required": ["bank_id", "branch_id", "account_number"],
-      "default": {
-        "bank_id": 10,
-        "branch_id": 802,
-        "account_number": 123456
-      },
       "properties": {
         "bank_id": {
           "type": "integer",
           "minimum": 0,
-          "default": 10,
           "description": "ACCOUNT_BANK_ID NUMBER(10)"
         },
         "branch_id": {
           "type": "integer",
           "minimum": 0,
-          "default": 802,
           "description": "BRANCH_ID NUMBER(10)"
         },
         "account_number": {
           "type": "integer",
           "minimum": 0,
-          "default": 123456,
           "description": "ACCOUNT_NBR NUMBER(10)"
         }
       },
@@ -202,19 +187,16 @@
     "business_area_code": {
       "type": "integer",
       "minimum": 0,
-      "default": 100,
       "description": "BUSINESS_AREA_CODE NUMBER(10)"
     },
     "business_sub_area_code": {
       "type": "integer",
       "minimum": 0,
-      "default": 101,
       "description": "BUSINESS_SUB_AREA_CODE NUMBER(10)"
     },
     "document_group_id": {
       "type": "string",
       "maxLength": 40,
-      "default": "GRP-FIN-001",
       "description": "DOCUMENT_GROUP_ID VARCHAR2(40)"
     },
     "skip_enrichment": {

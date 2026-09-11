@@ -157,6 +157,25 @@ export function buildFullMetadata(params: {
     defaultApplier(baseMetadata);
   }
 
+  // Dynamic retention expiry calculation: start_date + retention_period_years
+  if (docClass === 'compliance_retention' && !baseMetadata.retention_expiry_date && baseMetadata.retention_start_date) {
+    const periodYears = typeof baseMetadata.retention_period_years === 'number' ? baseMetadata.retention_period_years : 7;
+    const startDate = new Date(baseMetadata.retention_start_date);
+    if (!isNaN(startDate.getTime())) {
+      const expiryDate = new Date(startDate);
+      expiryDate.setUTCFullYear(expiryDate.getUTCFullYear() + periodYears);
+      baseMetadata.retention_expiry_date = expiryDate.toISOString().substring(0, 10);
+    }
+  }
+
+  // Fall back to authenticated userId for officer/owner if not explicitly provided
+  if (docClass === 'compliance_retention' && !baseMetadata.compliance_officer_id && params.userId) {
+    baseMetadata.compliance_officer_id = params.userId;
+  }
+  if (docClass === 'security_classification' && !baseMetadata.classification_owner && params.userId) {
+    baseMetadata.classification_owner = params.userId;
+  }
+
   return baseMetadata;
 }
 

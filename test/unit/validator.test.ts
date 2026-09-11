@@ -153,7 +153,7 @@ describe('Metadata Validator Unit Tests', () => {
   });
 
   describe('buildFullMetadata Builder Tests', () => {
-    it('should automatically populate shared defaults when not provided by client', () => {
+    it('should automatically populate safe defaults when not provided by client', () => {
       const fullMeta = buildFullMetadata({
         documentId: '550e8400-e29b-41d4-a716-446655440000',
         documentClass: 'loan_agreement',
@@ -162,14 +162,22 @@ describe('Metadata Validator Unit Tests', () => {
         contentLength: 1024,
         checksum: 'sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
         userId: 'USER-123',
-        clientMetadata: {},
+        clientMetadata: {
+          customer_id: 1094827,
+          complete_customer_id_code: { id_number: '123456789', id_type: 1 },
+          account_id: { bank_id: 10, branch_id: 802, account_number: 123456 },
+          business_area_code: 100,
+          business_sub_area_code: 101,
+          loan_number: 'LN-TEST-001',
+          loan_amount_minor_units: 50000000,
+          branch_code: 'TLV-01',
+        },
       });
 
-      expect(fullMeta.customer_id).toBe(1094827);
-      expect(fullMeta.complete_customer_id_code).toEqual({ id_number: '123456789', id_type: 1 });
-      expect(fullMeta.account_id).toEqual({ bank_id: 10, branch_id: 802, account_number: 123456 });
-      expect(fullMeta.business_area_code).toBe(100);
-      expect(fullMeta.business_sub_area_code).toBe(101);
+      expect(fullMeta.currency).toBe('ILS');
+      expect(fullMeta.document_type).toBe('SIGNED_AGREEMENT');
+      expect(fullMeta.loan_type).toBe('MORTGAGE');
+      expect(fullMeta.signed_date).toBeDefined();
       expect(() => validateMetadataSchema(fullMeta)).not.toThrow();
     });
 
@@ -184,6 +192,8 @@ describe('Metadata Validator Unit Tests', () => {
         userId: 'USER-123',
         clientMetadata: {
           customer_id: '4492817',
+          complete_customer_id_code: { id_number: '123456789', id_type: '1' },
+          account_id: { bank_id: '10', branch_id: '802', account_number: '123456' },
           business_area_code: '200',
           business_sub_area_code: '201',
           loan_amount_minor_units: '50000000',
@@ -211,6 +221,12 @@ describe('Metadata Validator Unit Tests', () => {
         checksum: 'sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
         userId: 'USER-123',
         clientMetadata: {
+          customer_id: 1094827,
+          complete_customer_id_code: { id_number: '123456789', id_type: 1 },
+          account_id: { bank_id: 10, branch_id: 802, account_number: 123456 },
+          business_area_code: 100,
+          business_sub_area_code: 101,
+          retention_schedule_code: 'RET-FIN-001',
           legal_hold_active: 'false',
           retention_period_years: '10',
           disposal_action: 'ARCHIVE_GLACIER',
@@ -221,6 +237,35 @@ describe('Metadata Validator Unit Tests', () => {
 
       expect(retentionMeta.legal_hold_active).toBe(false);
       expect(retentionMeta.retention_period_years).toBe(10);
+      expect(retentionMeta.compliance_officer_id).toBe('USER-123');
+      expect(retentionMeta.retention_expiry_date).toBeDefined();
+      expect(() => validateMetadataSchema(retentionMeta)).not.toThrow();
+    });
+
+    it('should dynamically calculate retention_expiry_date and fall back to userId for officer', () => {
+      const retentionMeta = buildFullMetadata({
+        documentId: '550e8400-e29b-41d4-a716-446655440002',
+        documentClass: 'compliance_retention',
+        filename: 'retention.pdf',
+        contentType: 'application/pdf',
+        contentLength: 2048,
+        checksum: 'sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+        userId: 'OFFICER-77',
+        clientMetadata: {
+          customer_id: 1094827,
+          complete_customer_id_code: { id_number: '123456789', id_type: 1 },
+          account_id: { bank_id: 10, branch_id: 802, account_number: 123456 },
+          business_area_code: 100,
+          business_sub_area_code: 101,
+          retention_schedule_code: 'RET-FIN-001',
+          retention_start_date: '2026-01-01',
+          retention_period_years: 5,
+        },
+      });
+
+      expect(retentionMeta.compliance_officer_id).toBe('OFFICER-77');
+      expect(retentionMeta.retention_expiry_date).toBe('2031-01-01');
+      expect(retentionMeta.disposal_action).toBe('REVIEW_REQUIRED');
       expect(() => validateMetadataSchema(retentionMeta)).not.toThrow();
     });
   });

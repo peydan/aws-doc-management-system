@@ -427,6 +427,7 @@ describe('Critical Bug Fixes Verification Suite', () => {
       const metadataPayload = {
         document_class: 'loan_agreement',
         document_type: 'SIGNED_AGREEMENT',
+        loan_number: 'LN-IDEMP-001',
         loan_amount_minor_units: 5000000,
         currency: 'ILS',
         loan_type: 'MORTGAGE',

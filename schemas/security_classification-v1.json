@@ -101,8 +101,7 @@
         },
         "classification_owner": {
           "type": "string",
-          "minLength": 1,
-          "default": "SEC-OPS-01"
+          "minLength": 1
         }
       }
     }

@@ -21,16 +21,27 @@ describe('Upload Format & PDF Page Count Unit Tests', () => {
     singlePagePdf = await convertImageToPdf(sampleJpg, 'image/jpeg');
   });
 
+  const baseLoanMetadata = {
+    document_class: 'loan_agreement',
+    document_type: 'SIGNED_AGREEMENT',
+    loan_number: 'LN-TEST-001',
+    loan_amount_minor_units: 5000000,
+    currency: 'ILS',
+    loan_type: 'MORTGAGE',
+    branch_code: 'TLV-01',
+    signed_date: '2026-09-01',
+    customer_id: 1094827,
+    complete_customer_id_code: { id_number: '123456789', id_type: 1 },
+    account_id: { bank_id: 10, branch_id: 802, account_number: 123456 },
+    business_area_code: 100,
+    business_sub_area_code: 101,
+  };
+
   it('Inline upload of a PDF sets format=pdf and page_count=1 in S3 annotation and response', async () => {
     const sha256 = crypto.createHash('sha256').update(singlePagePdf).digest('hex');
     const metadata = {
-      document_class: 'loan_agreement',
-      document_type: 'SIGNED_AGREEMENT',
+      ...baseLoanMetadata,
       filename: 'test_agreement.pdf',
-      loan_number: 'LN-TEST-001',
-      loan_amount_minor_units: 5000000,
-      currency: 'ILS',
-      signed_date: '2026-09-01',
     };
 
     const event = {
@@ -61,13 +72,11 @@ describe('Upload Format & PDF Page Count Unit Tests', () => {
   it('Inline upload of a JPEG sets format=jpeg and omits page_count in S3 annotation and response', async () => {
     const sha256 = crypto.createHash('sha256').update(sampleJpg).digest('hex');
     const metadata = {
-      document_class: 'loan_agreement',
+      ...baseLoanMetadata,
       document_type: 'APPLICATION',
       filename: 'photo.jpg',
       loan_number: 'LN-TEST-002',
       loan_amount_minor_units: 3000000,
-      currency: 'ILS',
-      signed_date: '2026-09-01',
     };
 
     const event = {
@@ -104,7 +113,7 @@ describe('Upload Format & PDF Page Count Unit Tests', () => {
         'Content-Type': 'application/pdf',
         'X-Content-SHA256': sha256,
         'X-Document-Metadata': Buffer.from(JSON.stringify({
-          document_class: 'loan_agreement',
+          ...baseLoanMetadata,
           filename: 'initial.pdf',
         })).toString('base64'),
       },
