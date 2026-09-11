@@ -39,7 +39,8 @@
             "SECURITY_ASSESSMENT",
             "PII_EXTRACT",
             "SYSTEM_CREDENTIAL"
-          ]
+          ],
+          "default": "BOARD_RESOLUTION"
         },
         "confidentiality_tier": {
           "type": "string",
@@ -48,13 +49,16 @@
             "INTERNAL",
             "RESTRICTED",
             "HIGHLY_CONFIDENTIAL"
-          ]
+          ],
+          "default": "RESTRICTED"
         },
         "contains_pii": {
-          "type": "boolean"
+          "type": "boolean",
+          "default": false
         },
         "pii_categories": {
           "type": "array",
+          "default": ["NONE"],
           "items": {
             "type": "string",
             "enum": [
@@ -77,7 +81,8 @@
             "Document.Admin",
             "Compliance.Auditor",
             "Executive.Only"
-          ]
+          ],
+          "default": "Document.Reader"
         },
         "encryption_requirement": {
           "type": "string",
@@ -87,14 +92,17 @@
             "SSE_KMS_CUSTOM_KEY",
             "SSE_KMS_CUSTOMER_MANAGED",
             "DUAL_LAYER_KMS"
-          ]
+          ],
+          "default": "SSE_KMS_DEFAULT"
         },
         "export_restricted": {
-          "type": "boolean"
+          "type": "boolean",
+          "default": false
         },
         "classification_owner": {
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "default": "SEC-OPS-01"
         }
       }
     }

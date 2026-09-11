@@ -53,7 +53,10 @@ All document classes compose with the shared schema (`https://bank.internal/sche
   - `GSI_Customer`: `CUST#{customer_id}` -> `DOC#{document_id}`
   - `GSI_Account`: `ACC#{bank_id}#{branch_id}#{account_number}` -> `DOC#{document_id}`
   - `GSI_LegacyDoc`: `DCTM#{document_int}` -> `DOC#{document_id}`
-- **Schema Inheritance**: All class schemas must use `$ref: "https://bank.internal/schemas/shared-document-metadata-v1.json"` with `allOf`.
+- **Schema Inheritance & Source of Truth**: All class schemas must use `$ref: "https://bank.internal/schemas/shared-document-metadata-v1.json"` with `allOf`. Schemas serve as the Single Source of Truth:
+  - **Static Defaults**: Declared via the JSON Schema `default` keyword and automatically populated during ingestion (`Ajv useDefaults`) and frontend template generation (`npm run generate`).
+  - **Field Immutability**: Any property that cannot be updated after document creation must declare `"x-immutable": true` (dynamically enforced by `getImmutableFields()` in `metadata-update.ts`).
+  - **Search Overrides**: OpenSearch mappings are auto-generated via `scripts/generate-artifacts.ts`; optional custom types can be specified via `"x-opensearch-type"`.
 - **Content Mutations**: Adding pages or mutating binary content produces a new S3 VersionId, updates S3 annotations, and creates an immutable `VER#{versionNum}` record via DynamoDB OCC.
 - **Capabilities Maintenance**: Any modification to domain models, API routes, or storage invariants must be reflected in `SYSTEM_CAPABILITIES.md` during Layer 6 impact analysis.
 - **LLM Enrichment Governance**: Automated metadata enrichment must never overwrite or downgrade uploader-defined policy fields (`confidentiality_tier`, `minimum_clearance_role`, `classification_owner`, `encryption_requirement`). PII discovery enforces the safety ratchet (union of `pii_categories`, non-downgrade of `contains_pii`). All mutations must update S3 annotations via DynamoDB OCC and persist an immutable audit trail in S3.

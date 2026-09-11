@@ -361,6 +361,7 @@ export class DynamoManager {
       const updated: DocumentItem = {
         ...currentDoc,
         current_application_version: params.nextAppVersion,
+        current_s3_key: params.s3Key,
         current_s3_version_id: params.s3VersionId,
         current_metadata_revision: 1,
         current_annotation_etag: params.annotationEtag,
@@ -380,10 +381,11 @@ export class DynamoManager {
                 TableName: TABLE_NAME,
                 Key: { pk: docPk, sk: 'DOC' },
                 UpdateExpression:
-                  'SET current_application_version = :nextVer, current_s3_version_id = :s3Ver, current_metadata_revision = :metRev, current_annotation_etag = :etag, updated_at = :now',
+                  'SET current_application_version = :nextVer, current_s3_key = :s3Key, current_s3_version_id = :s3Ver, current_metadata_revision = :metRev, current_annotation_etag = :etag, updated_at = :now',
                 ConditionExpression: 'current_application_version = :currVer',
                 ExpressionAttributeValues: {
                   ':nextVer': params.nextAppVersion,
+                  ':s3Key': params.s3Key,
                   ':s3Ver': params.s3VersionId,
                   ':metRev': 1,
                   ':etag': params.annotationEtag,

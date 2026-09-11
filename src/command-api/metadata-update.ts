@@ -1,26 +1,11 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { authenticateRequest, authorizeRoles } from '../shared/auth';
-import { validateMetadataSchema, parseJsonBody } from '../shared/validator';
+import { validateMetadataSchema, parseJsonBody, getImmutableFields } from '../shared/validator';
 import { S3Manager } from '../shared/s3';
 import { DynamoManager } from '../shared/dynamo';
 import { Logger } from '../shared/logger';
 import { PlatformError, ValidationError, MetadataConflictError } from '../shared/errors';
 import { CORS_HEADERS } from '../shared/headers';
-
-const IMMUTABLE_FIELDS = new Set([
-  'document_id',
-  'document_class',
-  'application_version',
-  'schema_version',
-  'annotation_schema',
-  'content_type',
-  'format',
-  'page_count',
-  'content_length',
-  'content_checksum',
-  'created_at',
-  'created_by',
-]);
 
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   const correlationId = event.requestContext.requestId;
@@ -41,16 +26,17 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       throw new ValidationError('expected_metadata_revision is required and must be an integer');
     }
 
-    // Check for attempts to mutate immutable fields
-    for (const key of Object.keys(changes)) {
-      if (IMMUTABLE_FIELDS.has(key)) {
-        throw new ValidationError(`Field '${key}' is immutable and cannot be updated`);
-      }
-    }
-
     const currentDoc = await DynamoManager.getDocument(documentId);
     if (currentDoc.status === 'SOFT_DELETED') {
       throw new ValidationError(`Cannot update metadata on soft-deleted document ${documentId}`);
+    }
+
+    // Check for attempts to mutate immutable fields (dynamically loaded from schema)
+    const immutableFields = getImmutableFields(currentDoc.document_class);
+    for (const key of Object.keys(changes)) {
+      if (immutableFields.has(key)) {
+        throw new ValidationError(`Field '${key}' is immutable and cannot be updated`);
+      }
     }
 
     if (currentDoc.current_metadata_revision !== expectedRevision) {
@@ -77,15 +63,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     validateMetadataSchema(updatedMetadata);
 
-    // 1. Atomically claim the revision in DynamoDB (OCC gate)
-    const updatedDoc = await DynamoManager.updateMetadataRevision(
-      documentId,
-      expectedRevision,
-      nextRevision,
-      'pending'
-    );
-
-    // 2. Now that we own this revision, write the authoritative S3 annotation
+    // 1. Write the authoritative S3 annotation first (idempotent; safe to orphan if DynamoDB OCC fails)
     const annotationPut = await S3Manager.putAnnotation(
       currentDoc.document_class,
       documentId,
@@ -93,8 +71,13 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       updatedMetadata
     );
 
-    // 3. Update DynamoDB with the real annotation eTag
-    await DynamoManager.updateAnnotationEtag(documentId, nextRevision, annotationPut.eTag);
+    // 2. Atomically claim the revision in DynamoDB with real annotation eTag (OCC gate)
+    const updatedDoc = await DynamoManager.updateMetadataRevision(
+      documentId,
+      expectedRevision,
+      nextRevision,
+      annotationPut.eTag
+    );
 
     Logger.info('Metadata updated successfully', {
       documentId,

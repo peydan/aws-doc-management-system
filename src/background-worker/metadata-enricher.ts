@@ -88,13 +88,21 @@ export async function handler(event: SQSEvent): Promise<SQSBatchResponse> {
         continue; // Acknowledge message without retrying
       }
 
-      // 7. Commit revision bump to DynamoDB with Optimistic Concurrency Control (OCC gate)
+      // 7. Write updated authoritative S3 Annotation first (idempotent, safe to orphan if DynamoDB OCC fails)
+      const annotationResult = await S3Manager.putAnnotation(
+        document_class,
+        document_id,
+        s3_version_id,
+        enrichedMetadata
+      );
+
+      // 8. Commit revision bump to DynamoDB with real eTag and Optimistic Concurrency Control (OCC gate)
       try {
         await DynamoManager.updateMetadataRevision(
           document_id,
           expectedRevision,
           newRevision,
-          'pending'
+          annotationResult.eTag
         );
       } catch (err: any) {
         if (
@@ -110,17 +118,6 @@ export async function handler(event: SQSEvent): Promise<SQSBatchResponse> {
         }
         throw err;
       }
-
-      // 8. Write updated authoritative S3 Annotation
-      const annotationResult = await S3Manager.putAnnotation(
-        document_class,
-        document_id,
-        s3_version_id,
-        enrichedMetadata
-      );
-
-      // 9. Update DynamoDB with the real annotation eTag
-      await DynamoManager.updateAnnotationEtag(document_id, newRevision, annotationResult.eTag);
 
       // 9. Write immutable LLM audit log to S3 Audit Bucket
       const datePrefix = new Date().toISOString().substring(0, 10);

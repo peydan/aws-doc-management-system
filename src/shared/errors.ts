@@ -127,6 +127,6 @@ export class InlineUploadLimitExceededError extends PlatformError {
 
 export class SearchUnavailableError extends PlatformError {
   constructor(message = 'Search index service is currently unavailable') {
-    super(533, 'SEARCH_UNAVAILABLE', message, true);
+    super(503, 'SEARCH_UNAVAILABLE', message, true);
   }
 }

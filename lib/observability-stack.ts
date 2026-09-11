@@ -2,6 +2,8 @@ import * as cdk from 'aws-cdk-lib';
 import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
 import * as sqs from 'aws-cdk-lib/aws-sqs';
 import * as apigateway from 'aws-cdk-lib/aws-apigateway';
+import * as sns from 'aws-cdk-lib/aws-sns';
+import * as cw_actions from 'aws-cdk-lib/aws-cloudwatch-actions';
 import { Construct } from 'constructs';
 
 export interface ObservabilityStackProps extends cdk.StackProps {
@@ -10,8 +12,16 @@ export interface ObservabilityStackProps extends cdk.StackProps {
 }
 
 export class ObservabilityStack extends cdk.Stack {
+  public readonly opsTopic: sns.Topic;
+
   constructor(scope: Construct, id: string, props: ObservabilityStackProps) {
     super(scope, id, props);
+
+    // 0. Operations Notification Topic
+    this.opsTopic = new sns.Topic(this, 'OpsAlertTopic', {
+      topicName: 'doc-platform-mvp-ops-alerts',
+      displayName: 'Document Platform Operations Alerts',
+    });
 
     // 1. Alarm on DLQ Depth > 0
     const dlqAlarm = new cloudwatch.Alarm(this, 'IndexDLQMessagesAlarm', {
@@ -24,6 +34,7 @@ export class ObservabilityStack extends cdk.Stack {
       evaluationPeriods: 1,
       comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
     });
+    dlqAlarm.addAlarmAction(new cw_actions.SnsAction(this.opsTopic));
 
     // 2. Alarm on API 5xx Error Rate
     const api5xxAlarm = new cloudwatch.Alarm(this, 'ApiGateway5xxAlarm', {
@@ -39,6 +50,12 @@ export class ObservabilityStack extends cdk.Stack {
       threshold: 5,
       evaluationPeriods: 1,
       comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+    });
+    api5xxAlarm.addAlarmAction(new cw_actions.SnsAction(this.opsTopic));
+
+    new cdk.CfnOutput(this, 'OpsAlertTopicArn', {
+      value: this.opsTopic.topicArn,
+      description: 'SNS Topic ARN for operational alerts',
     });
 
     // 3. CloudWatch Dashboard

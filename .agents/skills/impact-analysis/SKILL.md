@@ -14,25 +14,28 @@ Use this skill whenever a change is proposed to an entity, schema, API contract,
 When examining the impact of a change, evaluate each of the 6 architectural layers in order:
 
 ```
-[Layer 1: Schemas & Contracts]
+[Layer 1: Schemas & Contracts] (Single Source of Truth)
          ↓
-[Layer 2: Validation & Compute]
+[Layer 2: Validation & Compute] (Ajv defaultsRegistry & getImmutableFields)
          ↓
-[Layer 3: Asynchronous Projection & Search]
+[Layer 3: Asynchronous Projection & Search] (generated-os-mappings.json)
          ↓
-[Layer 4: Client & Frontend UI]
+[Layer 4: Client & Frontend UI] (generated-templates.js & app.js)
          ↓
-[Layer 5: Test Suites & Demo Datasets]
+[Layer 5: Test Suites & Demo Datasets] (Jest & seed-demo-dataset.ts)
          ↓
-[Layer 6: Architecture Specs, Decks & Diagrams]
+[Layer 6: Architecture Specs, Decks & Diagrams] (SYSTEM_CAPABILITIES.md & Specs)
 ```
 
 ---
 
-### Layer 1: Schemas & API Contracts
+### Layer 1: Schemas & API Contracts (Single Source of Truth)
 * [ ] **JSON Schemas (`schemas/*.json`)**:
   * Did any field name, type, enum, or `required` constraint change?
-  * Does the change affect base schema inheritance (`allOf`, `$ref`)?
+  * Does the change affect base schema inheritance (`allOf`, `$ref: "https://bank.internal/schemas/shared-document-metadata-v1.json"`)?
+  * Are `"default"` values declared in schema for new/modified fields (used to automatically generate UI templates and populate defaults on ingest)?
+  * Are immutable fields tagged with `"x-immutable": true` (used to automatically enforce immutability on metadata updates)?
+  * Is an explicit search indexing override needed via `"x-opensearch-type"`?
 * [ ] **OpenAPI Specifications (`openapi.yaml`, `openapi.json`)**:
   * Are component schemas, request bodies, and response envelopes updated?
   * Are both YAML and JSON representations synchronized?
@@ -42,11 +45,12 @@ When examining the impact of a change, evaluate each of the 6 architectural laye
 ---
 
 ### Layer 2: Validation & Business Logic (Backend / Lambdas)
-* [ ] **Validation Registry (`src/shared/validator.ts`)**:
-  * Are new schemas compiled in Ajv?
-  * Does `buildFullMetadata()` supply default values for newly required fields?
+* [ ] **Validation & Defaults Engine (`src/shared/validator.ts`)**:
+  * For new document classes: Are they registered in `schemaRegistry`, `defaultsRegistry`, and `classSchemas`?
+  * Does `defaultsRegistry` automatically apply defaults via Ajv `useDefaults: true` (no hardcoding needed in `buildFullMetadata()`)?
+  * Does `getImmutableFields(documentClass)` dynamically extract all fields tagged with `"x-immutable": true`?
 * [ ] **Command & Query Handlers (`src/command-api/*`, `src/query-api/*`)**:
-  * Are immutable fields protected against mutation in `metadata-update.ts`?
+  * Does `metadata-update.ts` enforce immutability dynamically via `getImmutableFields()`?
   * Do upload/version handlers handle new parameters?
 * [ ] **DynamoDB Key & OCC Invariants (`src/shared/dynamo.ts`)**:
   * Does the change impact Partition Keys (`pk`), Sort Keys (`sk`), or Optimistic Concurrency Control checks?
@@ -54,22 +58,22 @@ When examining the impact of a change, evaluate each of the 6 architectural laye
 ---
 
 ### Layer 3: Search Projection & Async Streams
-* [ ] **OpenSearch Serverless (`src/shared/opensearch.ts`)**:
-  * Are index mappings updated with new field types (keywords, numbers, dates, nested objects)?
-  * Are search query filters and sorting parameters updated?
+* [ ] **OpenSearch Serverless (`src/shared/opensearch.ts`, `src/shared/generated-os-mappings.json`)**:
+  * Was `npm run generate` run to rebuild `src/shared/generated-os-mappings.json` directly from schemas?
+  * Are search query filters and sorting parameters updated in `src/query-api/search-documents.ts`?
 * [ ] **Stream Workers & Indexers (`src/background-worker/indexer.ts`)**:
   * Does the worker correctly extract and transform the modified attributes?
 
 ---
 
 ### Layer 4: Client & Frontend User Interface
-* [ ] **HTML Forms & Templates (`frontend/index.html`)**:
-  * Are sample JSON snippets in upload/ingest forms updated?
+* [ ] **Frontend Presets (`frontend/generated-templates.js`, `frontend/dist/generated-templates.js`)**:
+  * Was `npm run generate` run to rebuild `window.METADATA_TEMPLATES` and `window.CLASS_SPECIFIC_TEMPLATES` directly from schema defaults?
+* [ ] **HTML Forms & Templates (`frontend/index.html`, `frontend/dist/index.html`)**:
+  * For new classes: Are `<option value="<class>">` elements added to class selectors?
   * Are new search input filters and table headers added?
 * [ ] **Client Logic (`frontend/app.js`)**:
-  * Are template dictionaries (`METADATA_TEMPLATES`) and serialization functions updated?
-* [ ] **Distribution Bundle (`frontend/dist/`)**:
-  * Are updated assets synchronized to the build directory?
+  * Does `app.js` consume `window.METADATA_TEMPLATES` and handle any new fields or actions?
 
 ---
 
@@ -79,7 +83,7 @@ When examining the impact of a change, evaluate each of the 6 architectural laye
 * [ ] **Synthetic Dataset Generator (`scripts/seed-demo-dataset.ts`)**:
   * Does the generator produce valid records conforming to the updated schema?
 * [ ] **Demo Data (`dist/demo_dataset.json`)**:
-  * Has the dataset been regenerated?
+  * Has the dataset been regenerated (`npm run seed`)?
 
 ---
 
@@ -107,9 +111,10 @@ When examining the impact of a change, evaluate each of the 6 architectural laye
    grep_search Query="<fieldName>" SearchPath="."
    ```
 2. **Schema & Contract Check**:
-   Review all files in `schemas/`, `openapi.yaml`, and `src/shared/validator.ts`.
-3. **Run Build & Test**:
+   Review all files in `schemas/`, `openapi.yaml`, and `src/shared/validator.ts`. Ensure `"default"` and `"x-immutable"` are set in schema.
+3. **Run Code Generation, Build & Test**:
    ```bash
+   # npm run build automatically runs 'npm run generate' to update mappings & templates before tsc
    npm run build && npm test
    ```
 4. **Produce Impact Summary**:

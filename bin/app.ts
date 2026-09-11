@@ -52,6 +52,7 @@ const computeStack = new ComputeStack(app, 'DocPlatformComputeStack', {
   auditBucket: storageStack.auditBucket,
   controlTable: controlPlaneStack.table,
   indexQueue: messagingStack.indexQueue,
+  streamDlq: messagingStack.streamDlq,
   enrichmentQueue: messagingStack.enrichmentQueue,
   userPool: securityStack.userPool,
   userPoolClient: securityStack.userPoolClient,

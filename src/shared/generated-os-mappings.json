@@ -1,0 +1,227 @@
+{
+  "mappings": {
+    "properties": {
+      "document_id": {
+        "type": "keyword"
+      },
+      "document_class": {
+        "type": "keyword"
+      },
+      "filename": {
+        "type": "keyword"
+      },
+      "status": {
+        "type": "keyword"
+      },
+      "application_version": {
+        "type": "integer"
+      },
+      "metadata_revision": {
+        "type": "integer"
+      },
+      "content_type": {
+        "type": "keyword"
+      },
+      "format": {
+        "type": "keyword"
+      },
+      "page_count": {
+        "type": "integer"
+      },
+      "content_length": {
+        "type": "long"
+      },
+      "created_at": {
+        "type": "date"
+      },
+      "updated_at": {
+        "type": "date"
+      },
+      "projection_timestamp": {
+        "type": "date"
+      },
+      "annotation_schema": {
+        "type": "keyword"
+      },
+      "schema_version": {
+        "type": "integer"
+      },
+      "content_checksum": {
+        "type": "keyword"
+      },
+      "created_by": {
+        "type": "keyword"
+      },
+      "metadata_updated_at": {
+        "type": "date",
+        "format": "yyyy-MM-dd||strict_date_optional_time||epoch_millis"
+      },
+      "metadata_updated_by": {
+        "type": "keyword"
+      },
+      "customer_id": {
+        "type": "long"
+      },
+      "complete_customer_id_code": {
+        "properties": {
+          "id_number": {
+            "type": "keyword"
+          },
+          "id_type": {
+            "type": "integer"
+          }
+        }
+      },
+      "account_id": {
+        "properties": {
+          "bank_id": {
+            "type": "integer"
+          },
+          "branch_id": {
+            "type": "integer"
+          },
+          "account_number": {
+            "type": "long"
+          }
+        }
+      },
+      "account_subscription_num": {
+        "type": "long"
+      },
+      "transaction_id": {
+        "type": "keyword"
+      },
+      "document_int": {
+        "type": "keyword"
+      },
+      "document_ext": {
+        "type": "keyword"
+      },
+      "a_content_type": {
+        "type": "keyword"
+      },
+      "document_form_id": {
+        "type": "keyword"
+      },
+      "legacy_document_entry_dttm": {
+        "type": "date",
+        "format": "yyyy-MM-dd||strict_date_optional_time||epoch_millis"
+      },
+      "r_creation_date": {
+        "type": "date",
+        "format": "yyyy-MM-dd||strict_date_optional_time||epoch_millis"
+      },
+      "r_modify_date": {
+        "type": "date",
+        "format": "yyyy-MM-dd||strict_date_optional_time||epoch_millis"
+      },
+      "business_area_code": {
+        "type": "integer"
+      },
+      "business_sub_area_code": {
+        "type": "integer"
+      },
+      "document_group_id": {
+        "type": "keyword"
+      },
+      "skip_enrichment": {
+        "type": "boolean"
+      },
+      "enrichment_audit": {
+        "properties": {
+          "model_id": {
+            "type": "keyword"
+          },
+          "prompt_tokens": {
+            "type": "integer"
+          },
+          "completion_tokens": {
+            "type": "integer"
+          },
+          "total_tokens": {
+            "type": "integer"
+          },
+          "latency_ms": {
+            "type": "integer"
+          },
+          "applied_at": {
+            "type": "date",
+            "format": "yyyy-MM-dd||strict_date_optional_time||epoch_millis"
+          }
+        }
+      },
+      "document_type": {
+        "type": "keyword"
+      },
+      "retention_schedule_code": {
+        "type": "keyword"
+      },
+      "retention_period_years": {
+        "type": "integer"
+      },
+      "regulatory_framework": {
+        "type": "keyword"
+      },
+      "retention_start_date": {
+        "type": "date",
+        "format": "yyyy-MM-dd||strict_date_optional_time||epoch_millis"
+      },
+      "retention_expiry_date": {
+        "type": "date",
+        "format": "yyyy-MM-dd||strict_date_optional_time||epoch_millis"
+      },
+      "legal_hold_active": {
+        "type": "boolean"
+      },
+      "legal_hold_case_id": {
+        "type": "keyword"
+      },
+      "disposal_action": {
+        "type": "keyword"
+      },
+      "compliance_officer_id": {
+        "type": "keyword"
+      },
+      "loan_number": {
+        "type": "keyword"
+      },
+      "loan_amount_minor_units": {
+        "type": "long"
+      },
+      "currency": {
+        "type": "keyword"
+      },
+      "loan_type": {
+        "type": "keyword"
+      },
+      "branch_code": {
+        "type": "keyword"
+      },
+      "signed_date": {
+        "type": "date",
+        "format": "yyyy-MM-dd||strict_date_optional_time||epoch_millis"
+      },
+      "confidentiality_tier": {
+        "type": "keyword"
+      },
+      "contains_pii": {
+        "type": "boolean"
+      },
+      "pii_categories": {
+        "type": "keyword"
+      },
+      "minimum_clearance_role": {
+        "type": "keyword"
+      },
+      "encryption_requirement": {
+        "type": "keyword"
+      },
+      "export_restricted": {
+        "type": "boolean"
+      },
+      "classification_owner": {
+        "type": "keyword"
+      }
+    }
+  }
+}

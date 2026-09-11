@@ -7,17 +7,63 @@ import securityClassificationSchema from '../../schemas/security_classification-
 import { ValidationError, ErrorDetail } from './errors';
 import { detectFileFormat } from './pdf-converter';
 
+// Strict validator (for validateMetadataSchema)
 const ajv = new Ajv({ allErrors: true, strict: false, coerceTypes: true });
 addFormats(ajv);
-
-// Register shared base schema so $ref: "https://bank.internal/schemas/shared-document-metadata-v1.json" compiles cleanly
 ajv.addSchema(sharedDocumentSchema);
+
+// Defaults applier (for buildFullMetadata)
+const ajvDefaults = new Ajv({ allErrors: true, strict: false, coerceTypes: true, useDefaults: true });
+addFormats(ajvDefaults);
+ajvDefaults.addSchema(sharedDocumentSchema);
 
 const schemaRegistry: Record<string, ValidateFunction> = {
   'loan_agreement:1': ajv.compile(loanAgreementSchema),
   'compliance_retention:1': ajv.compile(complianceRetentionSchema),
   'security_classification:1': ajv.compile(securityClassificationSchema),
 };
+
+const defaultsRegistry: Record<string, ValidateFunction> = {
+  'loan_agreement:1': ajvDefaults.compile(loanAgreementSchema),
+  'compliance_retention:1': ajvDefaults.compile(complianceRetentionSchema),
+  'security_classification:1': ajvDefaults.compile(securityClassificationSchema),
+};
+
+const classSchemas: Record<string, any> = {
+  loan_agreement: loanAgreementSchema,
+  compliance_retention: complianceRetentionSchema,
+  security_classification: securityClassificationSchema,
+};
+
+export function getImmutableFields(documentClass?: string): Set<string> {
+  const immutableSet = new Set<string>();
+
+  // Extract from shared schema
+  if (sharedDocumentSchema.properties) {
+    for (const [key, prop] of Object.entries(sharedDocumentSchema.properties as Record<string, any>)) {
+      if (prop['x-immutable'] === true) {
+        immutableSet.add(key);
+      }
+    }
+  }
+
+  // Extract from specific class schema if provided
+  if (documentClass && classSchemas[documentClass]) {
+    const classSchema = classSchemas[documentClass];
+    const schemasToCheck = [classSchema, ...(classSchema.allOf || [])];
+    for (const s of schemasToCheck) {
+      if (s.properties) {
+        for (const [key, prop] of Object.entries(s.properties as Record<string, any>)) {
+          if (prop['x-immutable'] === true) {
+            immutableSet.add(key);
+          }
+        }
+      }
+    }
+  }
+
+  return immutableSet;
+}
 
 export function validateMetadataSchema(metadata: Record<string, any>): void {
   const docClass = metadata.document_class || 'loan_agreement';
@@ -88,79 +134,27 @@ export function buildFullMetadata(params: {
     metadata_updated_by: params.userId,
   };
 
-  // Shared Banking / DCTM default traits & coercion
-  if (baseMetadata.customer_id !== undefined && typeof baseMetadata.customer_id === 'string') {
-    baseMetadata.customer_id = parseInt(baseMetadata.customer_id, 10);
-  }
-  if (baseMetadata.customer_id === undefined || isNaN(baseMetadata.customer_id)) baseMetadata.customer_id = 1094827;
-
+  // Safely parse stringified JSON if passed in client metadata
   if (typeof baseMetadata.complete_customer_id_code === 'string') {
     try { baseMetadata.complete_customer_id_code = JSON.parse(baseMetadata.complete_customer_id_code); } catch {}
   }
-  if (!baseMetadata.complete_customer_id_code || typeof baseMetadata.complete_customer_id_code !== 'object') {
-    baseMetadata.complete_customer_id_code = {
-      id_number: '123456789',
-      id_type: 1,
-    };
-  } else {
-    if (baseMetadata.complete_customer_id_code.id_type !== undefined) {
-      baseMetadata.complete_customer_id_code.id_type = parseInt(baseMetadata.complete_customer_id_code.id_type, 10) || 1;
-    }
-  }
-
   if (typeof baseMetadata.account_id === 'string') {
     try { baseMetadata.account_id = JSON.parse(baseMetadata.account_id); } catch {}
   }
-  if (!baseMetadata.account_id || typeof baseMetadata.account_id !== 'object') {
-    baseMetadata.account_id = {
-      bank_id: 10,
-      branch_id: 802,
-      account_number: 123456,
-    };
-  } else {
-    if (baseMetadata.account_id.bank_id !== undefined) baseMetadata.account_id.bank_id = parseInt(baseMetadata.account_id.bank_id, 10) || 10;
-    if (baseMetadata.account_id.branch_id !== undefined) baseMetadata.account_id.branch_id = parseInt(baseMetadata.account_id.branch_id, 10) || 802;
-    if (baseMetadata.account_id.account_number !== undefined) baseMetadata.account_id.account_number = parseInt(baseMetadata.account_id.account_number, 10) || 123456;
+
+  // Dynamic date defaults if not specified
+  if (docClass === 'loan_agreement' && !baseMetadata.signed_date) {
+    baseMetadata.signed_date = now.substring(0, 10);
+  }
+  if (docClass === 'compliance_retention' && !baseMetadata.retention_start_date) {
+    baseMetadata.retention_start_date = now.substring(0, 10);
   }
 
-  if (baseMetadata.business_area_code !== undefined) baseMetadata.business_area_code = parseInt(baseMetadata.business_area_code, 10) || 100;
-  else baseMetadata.business_area_code = 100;
-
-  if (baseMetadata.business_sub_area_code !== undefined) baseMetadata.business_sub_area_code = parseInt(baseMetadata.business_sub_area_code, 10) || 101;
-  else baseMetadata.business_sub_area_code = 101;
-
-  if (docClass === 'loan_agreement') {
-    if (!baseMetadata.document_type) baseMetadata.document_type = 'SIGNED_AGREEMENT';
-    if (!baseMetadata.loan_number) baseMetadata.loan_number = 'LN-2026-88821';
-    if (baseMetadata.loan_amount_minor_units !== undefined) baseMetadata.loan_amount_minor_units = parseInt(baseMetadata.loan_amount_minor_units, 10);
-    if (baseMetadata.loan_amount_minor_units === undefined || isNaN(baseMetadata.loan_amount_minor_units)) baseMetadata.loan_amount_minor_units = 100000000;
-    if (!baseMetadata.currency) baseMetadata.currency = 'ILS';
-    if (!baseMetadata.loan_type) baseMetadata.loan_type = 'MORTGAGE';
-    if (!baseMetadata.branch_code) baseMetadata.branch_code = 'TLV-01';
-    if (!baseMetadata.signed_date) baseMetadata.signed_date = now.substring(0, 10);
-  } else if (docClass === 'compliance_retention') {
-    if (!baseMetadata.document_type) baseMetadata.document_type = 'FINANCIAL_LEDGER';
-    if (!baseMetadata.retention_schedule_code) baseMetadata.retention_schedule_code = 'RET-FIN-001';
-    if (baseMetadata.retention_period_years !== undefined) baseMetadata.retention_period_years = parseInt(baseMetadata.retention_period_years, 10);
-    if (baseMetadata.retention_period_years === undefined || isNaN(baseMetadata.retention_period_years)) baseMetadata.retention_period_years = 7;
-    if (!baseMetadata.regulatory_framework) baseMetadata.regulatory_framework = 'SOX';
-    if (!baseMetadata.retention_start_date) baseMetadata.retention_start_date = now.substring(0, 10);
-    if (!baseMetadata.retention_expiry_date) baseMetadata.retention_expiry_date = '2033-12-31';
-    if (baseMetadata.legal_hold_active !== undefined) baseMetadata.legal_hold_active = String(baseMetadata.legal_hold_active).toLowerCase() === 'true';
-    else baseMetadata.legal_hold_active = false;
-    if (!baseMetadata.disposal_action) baseMetadata.disposal_action = 'PERMANENT_DELETE';
-    if (!baseMetadata.compliance_officer_id) baseMetadata.compliance_officer_id = 'COMP-OFFICER-01';
-  } else if (docClass === 'security_classification') {
-    if (!baseMetadata.document_type) baseMetadata.document_type = 'BOARD_RESOLUTION';
-    if (!baseMetadata.confidentiality_tier) baseMetadata.confidentiality_tier = 'RESTRICTED';
-    if (baseMetadata.contains_pii !== undefined) baseMetadata.contains_pii = String(baseMetadata.contains_pii).toLowerCase() === 'true';
-    else baseMetadata.contains_pii = false;
-    if (!baseMetadata.pii_categories || !Array.isArray(baseMetadata.pii_categories)) baseMetadata.pii_categories = ['NONE'];
-    if (!baseMetadata.minimum_clearance_role) baseMetadata.minimum_clearance_role = 'Document.Reader';
-    if (!baseMetadata.encryption_requirement) baseMetadata.encryption_requirement = 'SSE_KMS_DEFAULT';
-    if (baseMetadata.export_restricted !== undefined) baseMetadata.export_restricted = String(baseMetadata.export_restricted).toLowerCase() === 'true';
-    else baseMetadata.export_restricted = false;
-    if (!baseMetadata.classification_owner) baseMetadata.classification_owner = 'SEC-OPS-01';
+  // Automatically apply schema defaults via Ajv
+  const key = `${docClass}:${schemaVer}`;
+  const defaultApplier = defaultsRegistry[key];
+  if (defaultApplier) {
+    defaultApplier(baseMetadata);
   }
 
   return baseMetadata;

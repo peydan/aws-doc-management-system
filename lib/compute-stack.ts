@@ -15,6 +15,7 @@ export interface ComputeStackProps extends cdk.StackProps {
   auditBucket: s3.IBucket;
   controlTable: dynamodb.ITable;
   indexQueue: sqs.IQueue;
+  streamDlq?: sqs.IQueue;
   enrichmentQueue?: sqs.IQueue;
   userPool: cognito.IUserPool;
   userPoolClient: cognito.IUserPoolClient;
@@ -150,19 +151,23 @@ export class ComputeStack extends cdk.Stack {
 
     props.auditBucket.grantWrite(this.backgroundWorkerFunction);
     props.indexQueue.grantSendMessages(this.backgroundWorkerFunction);
+    if (props.streamDlq) {
+      props.streamDlq.grantSendMessages(this.backgroundWorkerFunction);
+    }
     if (props.enrichmentQueue) {
       props.enrichmentQueue.grantSendMessages(this.backgroundWorkerFunction);
     }
     this.backgroundWorkerFunction.addToRolePolicy(denyDeleteVersionPolicy);
 
     if (props.controlTable.tableStreamArn) {
+      const streamFailureQueue = props.streamDlq || props.indexQueue;
       this.backgroundWorkerFunction.addEventSource(
         new lambdaEventSources.DynamoEventSource(props.controlTable as dynamodb.Table, {
           startingPosition: lambda.StartingPosition.LATEST,
           batchSize: 10,
           retryAttempts: 3,
           bisectBatchOnError: true,
-          onFailure: new lambdaEventSources.SqsDlq(props.indexQueue),
+          onFailure: new lambdaEventSources.SqsDlq(streamFailureQueue),
         })
       );
     }

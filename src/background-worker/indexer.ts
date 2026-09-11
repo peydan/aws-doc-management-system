@@ -24,9 +24,25 @@ export async function handler(event: SQSEvent): Promise<SQSBatchResponse> {
 
     // Read current DynamoDB pointer to prevent out-of-order index overwrites
     try {
-      const currentDoc = await DynamoManager.getDocument(document_id);
+      if (status === 'SOFT_DELETED') {
+        await OpenSearchManager.removeDocumentProjection(document_id);
+        console.log(`OpenSearch index removed for soft-deleted document ${document_id}`);
+        continue;
+      }
 
-      if (status === 'SOFT_DELETED' || currentDoc.status === 'SOFT_DELETED') {
+      let currentDoc;
+      try {
+        currentDoc = await DynamoManager.getDocument(document_id);
+      } catch (err: any) {
+        if (err.name === 'NotFoundError' || err.code === 'NOT_FOUND' || err.statusCode === 404) {
+          await OpenSearchManager.removeDocumentProjection(document_id);
+          console.log(`OpenSearch index removed for non-existent document ${document_id}`);
+          continue;
+        }
+        throw err;
+      }
+
+      if (currentDoc.status === 'SOFT_DELETED') {
         await OpenSearchManager.removeDocumentProjection(document_id);
         console.log(`OpenSearch index removed for soft-deleted document ${document_id}`);
         continue;

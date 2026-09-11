@@ -27,8 +27,8 @@ export async function handler(event: DynamoDBStreamEvent): Promise<void> {
     if (pk.startsWith('DOC#') && sk === 'DOC') {
       const documentId = newImage?.document_id || oldImage?.document_id;
       const documentClass = newImage?.document_class || oldImage?.document_class;
-      const s3VersionId = newImage?.current_s3_version_id;
-      const metadataRevision = newImage?.current_metadata_revision;
+      const s3VersionId = newImage?.current_s3_version_id || oldImage?.current_s3_version_id;
+      const metadataRevision = newImage?.current_metadata_revision || oldImage?.current_metadata_revision;
       const status = newImage?.status || (record.eventName === 'REMOVE' ? 'SOFT_DELETED' : (oldImage?.status || 'ACTIVE'));
 
       // 1. Audit event log entry to S3 audit bucket

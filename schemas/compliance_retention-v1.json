@@ -40,16 +40,19 @@
             "COMMUNICATION_LOG",
             "TAX_RECORD",
             "AUDIT_TRAIL"
-          ]
+          ],
+          "default": "FINANCIAL_LEDGER"
         },
         "retention_schedule_code": {
           "type": "string",
-          "pattern": "^RET-[A-Za-z0-9_-]+$"
+          "pattern": "^RET-[A-Za-z0-9_-]+$",
+          "default": "RET-FIN-001"
         },
         "retention_period_years": {
           "type": "integer",
           "minimum": 1,
-          "maximum": 100
+          "maximum": 100,
+          "default": 7
         },
         "regulatory_framework": {
           "type": "string",
@@ -61,16 +64,20 @@
             "LOCAL_BANKING_DIRECTIVE",
             "HIPAA",
             "LOCAL_BANKING_REG"
-          ]
+          ],
+          "default": "SOX"
         },
         "retention_start_date": {
-          "type": "string"
+          "type": "string",
+          "default": "2026-08-31"
         },
         "retention_expiry_date": {
-          "type": "string"
+          "type": "string",
+          "default": "2033-12-31"
         },
         "legal_hold_active": {
-          "type": "boolean"
+          "type": "boolean",
+          "default": false
         },
         "legal_hold_case_id": {
           "type": "string"
@@ -83,11 +90,13 @@
             "ARCHIVE_GLACIER",
             "MANUAL_DISPOSAL_REVIEW",
             "REVIEW_REQUIRED"
-          ]
+          ],
+          "default": "PERMANENT_DELETE"
         },
         "compliance_officer_id": {
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "default": "COMP-OFFICER-01"
         }
       }
     }

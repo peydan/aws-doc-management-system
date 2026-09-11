@@ -10,6 +10,7 @@ export interface MessagingStackProps extends cdk.StackProps {
 export class MessagingStack extends cdk.Stack {
   public readonly indexDlq: sqs.Queue;
   public readonly indexQueue: sqs.Queue;
+  public readonly streamDlq: sqs.Queue;
   public readonly enrichmentDlq: sqs.Queue;
   public readonly enrichmentQueue: sqs.Queue;
 
@@ -18,6 +19,13 @@ export class MessagingStack extends cdk.Stack {
 
     this.indexDlq = new sqs.Queue(this, 'IndexDLQ', {
       queueName: 'doc-platform-mvp-index-dlq',
+      retentionPeriod: cdk.Duration.days(14),
+      encryption: sqs.QueueEncryption.KMS,
+      encryptionMasterKey: props.kmsKey,
+    });
+
+    this.streamDlq = new sqs.Queue(this, 'StreamDLQ', {
+      queueName: 'doc-platform-mvp-stream-dlq',
       retentionPeriod: cdk.Duration.days(14),
       encryption: sqs.QueueEncryption.KMS,
       encryptionMasterKey: props.kmsKey,

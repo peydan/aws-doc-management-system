@@ -271,15 +271,10 @@ describe('LLM Metadata Enricher Unit Tests', () => {
         })
       );
 
-      // Verify DynamoDB OCC update (DynamoDB claimed first, then annotation eTag updated post-S3 write)
+      // Verify DynamoDB OCC update (authoritative S3 annotation written first, real eTag committed directly)
       expect(DynamoManager.updateMetadataRevision).toHaveBeenCalledWith(
         '11111111-2222-3333-4444-555555555555',
         1,
-        2,
-        'pending'
-      );
-      expect(DynamoManager.updateAnnotationEtag).toHaveBeenCalledWith(
-        '11111111-2222-3333-4444-555555555555',
         2,
         'anno-etag-2'
       );

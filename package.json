@@ -6,7 +6,8 @@
     "doc-platform": "bin/app.js"
   },
   "scripts": {
-    "build": "tsc",
+    "generate": "ts-node scripts/generate-artifacts.ts",
+    "build": "npm run generate && tsc",
     "watch": "tsc -w",
     "test": "jest",
     "cdk": "cdk",

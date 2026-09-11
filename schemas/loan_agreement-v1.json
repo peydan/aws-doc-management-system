@@ -21,14 +21,15 @@
         "schema_version": { "type": "integer", "const": 1 },
         "document_type": {
           "type": "string",
-          "enum": ["SIGNED_AGREEMENT", "APPLICATION", "DISCLOSURE", "PROMISSORY_NOTE"]
+          "enum": ["SIGNED_AGREEMENT", "APPLICATION", "DISCLOSURE", "PROMISSORY_NOTE"],
+          "default": "SIGNED_AGREEMENT"
         },
-        "loan_number": { "type": "string", "minLength": 1 },
-        "loan_amount_minor_units": { "type": "integer", "minimum": 0 },
-        "currency": { "type": "string", "minLength": 3, "maxLength": 3 },
-        "loan_type": { "type": "string", "enum": ["MORTGAGE", "PERSONAL", "COMMERCIAL", "AUTO"] },
-        "branch_code": { "type": "string", "minLength": 1 },
-        "signed_date": { "type": "string" }
+        "loan_number": { "type": "string", "minLength": 1, "default": "LN-2026-88821" },
+        "loan_amount_minor_units": { "type": "integer", "minimum": 0, "default": 100000000 },
+        "currency": { "type": "string", "minLength": 3, "maxLength": 3, "default": "ILS" },
+        "loan_type": { "type": "string", "enum": ["MORTGAGE", "PERSONAL", "COMMERCIAL", "AUTO"], "default": "MORTGAGE" },
+        "branch_code": { "type": "string", "minLength": 1, "default": "TLV-01" },
+        "signed_date": { "type": "string", "default": "2026-08-31" }
       }
     }
   ]

@@ -160,7 +160,7 @@ Enforced via Cognito User Pools and JWT Role claims:
 
 1. **Never bypass DynamoDB OCC**: When updating metadata, always write conditional checks: `ConditionExpression: "current_metadata_revision = :expected_revision"`.
 2. **Never treat DynamoDB as metadata authority**: DynamoDB stores control pointers and revision counters. The full JSON metadata must always be written to the versioned S3 Object Annotation.
-3. **Always validate with Ajv**: All metadata mutation endpoints must validate against precompiled Ajv schemas in `src/shared/validator.ts`.
+3. **Always validate with Ajv & Schema-Driven Defaults**: All metadata mutation endpoints must validate against precompiled Ajv schemas in `src/shared/validator.ts`. Schemas (`schemas/*.json`) serve as the Single Source of Truth: static defaults are declared via `"default"` (applied via `defaultsRegistry` with `useDefaults: true`), and immutable fields are governed via `"x-immutable": true` (enforced via `getImmutableFields()`). Frontend templates and OpenSearch mappings must be generated from schemas using `npm run generate`.
 4. **Maintain OpenSearch as projection**: When updating document properties, ensure the DynamoDB Stream event structure propagates to `src/background-worker/indexer.ts` and updates OpenSearch index mappings.
 5. **No floating-point money**: Always store currency in minor units (`loan_amount_minor_units` as integer).
 6. **Preserve Authority Boundaries for Derivatives**: Format conversions (e.g., JPEG/PNG/DOCX to PDF) are transient read projections stored under `derivatives/` with S3 user metadata tags (`x-amz-meta-*`). Never create new DynamoDB version records for derived formats.

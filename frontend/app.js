@@ -763,69 +763,9 @@ async function calculateSHA256(arrayBuffer) {
   return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
-const SHARED_BASE_TEMPLATE = {
-  customer_id: 1094827,
-  complete_customer_id_code: {
-    id_number: '123456789',
-    id_type: 1,
-  },
-  account_id: {
-    bank_id: 10,
-    branch_id: 802,
-    account_number: 123456,
-  },
-  business_area_code: 100,
-  business_sub_area_code: 101,
-  document_group_id: 'GRP-FIN-001',
-};
-
-const CLASS_SPECIFIC_TEMPLATES = {
-  loan_agreement: {
-    document_type: 'SIGNED_AGREEMENT',
-    loan_number: 'LN-2026-88821',
-    loan_amount_minor_units: 150000000,
-    currency: 'ILS',
-    loan_type: 'MORTGAGE',
-    branch_code: 'TLV-01',
-    signed_date: '2026-08-31',
-  },
-  compliance_retention: {
-    document_type: 'FINANCIAL_LEDGER',
-    retention_schedule_code: 'RET-FIN-001',
-    retention_period_years: 7,
-    regulatory_framework: 'SOX',
-    retention_start_date: '2026-08-31',
-    retention_expiry_date: '2033-12-31',
-    legal_hold_active: false,
-    disposal_action: 'PERMANENT_DELETE',
-    compliance_officer_id: 'COMP-OFFICER-01',
-  },
-  security_classification: {
-    document_type: 'BOARD_RESOLUTION',
-    confidentiality_tier: 'RESTRICTED',
-    contains_pii: false,
-    pii_categories: ['NONE'],
-    minimum_clearance_role: 'Document.Reader',
-    encryption_requirement: 'SSE_KMS_DEFAULT',
-    export_restricted: false,
-    classification_owner: 'SEC-OPS-01',
-  },
-};
-
-const METADATA_TEMPLATES = {
-  loan_agreement: {
-    ...SHARED_BASE_TEMPLATE,
-    ...CLASS_SPECIFIC_TEMPLATES.loan_agreement,
-  },
-  compliance_retention: {
-    ...SHARED_BASE_TEMPLATE,
-    ...CLASS_SPECIFIC_TEMPLATES.compliance_retention,
-  },
-  security_classification: {
-    ...SHARED_BASE_TEMPLATE,
-    ...CLASS_SPECIFIC_TEMPLATES.security_classification,
-  },
-};
+const SHARED_BASE_TEMPLATE = window.SHARED_BASE_TEMPLATE || {};
+const CLASS_SPECIFIC_TEMPLATES = window.CLASS_SPECIFIC_TEMPLATES || {};
+const METADATA_TEMPLATES = window.METADATA_TEMPLATES || {};
 
 function parseJsonRelaxed(str) {
   if (!str || typeof str !== 'string' || !str.trim()) return {};

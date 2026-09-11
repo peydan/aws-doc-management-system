@@ -1,4 +1,4 @@
-import { validateMetadataSchema, buildFullMetadata } from '../../src/shared/validator';
+import { validateMetadataSchema, buildFullMetadata, getImmutableFields } from '../../src/shared/validator';
 import { ValidationError } from '../../src/shared/errors';
 
 describe('Metadata Validator Unit Tests', () => {
@@ -228,5 +228,21 @@ describe('Metadata Validator Unit Tests', () => {
   it('should throw ValidationError for unsupported document_class', () => {
     const invalid = { ...validLoanMetadata, document_class: 'unknown_class' };
     expect(() => validateMetadataSchema(invalid)).toThrow(ValidationError);
+  });
+
+  describe('getImmutableFields Schema-Driven Tests', () => {
+    it('should dynamically extract immutable fields from schemas', () => {
+      const immutable = getImmutableFields('loan_agreement');
+      expect(immutable.has('document_id')).toBe(true);
+      expect(immutable.has('document_class')).toBe(true);
+      expect(immutable.has('application_version')).toBe(true);
+      expect(immutable.has('schema_version')).toBe(true);
+      expect(immutable.has('annotation_schema')).toBe(true);
+      expect(immutable.has('content_checksum')).toBe(true);
+      expect(immutable.has('created_at')).toBe(true);
+      expect(immutable.has('created_by')).toBe(true);
+      expect(immutable.has('customer_id')).toBe(false);
+      expect(immutable.has('loan_amount_minor_units')).toBe(false);
+    });
   });
 });

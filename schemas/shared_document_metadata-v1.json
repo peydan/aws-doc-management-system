@@ -24,56 +24,70 @@
   ],
   "properties": {
     "annotation_schema": {
-      "type": "string"
+      "type": "string",
+      "x-immutable": true
     },
     "document_id": {
       "type": "string",
-      "format": "uuid"
+      "format": "uuid",
+      "x-immutable": true
     },
     "document_class": {
-      "type": "string"
+      "type": "string",
+      "x-immutable": true
     },
     "application_version": {
       "type": "integer",
-      "minimum": 1
+      "minimum": 1,
+      "x-immutable": true
     },
     "metadata_revision": {
       "type": "integer",
-      "minimum": 1
+      "minimum": 1,
+      "x-immutable": true
     },
     "schema_version": {
       "type": "integer",
-      "minimum": 1
+      "minimum": 1,
+      "x-immutable": true
     },
     "content_type": {
       "type": "string",
-      "minLength": 1
+      "minLength": 1,
+      "x-immutable": true
     },
     "format": {
       "type": "string",
-      "description": "Canonical file format discriminator (e.g. pdf, jpeg, png, docx, tiff)"
+      "description": "Canonical file format discriminator (e.g. pdf, jpeg, png, docx, tiff)",
+      "x-immutable": true
     },
     "page_count": {
       "type": "integer",
       "minimum": 1,
-      "description": "Total number of pages (applicable when format is pdf)"
+      "description": "Total number of pages (applicable when format is pdf)",
+      "x-immutable": true
     },
     "content_length": {
       "type": "integer",
-      "minimum": 1
+      "minimum": 1,
+      "x-immutable": true
     },
     "content_checksum": {
-      "type": "string"
+      "type": "string",
+      "x-immutable": true
     },
     "filename": {
       "type": "string",
-      "minLength": 1
+      "minLength": 1,
+      "x-immutable": true
     },
     "created_at": {
-      "type": "string"
+      "type": "string",
+      "x-immutable": true
     },
     "created_by": {
-      "type": "string"
+      "type": "string",
+      "x-immutable": true
     },
     "metadata_updated_at": {
       "type": "string"
@@ -84,22 +98,29 @@
     "customer_id": {
       "type": "integer",
       "minimum": 0,
+      "default": 1094827,
       "description": "CUSTOMER_ID NUMBER(10)"
     },
     "complete_customer_id_code": {
       "type": "object",
       "description": "COMPLEATE_CUSTOMER_ID_CODE Compound Key",
       "required": ["id_number", "id_type"],
+      "default": {
+        "id_number": "123456789",
+        "id_type": 1
+      },
       "properties": {
         "id_number": {
           "type": "string",
           "minLength": 1,
           "maxLength": 16,
+          "default": "123456789",
           "description": "ID_Number VARCHAR2(16)"
         },
         "id_type": {
           "type": "integer",
           "minimum": 0,
+          "default": 1,
           "description": "ID_Type NUMBER(10)"
         }
       },
@@ -109,20 +130,28 @@
       "type": "object",
       "description": "ACCOUNT_ID Compound Key",
       "required": ["bank_id", "branch_id", "account_number"],
+      "default": {
+        "bank_id": 10,
+        "branch_id": 802,
+        "account_number": 123456
+      },
       "properties": {
         "bank_id": {
           "type": "integer",
           "minimum": 0,
+          "default": 10,
           "description": "ACCOUNT_BANK_ID NUMBER(10)"
         },
         "branch_id": {
           "type": "integer",
           "minimum": 0,
+          "default": 802,
           "description": "BRANCH_ID NUMBER(10)"
         },
         "account_number": {
           "type": "integer",
           "minimum": 0,
+          "default": 123456,
           "description": "ACCOUNT_NBR NUMBER(10)"
         }
       },
@@ -173,16 +202,19 @@
     "business_area_code": {
       "type": "integer",
       "minimum": 0,
+      "default": 100,
       "description": "BUSINESS_AREA_CODE NUMBER(10)"
     },
     "business_sub_area_code": {
       "type": "integer",
       "minimum": 0,
+      "default": 101,
       "description": "BUSINESS_SUB_AREA_CODE NUMBER(10)"
     },
     "document_group_id": {
       "type": "string",
       "maxLength": 40,
+      "default": "GRP-FIN-001",
       "description": "DOCUMENT_GROUP_ID VARCHAR2(40)"
     },
     "skip_enrichment": {
