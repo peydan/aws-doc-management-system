@@ -1,7 +1,7 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { authenticateRequest, authorizeRoles } from '../shared/auth';
 import { DynamoManager } from '../shared/dynamo';
-import { PlatformError, ValidationError } from '../shared/errors';
+import { PlatformError, ValidationError, NotFoundError } from '../shared/errors';
 import { CORS_HEADERS } from '../shared/headers';
 
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
@@ -13,6 +13,11 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const documentId = event.pathParameters?.document_id;
     if (!documentId) {
       throw new ValidationError('document_id is required');
+    }
+
+    const doc = await DynamoManager.getDocument(documentId);
+    if (doc.status === 'SOFT_DELETED') {
+      throw new NotFoundError(`Document ${documentId} not found`);
     }
 
     const versions = await DynamoManager.listVersions(documentId);

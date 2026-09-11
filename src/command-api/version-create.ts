@@ -2,14 +2,12 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import * as crypto from 'crypto';
 import { authenticateRequest, authorizeRoles } from '../shared/auth';
 import { S3Manager } from '../shared/s3';
-import { DynamoManager, dynamoDocClient, VersionItem } from '../shared/dynamo';
-import { UpdateCommand, TransactWriteCommand } from '@aws-sdk/lib-dynamodb';
+import { DynamoManager } from '../shared/dynamo';
+import { validateMetadataSchema } from '../shared/validator';
 import { Logger } from '../shared/logger';
 import { PlatformError, ValidationError } from '../shared/errors';
 import { CORS_HEADERS } from '../shared/headers';
 import { detectFileFormat, getPdfPageCount } from '../shared/pdf-converter';
-
-const TABLE_NAME = process.env.DYNAMODB_TABLE_NAME || 'doc-platform-mvp-control';
 
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   const correlationId = event.requestContext.requestId;
@@ -23,6 +21,10 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     const currentDoc = await DynamoManager.getDocument(documentId);
+    if (currentDoc.status === 'SOFT_DELETED') {
+      throw new ValidationError(`Cannot create version for soft-deleted document ${documentId}`);
+    }
+
     const existingAnno = await S3Manager.getAnnotation(
       currentDoc.document_class,
       documentId,
@@ -68,6 +70,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       delete newMetadata.page_count;
     }
 
+    validateMetadataSchema(newMetadata);
+
     const annotationResult = await S3Manager.putAnnotation(
       currentDoc.document_class,
       documentId,
@@ -75,59 +79,15 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       newMetadata
     );
 
-    const docPk = `DOC#${documentId}`;
-    const verItem: VersionItem = {
-      pk: docPk,
-      sk: `VER#${DynamoManager.padVersion(nextAppVersion)}`,
-      application_version: nextAppVersion,
-      s3_key: s3Key,
-      s3_version_id: contentResult.versionId,
-      metadata_revision: 1,
-      annotation_etag: annotationResult.eTag,
-      content_checksum: `sha256:${calculatedSha256}`,
-      state: 'ACTIVE',
-    };
-
-    if (process.env.MOCK_STORAGE_BYPASS === 'true') {
-      await DynamoManager.commitDocumentCreation({
-        documentId,
-        documentClass: currentDoc.document_class,
-        s3Key,
-        s3VersionId: contentResult.versionId,
-        annotationEtag: annotationResult.eTag,
-        checksum: `sha256:${calculatedSha256}`,
-      });
-    } else {
-      await dynamoDocClient.send(
-        new TransactWriteCommand({
-          TransactItems: [
-            {
-              Update: {
-                TableName: TABLE_NAME,
-                Key: { pk: docPk, sk: 'DOC' },
-                UpdateExpression:
-                  'SET current_application_version = :nextVer, current_s3_version_id = :s3Ver, current_metadata_revision = :metRev, current_annotation_etag = :etag, updated_at = :now',
-                ConditionExpression: 'current_application_version = :currVer',
-                ExpressionAttributeValues: {
-                  ':nextVer': nextAppVersion,
-                  ':s3Ver': contentResult.versionId,
-                  ':metRev': 1,
-                  ':etag': annotationResult.eTag,
-                  ':now': now,
-                  ':currVer': currentDoc.current_application_version,
-                },
-              },
-            },
-            {
-              Put: {
-                TableName: TABLE_NAME,
-                Item: verItem,
-              },
-            },
-          ],
-        })
-      );
-    }
+    await DynamoManager.commitNewVersion({
+      documentId,
+      nextAppVersion,
+      expectedAppVersion: currentDoc.current_application_version,
+      s3Key,
+      s3VersionId: contentResult.versionId,
+      annotationEtag: annotationResult.eTag,
+      checksum: `sha256:${calculatedSha256}`,
+    });
 
     Logger.info('New content version created', { documentId, version: nextAppVersion, correlationId });
 

@@ -4,6 +4,7 @@
 const state = {
   config: {
     apiUrl: '',
+    agentStreamingUrl: '',
     userPoolId: '',
     userPoolClientId: '',
     region: 'us-east-1',
@@ -16,6 +17,14 @@ const state = {
   activeDocument: null,
   currency: 'USD',
   auditLogs: [],
+  auditSubTab: 'llm',
+  ai: {
+    sessionId: '',
+    messages: [],
+    isStreaming: false,
+    abortController: null,
+    streamingUrl: localStorage.getItem('doc_platform_agent_streaming_url') || '',
+  },
 };
 
 // ==========================================
@@ -42,15 +51,29 @@ async function initApp() {
   const regionSpan = document.getElementById('health-card-region');
   if (regionSpan) regionSpan.innerText = state.config.region;
 
+  // Initialize AI Conversational Assistant
+  initAiAssistant();
+
   // Check and restore active auth session
   if (state.auth.token) {
-    parseAndSetToken(state.auth.token);
+    const valid = parseAndSetToken(state.auth.token);
+    if (!valid && localStorage.getItem('doc_platform_refresh_token')) {
+      refreshCognitoToken().then((newToken) => {
+        if (!newToken) {
+          signOut();
+        }
+      });
+    }
   } else {
     showLoginView();
   }
 
   // Run cost calculator & health
   updateCalculator();
+
+  // Initialize upload AI enrichment advisors
+  updateEnrichmentAdvisor('direct');
+  updateEnrichmentAdvisor('inline');
 }
 
 function setupTabs() {
@@ -129,7 +152,67 @@ async function authenticateCognito(username, password) {
 
   const token = data.AuthenticationResult?.IdToken || data.AuthenticationResult?.AccessToken;
   if (!token) throw new Error('No authentication token received');
+
+  if (data.AuthenticationResult?.RefreshToken) {
+    localStorage.setItem('doc_platform_refresh_token', data.AuthenticationResult.RefreshToken);
+  }
   return token;
+}
+
+async function refreshCognitoToken() {
+  const refreshToken = localStorage.getItem('doc_platform_refresh_token');
+  if (!refreshToken || !state.config.userPoolClientId) return null;
+
+  try {
+    const endpoint = `https://cognito-idp.${state.config.region}.amazonaws.com/`;
+    const payload = {
+      AuthFlow: 'REFRESH_TOKEN_AUTH',
+      ClientId: state.config.userPoolClientId,
+      AuthParameters: {
+        REFRESH_TOKEN: refreshToken,
+      },
+    };
+
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-amz-json-1.1',
+        'X-Amz-Target': 'AWSCognitoIdentityProviderService.InitiateAuth',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const data = await res.json();
+    if (res.ok && data.AuthenticationResult) {
+      const newToken = data.AuthenticationResult.IdToken || data.AuthenticationResult.AccessToken;
+      if (newToken) {
+        console.log('Cognito token refreshed silently via REFRESH_TOKEN_AUTH');
+        parseAndSetToken(newToken);
+        return newToken;
+      }
+    } else {
+      console.warn('Silent refresh rejected by Cognito:', data);
+    }
+  } catch (err) {
+    console.warn('Silent token refresh network error:', err);
+  }
+  return null;
+}
+
+async function ensureValidToken() {
+  if (!state.auth.token) return null;
+
+  if (state.auth.claims && state.auth.claims.exp) {
+    const expiresAtMs = state.auth.claims.exp * 1000;
+    const nowMs = Date.now();
+    // Refresh proactively if expired or expiring within 2 minutes (120 seconds)
+    if (expiresAtMs - nowMs < 120000) {
+      console.log('Token expiring soon or expired, refreshing silently...');
+      const refreshed = await refreshCognitoToken();
+      if (refreshed) return refreshed;
+    }
+  }
+  return state.auth.token;
 }
 
 async function loginUser(username, password) {
@@ -181,8 +264,7 @@ function parseAndSetToken(token) {
       // Check expiration
       if (claims.exp && claims.exp * 1000 < Date.now()) {
         console.warn('Stored JWT token has expired');
-        signOut();
-        return;
+        return false;
       }
 
       state.auth.token = token;
@@ -191,13 +273,14 @@ function parseAndSetToken(token) {
 
       updateAuthUI();
       showAppView();
-      return;
+      return true;
     }
   } catch (e) {
     console.error('Failed to parse JWT payload', e);
   }
 
   signOut();
+  return false;
 }
 
 function updateAuthUI() {
@@ -236,6 +319,7 @@ function signOut() {
   state.auth.token = '';
   state.auth.claims = null;
   localStorage.removeItem('doc_platform_token');
+  localStorage.removeItem('doc_platform_refresh_token');
   showLoginView();
   showToast('Signed out of session. Access locked.', 'info');
 }
@@ -252,7 +336,9 @@ function copyToken() {
 // ==========================================
 // 3. API CLIENT HELPER & AUDIT LOGGING
 // ==========================================
-async function apiCall(method, path, body = null, customHeaders = {}) {
+async function apiCall(method, path, body = null, customHeaders = {}, isRetry = false) {
+  await ensureValidToken();
+
   const url = `${state.config.apiUrl.replace(/\/$/, '')}/${path.replace(/^\//, '')}`;
   const headers = {
     ...customHeaders,
@@ -297,9 +383,19 @@ async function apiCall(method, path, body = null, customHeaders = {}) {
     logApiCall(method, url, headers, body, status, responseData, duration);
 
     if (!res.ok) {
-      if (status === 401 || status === 403) {
+      const isExpired = status === 401 || (typeof responseData === 'object' && responseData?.message && responseData.message.includes('expired'));
+      if (isExpired && !isRetry) {
+        console.warn('API returned token expired, attempting silent refresh & retry...');
+        const refreshed = await refreshCognitoToken();
+        if (refreshed) {
+          return apiCall(method, path, body, customHeaders, true);
+        }
+        showToast('Session expired. Please sign in again.', 'danger');
+        signOut();
+      } else if (status === 401 || status === 403) {
         showToast('Session expired or unauthorized. Please re-authenticate.', 'danger');
       }
+
       const err = new Error(responseData?.error?.message || responseData?.message || `HTTP ${status}`);
       err.status = status;
       err.response = responseData;
@@ -384,6 +480,233 @@ function clearAuditLog() {
   state.auditLogs = [];
   renderAuditLogs();
   showToast('Audit log cleared', 'info');
+}
+
+function setAuditSubTab(subTab) {
+  state.auditSubTab = subTab;
+  const btnLlm = document.getElementById('btn-subtab-llm');
+  const btnLifecycle = document.getElementById('btn-subtab-lifecycle');
+  const btnBoth = document.getElementById('btn-subtab-both');
+  const panelLlm = document.getElementById('audit-panel-llm');
+  const panelLifecycle = document.getElementById('audit-panel-lifecycle');
+  const container = document.getElementById('audit-panels-container');
+
+  if (btnLlm) btnLlm.classList.toggle('active', subTab === 'llm');
+  if (btnLifecycle) btnLifecycle.classList.toggle('active', subTab === 'lifecycle');
+  if (btnBoth) btnBoth.classList.toggle('active', subTab === 'both');
+
+  if (subTab === 'llm') {
+    if (panelLlm) panelLlm.style.display = 'block';
+    if (panelLifecycle) panelLifecycle.style.display = 'none';
+    if (container) container.className = '';
+  } else if (subTab === 'lifecycle') {
+    if (panelLlm) panelLlm.style.display = 'none';
+    if (panelLifecycle) panelLifecycle.style.display = 'block';
+    if (container) container.className = '';
+  } else if (subTab === 'both') {
+    if (panelLlm) panelLlm.style.display = 'block';
+    if (panelLifecycle) panelLifecycle.style.display = 'block';
+    if (container) container.className = 'audit-split-view';
+  }
+}
+
+async function fetchDocumentAudit(docId) {
+  if (!docId) return;
+  const auditDocIdInput = document.getElementById('audit-doc-id');
+  if (auditDocIdInput) auditDocIdInput.value = docId;
+
+  const emptyState = document.getElementById('audit-llm-empty-state');
+  const contentContainer = document.getElementById('audit-llm-content-container');
+  const badgesContainer = document.getElementById('audit-doc-badges');
+
+  try {
+    const data = await apiCall('GET', `/documents/${encodeURIComponent(docId)}/audit`);
+    if (!data) return;
+
+    // 1. Update Context Badges
+    if (badgesContainer) badgesContainer.style.display = 'flex';
+    const statusEl = document.getElementById('audit-doc-status');
+    if (statusEl) {
+      statusEl.className = data.status === 'ACTIVE' ? 'badge badge-success' : 'badge badge-danger';
+      statusEl.innerText = data.status;
+    }
+    const classEl = document.getElementById('audit-doc-class');
+    if (classEl) classEl.innerText = data.document_class || '-';
+    const verEl = document.getElementById('audit-doc-version');
+    if (verEl) verEl.innerText = `v${data.current_application_version || 1}`;
+    const revEl = document.getElementById('audit-doc-revision');
+    if (revEl) revEl.innerText = `rev ${data.current_metadata_revision || 1}`;
+
+    // 2. Render LLM Enrichment Audit (Kind 1)
+    const llm = data.llm_enrichment_audit || {};
+    if (emptyState) emptyState.style.display = 'none';
+    if (contentContainer) contentContainer.style.display = 'block';
+
+    const statusBadge = document.getElementById('audit-llm-status-badge');
+    if (statusBadge) {
+      if (llm.status === 'ENRICHED') {
+        statusBadge.className = 'badge badge-success';
+        statusBadge.innerText = 'Bedrock Audited';
+      } else if (llm.status === 'QUEUED') {
+        statusBadge.className = 'badge badge-warning';
+        statusBadge.innerText = 'Queued in SQS';
+      } else if (llm.status === 'SKIPPED') {
+        statusBadge.className = 'badge badge-secondary';
+        statusBadge.innerText = 'Enrichment Skipped';
+      } else {
+        statusBadge.className = 'badge badge-secondary';
+        statusBadge.innerText = 'Not Enriched';
+      }
+    }
+
+    const latencyBadge = document.getElementById('audit-llm-latency-badge');
+    if (latencyBadge) {
+      latencyBadge.innerText = `${llm.latency_ms || 0} ms`;
+    }
+
+    const modelEl = document.getElementById('audit-llm-model');
+    if (modelEl) modelEl.innerText = llm.model_id || 'Claude 3 Haiku';
+
+    const tokensEl = document.getElementById('audit-llm-tokens');
+    if (tokensEl) tokensEl.innerText = (llm.total_tokens || 0).toLocaleString();
+
+    const tokensSubEl = document.getElementById('audit-llm-tokens-sub');
+    if (tokensSubEl) {
+      tokensSubEl.innerText = `${(llm.prompt_tokens || 0).toLocaleString()} in / ${(llm.completion_tokens || 0).toLocaleString()} out`;
+    }
+
+    const latencyEl = document.getElementById('audit-llm-latency');
+    if (latencyEl) latencyEl.innerText = `${llm.latency_ms || 0} ms`;
+
+    const timeEl = document.getElementById('audit-llm-time');
+    if (timeEl) {
+      timeEl.innerText = llm.applied_at ? new Date(llm.applied_at).toLocaleString() : '-';
+    }
+
+    const piiBadge = document.getElementById('audit-llm-pii-badge');
+    if (piiBadge) {
+      if (llm.contains_pii) {
+        piiBadge.className = 'badge badge-danger';
+        piiBadge.innerText = '⚠️ YES (PII Detected)';
+      } else {
+        piiBadge.className = 'badge badge-success';
+        piiBadge.innerText = '✅ NO PII';
+      }
+    }
+
+    const piiCatsEl = document.getElementById('audit-llm-pii-cats');
+    if (piiCatsEl) {
+      const cats = llm.pii_categories || [];
+      if (Array.isArray(cats) && cats.length > 0) {
+        piiCatsEl.innerHTML = cats.map(c => `<span class="badge badge-warning" style="font-size: 0.75rem;">${c}</span>`).join(' ');
+      } else {
+        piiCatsEl.innerHTML = '<span style="font-size: 0.8rem; color: var(--text-dim);">No PII categories identified</span>';
+      }
+    }
+
+    const s3PathEl = document.getElementById('audit-llm-s3-path');
+    if (s3PathEl) {
+      s3PathEl.innerText = llm.s3_audit_uri || llm.s3_audit_key || '-';
+    }
+
+    const rawBox = document.getElementById('audit-llm-raw-box');
+    if (rawBox) {
+      rawBox.innerText = JSON.stringify(llm.raw_record || llm, null, 2);
+    }
+
+    // 3. Render Lifecycle & System Audit (Kind 2)
+    const lifecycle = data.lifecycle_audit || {};
+    const versionsTbody = document.getElementById('audit-lifecycle-versions-tbody');
+    if (versionsTbody) {
+      const versions = lifecycle.versions || [];
+      if (versions.length === 0) {
+        versionsTbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-dim);">No version records found</td></tr>';
+      } else {
+        versionsTbody.innerHTML = versions
+          .map(
+            (v) => `<tr>
+              <td><span class="badge badge-info">v${v.application_version}</span></td>
+              <td style="font-family: var(--font-mono); font-size: 0.8rem;">${v.s3_version_id || '-'}</td>
+              <td style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-muted);">${v.content_checksum || '-'}</td>
+              <td><span class="badge ${v.state === 'ACTIVE' ? 'badge-success' : 'badge-danger'}">${v.state || 'ACTIVE'}</span></td>
+            </tr>`
+          )
+          .join('');
+      }
+    }
+
+    const eventsContainer = document.getElementById('audit-lifecycle-events-container');
+    if (eventsContainer) {
+      const events = lifecycle.system_events || [];
+      if (events.length === 0) {
+        eventsContainer.innerHTML = '<div style="color: var(--text-dim); text-align: center; padding: 1.5rem;">No lifecycle events found.</div>';
+      } else {
+        eventsContainer.innerHTML = events
+          .map(
+            (evt) => `<div class="audit-timeline-item">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px;">
+                <strong style="color: #ffffff; font-size: 0.85rem;">${evt.description || evt.event_type}</strong>
+                <span style="font-size: 0.75rem; color: var(--text-dim);">${evt.timestamp ? new Date(evt.timestamp).toLocaleString() : '-'}</span>
+              </div>
+              <div style="font-size: 0.75rem; color: var(--text-muted);">
+                Actor: <span class="badge badge-role" style="font-size: 0.65rem; padding: 1px 6px;">${evt.actor || 'system'}</span>
+                ${evt.details ? `• <span style="font-family: var(--font-mono);">${JSON.stringify(evt.details)}</span>` : ''}
+              </div>
+            </div>`
+          )
+          .join('');
+      }
+    }
+
+    showToast('Document audit trail loaded', 'success');
+  } catch (err) {
+    showToast(`Failed to load audit: ${err.message}`, 'danger');
+  }
+}
+
+function fetchDocumentAuditFromInput() {
+  const input = document.getElementById('audit-doc-id');
+  const id = input ? input.value.trim() : '';
+  if (!id) {
+    showToast('Please enter a Document ID', 'warning');
+    return;
+  }
+  fetchDocumentAudit(id);
+}
+
+function loadActiveDocumentIntoAudit() {
+  if (state.activeDocument && state.activeDocument.document_id) {
+    const input = document.getElementById('audit-doc-id');
+    if (input) input.value = state.activeDocument.document_id;
+    fetchDocumentAudit(state.activeDocument.document_id);
+  } else {
+    showToast('No active document loaded in viewer. Enter a Document UUID.', 'warning');
+  }
+}
+
+function copyAuditS3Uri() {
+  const el = document.getElementById('audit-llm-s3-path');
+  if (el && el.innerText && el.innerText !== '-') {
+    navigator.clipboard.writeText(el.innerText);
+    showToast('S3 Compliance URI copied to clipboard', 'info');
+  }
+}
+
+function exportAuditLogs() {
+  if (state.auditLogs.length === 0) {
+    showToast('No audit logs to export', 'warning');
+    return;
+  }
+  const blob = new Blob([JSON.stringify(state.auditLogs, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `doc-platform-audit-logs-${new Date().toISOString().slice(0, 10)}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  showToast('Audit log JSON exported', 'success');
 }
 
 // ==========================================
@@ -484,7 +807,6 @@ const CLASS_SPECIFIC_TEMPLATES = {
     pii_categories: ['NONE'],
     minimum_clearance_role: 'Document.Reader',
     encryption_requirement: 'SSE_KMS_DEFAULT',
-    data_residency_jurisdiction: 'IL',
     export_restricted: false,
     classification_owner: 'SEC-OPS-01',
   },
@@ -553,6 +875,140 @@ function resetInlineClassMeta() {
   }
 }
 
+function openTriggerRulesModal() {
+  const modal = document.getElementById('trigger-rules-modal');
+  if (modal) {
+    if (typeof modal.showModal === 'function') {
+      modal.showModal();
+    } else {
+      modal.style.display = 'block';
+    }
+  }
+}
+
+function onEnrichmentToggle(mode, checked) {
+  const prefix = mode === 'direct' ? 'direct' : 'inline';
+  const classEl = document.getElementById(`${prefix}-class-metadata`);
+  if (classEl) {
+    try {
+      const meta = parseJsonRelaxed(classEl.value);
+      if (!checked) {
+        meta.skip_enrichment = true;
+      } else {
+        delete meta.skip_enrichment;
+      }
+      classEl.value = JSON.stringify(meta, null, 2);
+    } catch {}
+  }
+  updateEnrichmentAdvisor(mode);
+}
+
+function updateEnrichmentAdvisor(mode = 'direct') {
+  const prefix = mode === 'direct' ? 'direct' : 'inline';
+  const checkbox = document.getElementById(`${prefix}-enable-enrichment`);
+  const guideEl = document.getElementById(`${prefix}-enrichment-guide`);
+  if (!guideEl) return;
+
+  const classSelect = document.getElementById(`${prefix}-doc-class`);
+  const docClass = classSelect ? classSelect.value : 'loan_agreement';
+
+  let classMeta = {};
+  let sharedMeta = {};
+  try {
+    const rawClass = document.getElementById(`${prefix}-class-metadata`)?.value || '{}';
+    classMeta = parseJsonRelaxed(rawClass);
+  } catch {}
+  try {
+    const rawShared = document.getElementById(`${prefix}-shared-metadata`)?.value || '{}';
+    sharedMeta = parseJsonRelaxed(rawShared);
+  } catch {}
+
+  const meta = { ...sharedMeta, ...classMeta };
+
+  if (meta.skip_enrichment === true && checkbox && checkbox.checked) {
+    checkbox.checked = false;
+  } else if (meta.skip_enrichment === false && checkbox && !checkbox.checked) {
+    checkbox.checked = true;
+  }
+
+  const isEnabled = checkbox ? checkbox.checked && meta.skip_enrichment !== true : meta.skip_enrichment !== true;
+
+  if (!isEnabled) {
+    guideEl.innerHTML = `
+      <div style="display: flex; align-items: center; gap: 6px; color: #f87171; margin-bottom: 4px;">
+        <span>🚫</span> <strong>Enrichment Bypassed:</strong> <code>skip_enrichment: true</code> flag active.
+      </div>
+      <div>Zero Bedrock tokens will be consumed. Document will be ingested as Revision 1 and will not queue into SQS.</div>
+    `;
+    return;
+  }
+
+  let triggerHtml = `
+    <div style="display: flex; flex-direction: column; gap: 4px;">
+      <div style="display: flex; align-items: center; gap: 6px;">
+        <span style="color: #4ade80;">✅</span>
+        <span><strong>Trigger Condition Met:</strong> New document ingestion (Revision 1) automatically enqueues into <code>doc-platform-mvp-enrichment-queue</code>.</span>
+      </div>
+  `;
+
+  if (docClass === 'loan_agreement') {
+    const hasLoanNum = Boolean(meta.loan_number && String(meta.loan_number).trim());
+    if (hasLoanNum) {
+      triggerHtml += `
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <span style="color: #38bdf8;">ℹ️</span>
+          <span><strong>Pre-flight Token Optimization:</strong> <code>loan_number</code> ("${meta.loan_number}") is provided. Attribute extraction skipped to save tokens; only PII scan will run.</span>
+        </div>
+      `;
+    } else {
+      triggerHtml += `
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <span style="color: #fbbf24;">⚡</span>
+          <span><strong>Attribute Auto-Extraction:</strong> <code>loan_number</code> is blank. Bedrock Claude 3 Haiku will extract loan reference, amount, currency, and signed date from document text.</span>
+        </div>
+      `;
+    }
+  } else if (docClass === 'compliance_retention') {
+    const hasSched = Boolean(meta.retention_schedule_code && String(meta.retention_schedule_code).trim());
+    if (hasSched) {
+      triggerHtml += `
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <span style="color: #38bdf8;">ℹ️</span>
+          <span><strong>Pre-flight Token Optimization:</strong> Retention schedule code ("${meta.retention_schedule_code}") is provided. Attribute extraction skipped; only PII scan will run.</span>
+        </div>
+      `;
+    } else {
+      triggerHtml += `
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <span style="color: #fbbf24;">⚡</span>
+          <span><strong>Attribute Auto-Extraction:</strong> Retention schedule code and regulatory framework will be classified by AI.</span>
+        </div>
+      `;
+    }
+  } else if (docClass === 'security_classification') {
+    triggerHtml += `
+      <div style="display: flex; align-items: center; gap: 6px;">
+        <span style="color: #fbbf24;">🛡️</span>
+        <span><strong>PII Discovery & Categorization:</strong> Scans text for National IDs, Financial Accounts, and Biometric references with non-downgrade safety ratchet.</span>
+      </div>
+    `;
+  }
+
+  triggerHtml += `
+      <div style="display: flex; align-items: center; gap: 6px;">
+        <span style="color: #a78bfa;">🔒</span>
+        <span><strong>Governance Boundary:</strong> Sensitivity tier & clearance roles are 100% uploader-governed and cannot be altered or downgraded by AI.</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 6px; font-size: 0.73rem; color: var(--text-dim); margin-top: 2px;">
+        <span>⏱️</span>
+        <span>Upload returns in &lt;200ms. Bedrock completes asynchronously in ~1.5s, bumping revision 1 ➔ 2 via DynamoDB OCC.</span>
+      </div>
+    </div>
+  `;
+
+  guideEl.innerHTML = triggerHtml;
+}
+
 function onDirectClassChange(className) {
   const badge = document.getElementById('direct-class-badge');
   if (badge) badge.innerText = className;
@@ -561,6 +1017,7 @@ function onDirectClassChange(className) {
   if (classEl && CLASS_SPECIFIC_TEMPLATES[className]) {
     classEl.value = JSON.stringify(CLASS_SPECIFIC_TEMPLATES[className], null, 2);
   }
+  updateEnrichmentAdvisor('direct');
 }
 
 function onInlineClassChange(className) {
@@ -571,6 +1028,7 @@ function onInlineClassChange(className) {
   if (classEl && CLASS_SPECIFIC_TEMPLATES[className]) {
     classEl.value = JSON.stringify(CLASS_SPECIFIC_TEMPLATES[className], null, 2);
   }
+  updateEnrichmentAdvisor('inline');
 }
 
 async function executeDirectUpload() {
@@ -600,6 +1058,10 @@ async function executeDirectUpload() {
   }
 
   const metadata = { ...sharedMeta, ...classMeta };
+  const directEnableEl = document.getElementById('direct-enable-enrichment');
+  if (directEnableEl && !directEnableEl.checked) {
+    metadata.skip_enrichment = true;
+  }
 
   const progressContainer = document.getElementById('direct-progress-container');
   const progressBar = document.getElementById('direct-progress-bar');
@@ -720,6 +1182,10 @@ async function executeInlineUpload() {
   }
 
   const metadata = { ...sharedMeta, ...classMeta };
+  const inlineEnableEl = document.getElementById('inline-enable-enrichment');
+  if (inlineEnableEl && !inlineEnableEl.checked) {
+    metadata.skip_enrichment = true;
+  }
 
   const resultBox = document.getElementById('upload-result-box');
 
@@ -812,6 +1278,225 @@ async function fetchDocumentDetails(docId = null) {
     document.getElementById('view-doc-class').innerText = doc.document_class;
     document.getElementById('viewer-metadata-box').innerText = JSON.stringify(doc.metadata || {}, null, 2);
 
+    // AI Enrichment Audit Presentation (Viewer Card & Audit Tab)
+    const aiViewerCard = document.getElementById('viewer-ai-audit-card');
+    const aiStatusBadge = document.getElementById('ai-audit-status-badge');
+    const aiLatencyBadge = document.getElementById('ai-audit-latency-badge');
+    const aiGrid = document.getElementById('ai-audit-grid');
+    const aiCats = document.getElementById('ai-audit-cats');
+    const aiMsg = document.getElementById('ai-audit-message');
+    const aiDiagnosis = document.getElementById('ai-audit-diagnosis');
+    const step1 = document.getElementById('step-1-ingest');
+    const step2 = document.getElementById('step-2-sqs');
+    const step3 = document.getElementById('step-3-bedrock');
+    const step4 = document.getElementById('step-4-occ');
+    const auditTabAiCard = document.getElementById('audit-tab-ai-enrichment-card');
+    const auditTabAiContent = document.getElementById('audit-tab-ai-content');
+
+    const audit = doc.metadata?.enrichment_audit;
+    const isEnriched = Boolean(audit || doc.metadata?.metadata_updated_by === 'system:llm-enricher');
+    const isSkipped = doc.metadata?.skip_enrichment === true;
+    const isVersionMutation = doc.current_application_version > 1;
+    const isManualPatch = !isEnriched && !isSkipped && doc.current_metadata_revision > 1;
+    const isPending = !isEnriched && !isSkipped && !isVersionMutation && doc.current_metadata_revision === 1;
+
+    if (aiViewerCard) {
+      aiViewerCard.style.display = 'block';
+
+      if (isEnriched && audit) {
+        if (aiGrid) aiGrid.style.display = 'grid';
+        if (aiCats) aiCats.style.display = 'block';
+        if (aiMsg) aiMsg.style.display = 'none';
+
+        if (aiStatusBadge) {
+          aiStatusBadge.className = 'badge badge-success';
+          aiStatusBadge.innerText = 'Enriched by Bedrock';
+        }
+        if (aiLatencyBadge) {
+          aiLatencyBadge.style.display = 'inline-block';
+          aiLatencyBadge.innerText = `${audit.latency_ms || 0} ms`;
+        }
+        if (step1) { step1.className = 'badge badge-success'; step1.innerText = '✓ 1. Ingestion (v1)'; }
+        if (step2) { step2.className = 'badge badge-success'; step2.innerText = '✓ 2. SQS Dispatched'; }
+        if (step3) { step3.className = 'badge badge-success'; step3.innerText = '✓ 3. Bedrock Scanned'; }
+        if (step4) { step4.className = 'badge badge-success'; step4.innerText = `✓ 4. Rev ${doc.current_metadata_revision} Committed`; }
+
+        if (aiDiagnosis) {
+          aiDiagnosis.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 6px; color: #4ade80;">
+              <span>🟢</span> <strong>Enrichment Completed:</strong> Automatically triggered on initial ingestion (Rev 1 ➔ 2).
+            </div>
+            <div style="color: var(--text-dim); margin-top: 2px;">
+              Bedrock Claude 3 Haiku extracted missing attributes, unioned newly identified PII into S3 annotations, and atomically bumped revision via DynamoDB OCC.
+            </div>
+          `;
+        }
+
+        const modelEl = document.getElementById('ai-audit-model');
+        if (modelEl) modelEl.innerText = audit.model_id || 'Claude 3 Haiku';
+
+        const tokensEl = document.getElementById('ai-audit-tokens');
+        if (tokensEl) {
+          tokensEl.innerText = `${(audit.total_tokens || 0).toLocaleString()} (${audit.prompt_tokens || 0} in / ${audit.completion_tokens || 0} out)`;
+        }
+
+        const piiEl = document.getElementById('ai-audit-pii');
+        if (piiEl) {
+          piiEl.innerHTML = doc.metadata?.contains_pii
+            ? '<span class="badge badge-danger">YES (PII Detected)</span>'
+            : '<span class="badge badge-success">NO PII</span>';
+        }
+
+        const timeEl = document.getElementById('ai-audit-time');
+        if (timeEl) {
+          timeEl.innerText = audit.applied_at ? new Date(audit.applied_at).toLocaleTimeString() : '-';
+        }
+
+        const catContainer = document.getElementById('ai-audit-categories-container');
+        if (catContainer) {
+          const cats = doc.metadata?.pii_categories || [];
+          if (Array.isArray(cats) && cats.length > 0) {
+            catContainer.innerHTML = cats.map(c => `<span class="badge badge-warning" style="font-size: 0.75rem;">${c}</span>`).join(' ');
+          } else {
+            catContainer.innerHTML = '<span style="font-size: 0.75rem; color: var(--text-dim);">None identified</span>';
+          }
+        }
+      } else if (isSkipped) {
+        if (aiGrid) aiGrid.style.display = 'none';
+        if (aiCats) aiCats.style.display = 'none';
+        if (aiMsg) aiMsg.style.display = 'none';
+        if (aiStatusBadge) {
+          aiStatusBadge.className = 'badge badge-secondary';
+          aiStatusBadge.innerText = 'Bypassed (Cost Guardrail)';
+        }
+        if (aiLatencyBadge) aiLatencyBadge.style.display = 'none';
+
+        if (step1) { step1.className = 'badge badge-success'; step1.innerText = '✓ 1. Ingestion (v1)'; }
+        if (step2) { step2.className = 'badge badge-secondary'; step2.innerText = '⊘ 2. SQS Bypassed'; }
+        if (step3) { step3.className = 'badge badge-secondary'; step3.innerText = '⊘ 3. Bedrock Skipped'; }
+        if (step4) { step4.className = 'badge badge-secondary'; step4.innerText = '✓ 4. Rev 1 Preserved'; }
+
+        if (aiDiagnosis) {
+          aiDiagnosis.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 6px; color: #94a3b8;">
+              <span>⚪</span> <strong>Enrichment Bypassed:</strong> Document was flagged with <code>skip_enrichment=true</code>.
+            </div>
+            <div style="color: var(--text-dim); margin-top: 2px;">
+              Amazon Bedrock invocation was completely bypassed to conserve tokens. Zero Bedrock tokens were consumed.
+            </div>
+          `;
+        }
+      } else if (isVersionMutation) {
+        if (aiGrid) aiGrid.style.display = 'none';
+        if (aiCats) aiCats.style.display = 'none';
+        if (aiMsg) aiMsg.style.display = 'none';
+        if (aiStatusBadge) {
+          aiStatusBadge.className = 'badge badge-info';
+          aiStatusBadge.innerText = `Content Version ${doc.current_application_version}`;
+        }
+        if (aiLatencyBadge) aiLatencyBadge.style.display = 'none';
+
+        if (step1) { step1.className = 'badge badge-success'; step1.innerText = '✓ 1. Ingestion (v1)'; }
+        if (step2) { step2.className = 'badge badge-info'; step2.innerText = `✓ 2. Content v${doc.current_application_version}`; }
+        if (step3) { step3.className = 'badge badge-secondary'; step3.innerText = '⊘ 3. Bedrock (No-op)'; }
+        if (step4) { step4.className = 'badge badge-info'; step4.innerText = `✓ 4. Version ${doc.current_application_version} Active`; }
+
+        if (aiDiagnosis) {
+          aiDiagnosis.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 6px; color: #38bdf8;">
+              <span>🔵</span> <strong>Binary Page Addition (Version Mutation):</strong> Document is at Content Version ${doc.current_application_version}.
+            </div>
+            <div style="color: var(--text-dim); margin-top: 2px;">
+              LLM enrichment only triggers on initial document creation (Version 1, Revision 1). Content mutations preserve authoritative annotations and do not re-run enrichment.
+            </div>
+          `;
+        }
+      } else if (isManualPatch) {
+        if (aiGrid) aiGrid.style.display = 'none';
+        if (aiCats) aiCats.style.display = 'none';
+        if (aiMsg) aiMsg.style.display = 'none';
+        if (aiStatusBadge) {
+          aiStatusBadge.className = 'badge badge-info';
+          aiStatusBadge.innerText = `Manual Rev ${doc.current_metadata_revision}`;
+        }
+        if (aiLatencyBadge) aiLatencyBadge.style.display = 'none';
+
+        if (step1) { step1.className = 'badge badge-success'; step1.innerText = '✓ 1. Ingestion'; }
+        if (step2) { step2.className = 'badge badge-secondary'; step2.innerText = '⊘ 2. SQS Skipped'; }
+        if (step3) { step3.className = 'badge badge-secondary'; step3.innerText = '⊘ 3. Bedrock Skipped'; }
+        if (step4) { step4.className = 'badge badge-info'; step4.innerText = `✓ 4. Rev ${doc.current_metadata_revision} Manual Edit`; }
+
+        if (aiDiagnosis) {
+          aiDiagnosis.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 6px; color: #38bdf8;">
+              <span>🔵</span> <strong>Manual Metadata Modification:</strong> Document was updated via <code>PATCH /documents/{id}/metadata</code>.
+            </div>
+            <div style="color: var(--text-dim); margin-top: 2px;">
+              Direct user updates via DynamoDB OCC are authoritative. The automated LLM pipeline never overwrites user edits.
+            </div>
+          `;
+        }
+      } else if (isPending) {
+        if (aiGrid) aiGrid.style.display = 'none';
+        if (aiCats) aiCats.style.display = 'none';
+        if (aiMsg) aiMsg.style.display = 'none';
+        if (aiStatusBadge) {
+          aiStatusBadge.className = 'badge badge-warning';
+          aiStatusBadge.innerText = 'Queued in SQS';
+        }
+        if (aiLatencyBadge) aiLatencyBadge.style.display = 'none';
+
+        if (step1) { step1.className = 'badge badge-success'; step1.innerText = '✓ 1. Ingestion (v1)'; }
+        if (step2) { step2.className = 'badge badge-warning'; step2.innerText = '⏳ 2. In SQS Queue'; }
+        if (step3) { step3.className = 'badge badge-info'; step3.innerText = '3. Bedrock Scanning'; }
+        if (step4) { step4.className = 'badge badge-secondary'; step4.innerText = '4. Rev 2 Pending'; }
+
+        if (aiDiagnosis) {
+          aiDiagnosis.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 6px; color: #fbbf24;">
+              <span>⏳</span> <strong>Asynchronous Enrichment Queued:</strong> Document is queued in SQS (<code>doc-platform-mvp-enrichment-queue</code>).
+            </div>
+            <div style="color: var(--text-dim); margin-top: 2px;">
+              Bedrock Claude 3 Haiku will enrich PII and generate metadata revision 2 in ~1.5s.
+              <a href="javascript:void(0)" onclick="fetchDocumentDetails()" style="color: var(--aws-orange); text-decoration: underline; font-weight: 600;">Click here to refresh</a> in 2-3 seconds.
+            </div>
+          `;
+        }
+      } else {
+        if (aiGrid) aiGrid.style.display = 'none';
+        if (aiCats) aiCats.style.display = 'none';
+        if (aiMsg) aiMsg.style.display = 'none';
+        if (aiStatusBadge) {
+          aiStatusBadge.className = 'badge badge-secondary';
+          aiStatusBadge.innerText = 'Standard Metadata';
+        }
+        if (aiLatencyBadge) aiLatencyBadge.style.display = 'none';
+        if (aiDiagnosis) {
+          aiDiagnosis.innerHTML = `
+            <div style="color: var(--text-dim);">Standard document metadata. AI auto-enrichment was not invoked for this document state.</div>
+          `;
+        }
+      }
+    }
+
+    if (auditTabAiCard && auditTabAiContent) {
+      if (isEnriched && audit) {
+        auditTabAiCard.style.display = 'block';
+        auditTabAiContent.innerText = JSON.stringify({
+          document_id: doc.document_id,
+          document_class: doc.document_class,
+          current_metadata_revision: doc.current_metadata_revision,
+          metadata_updated_by: doc.metadata?.metadata_updated_by,
+          contains_pii: doc.metadata?.contains_pii,
+          pii_categories: doc.metadata?.pii_categories,
+          enrichment_audit: audit,
+          s3_audit_log_path: `s3://doc-platform-mvp-audit-216662987392/audit/llm-enrichment/${new Date(audit.applied_at || Date.now()).toISOString().slice(0,10)}/${doc.document_id}/enrichment-audit.json`
+        }, null, 2);
+      } else {
+        auditTabAiCard.style.display = 'none';
+      }
+    }
+
     // Sync doc ID to other tabs
     const metaEditId = document.getElementById('meta-edit-doc-id');
     if (metaEditId) metaEditId.value = doc.document_id;
@@ -822,6 +1507,10 @@ async function fetchDocumentDetails(docId = null) {
     if (delId) delId.value = doc.document_id;
     const resId = document.getElementById('admin-restore-doc-id');
     if (resId) resId.value = doc.document_id;
+
+    const auditDocInput = document.getElementById('audit-doc-id');
+    if (auditDocInput) auditDocInput.value = doc.document_id;
+    fetchDocumentAudit(doc.document_id);
 
     // Load Preview
     const previewIframe = document.getElementById('doc-preview-iframe');
@@ -1624,7 +2313,604 @@ async function executeBatchFetchZip() {
     if (btn) btn.disabled = false;
   }
 }
+ 
+// ==========================================
+// 10. AI CONVERSATIONAL DOCUMENT ASSISTANT (Bedrock AgentCore + Claude Sonnet 5)
+// ==========================================
+
+function generateUuid() {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
+function initAiAssistant() {
+  if (!state.ai.sessionId) {
+    state.ai.sessionId = generateUuid();
+  }
+  if (!state.ai.streamingUrl && state.config.agentStreamingUrl) {
+    state.ai.streamingUrl = state.config.agentStreamingUrl;
+  }
+  updateAiSessionDisplay();
+  const endpointInput = document.getElementById('ai-custom-endpoint');
+  if (endpointInput) {
+    endpointInput.value = state.ai.streamingUrl || '';
+  }
+}
+
+function updateAiSessionDisplay() {
+  const el = document.getElementById('ai-current-session-id');
+  if (el) {
+    const shortId = state.ai.sessionId.length > 8 ? state.ai.sessionId.substring(0, 8) + '...' : state.ai.sessionId;
+    el.innerText = shortId;
+    el.parentElement?.setAttribute('title', `Active Ephemeral Session ID: ${state.ai.sessionId}`);
+  }
+}
+
+function startNewAiSession() {
+  state.ai.sessionId = generateUuid();
+  updateAiSessionDisplay();
+  clearAiChat();
+  showToast(`New AI Assistant session started (${state.ai.sessionId.substring(0, 8)})`, 'info');
+}
+
+function clearAiChat() {
+  const container = document.getElementById('ai-chat-messages');
+  if (!container) return;
+  container.innerHTML = `
+    <div class="ai-message ai-message-assistant" id="ai-welcome-msg">
+      <div class="ai-avatar ai-avatar-assistant">🤖</div>
+      <div class="ai-bubble">
+        <p><strong>Hello! I am your AI Document Assistant</strong>, powered by Amazon Bedrock AgentCore and intelligent MCP tools.</p>
+        <p>I have direct real-time access to your repository via MCP Gateway tools:</p>
+        <ul>
+          <li>🔍 <code>search_documents</code>: Multi-attribute search across customers, loan numbers, document classes, and metadata.</li>
+          <li>📄 <code>fetch_document</code>: Retrieval of authoritative S3 document annotations, versions, and verified content.</li>
+        </ul>
+        <p style="color: var(--text-dim); font-size: 0.85rem; margin-top: 0.5rem;">
+          Ask questions in plain English or select a suggestion above. Responses include real-time SSE streaming, live tool badges, and interactive citations you can open in the Document Viewer.
+        </p>
+      </div>
+    </div>
+  `;
+  setAiStatus('Idle');
+}
+
+function toggleAiSettings() {
+  const el = document.getElementById('ai-endpoint-config');
+  if (!el) return;
+  el.style.display = el.style.display === 'none' || !el.style.display ? 'block' : 'none';
+}
+
+function saveAiEndpointConfig() {
+  const input = document.getElementById('ai-custom-endpoint');
+  const val = input ? input.value.trim() : '';
+  state.ai.streamingUrl = val;
+  if (val) {
+    localStorage.setItem('doc_platform_agent_streaming_url', val);
+    showToast('Agent streaming endpoint saved', 'success');
+  } else {
+    localStorage.removeItem('doc_platform_agent_streaming_url');
+    showToast('Agent endpoint reset to default (/v1/agent/chat)', 'info');
+  }
+  toggleAiSettings();
+}
+
+function resetAiEndpointConfig() {
+  state.ai.streamingUrl = state.config.agentStreamingUrl || '';
+  localStorage.removeItem('doc_platform_agent_streaming_url');
+  const input = document.getElementById('ai-custom-endpoint');
+  if (input) input.value = state.ai.streamingUrl;
+  showToast('Reset to configuration default', 'info');
+}
+
+function handlePromptChipClick(promptText) {
+  const input = document.getElementById('ai-user-input');
+  if (input) {
+    input.value = promptText;
+    autoResizeAiTextarea(input);
+  }
+  submitAiMessage();
+}
+
+function handleAiInputKeydown(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    submitAiMessage();
+  }
+}
+
+function autoResizeAiTextarea(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+}
+
+function setAiStatus(status, color = '#a5b4fc') {
+  const el = document.getElementById('ai-stream-status');
+  if (el) {
+    el.innerText = status;
+    el.style.color = color;
+  }
+}
+
+function setAiStreamingMode(isStreaming) {
+  state.ai.isStreaming = isStreaming;
+  const sendBtn = document.getElementById('btn-ai-send');
+  const stopBtn = document.getElementById('btn-ai-stop');
+  const input = document.getElementById('ai-user-input');
+
+  if (sendBtn) sendBtn.style.display = isStreaming ? 'none' : 'inline-flex';
+  if (stopBtn) stopBtn.style.display = isStreaming ? 'inline-flex' : 'none';
+  if (input) input.disabled = isStreaming;
+}
+
+function stopAiStreaming() {
+  if (state.ai.abortController) {
+    state.ai.abortController.abort();
+    state.ai.abortController = null;
+  }
+  setAiStreamingMode(false);
+  setAiStatus('Stopped', '#f87171');
+  showToast('AI response generation stopped', 'warning');
+}
+
+function scrollAiChatToBottom() {
+  const container = document.getElementById('ai-chat-messages');
+  if (container) {
+    container.scrollTop = container.scrollHeight;
+  }
+}
+
+function openCitationInViewer(docId) {
+  if (!docId) return;
+  const cleanId = docId.replace(/^DOC#/i, '').trim();
+  const viewerInput = document.getElementById('viewer-doc-id');
+  if (viewerInput) {
+    viewerInput.value = cleanId;
+  }
+  const tabBtn = document.querySelector('.tab-btn[data-tab="tab-viewer"]');
+  if (tabBtn) {
+    tabBtn.click();
+  }
+  fetchDocumentDetails(cleanId);
+  showToast(`Loaded DOC#${cleanId.substring(0, 8)}... into Document Viewer`, 'info');
+}
+
+function copyCitationDocId(docId) {
+  const cleanId = docId.replace(/^DOC#/i, '').trim();
+  navigator.clipboard.writeText(cleanId).then(
+    () => showToast(`Copied document ID: ${cleanId}`, 'success'),
+    () => showToast('Failed to copy to clipboard', 'danger')
+  );
+}
+
+function formatAiMarkdown(rawText) {
+  if (!rawText) return '';
+  let html = rawText
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/```([a-zA-Z0-9_-]*)\n([\s\S]*?)```/g, (_m, _lang, code) => {
+      return `<pre><code>${code.trim()}</code></pre>`;
+    })
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+    .replace(/^(\s*)[-*•]\s+(.+)$/gm, '<li>$2</li>')
+    .replace(/^(\s*)\d+\.\s+(.+)$/gm, '<li>$2</li>')
+    .replace(/\n\n+/g, '</p><p>')
+    .replace(/\n/g, '<br/>');
+
+  html = html.replace(/(<li>[\s\S]*?<\/li>)+/g, '<ul>$&</ul>');
+  html = `<p>${html}</p>`;
+
+  const uuidPattern = /\b(?:DOC#)?([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\b/g;
+  html = html.replace(uuidPattern, (_m, uuid) => {
+    return `<span class="doc-link" onclick="openCitationInViewer('${uuid}')" title="Inspect DOC#${uuid} in Document Viewer">DOC#${uuid.substring(0, 8)}...</span>`;
+  });
+
+  return html;
+}
+
+function appendAiUserMessage(text) {
+  const container = document.getElementById('ai-chat-messages');
+  if (!container) return;
+
+  const msgDiv = document.createElement('div');
+  msgDiv.className = 'ai-message ai-message-user';
+  msgDiv.innerHTML = `
+    <div class="ai-avatar ai-avatar-user">👤</div>
+    <div class="ai-bubble">
+      <p>${text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br/>')}</p>
+    </div>
+  `;
+  container.appendChild(msgDiv);
+  scrollAiChatToBottom();
+}
+
+function appendAiAssistantMessageContainer() {
+  const container = document.getElementById('ai-chat-messages');
+  if (!container) return null;
+
+  const msgDiv = document.createElement('div');
+  msgDiv.className = 'ai-message ai-message-assistant';
+  msgDiv.innerHTML = `
+    <div class="ai-avatar ai-avatar-assistant">🤖</div>
+    <div class="ai-bubble">
+      <div class="tool-calls-container"></div>
+      <div class="ai-text-content"></div>
+      <div class="citations-box" style="display: none;">
+        <div class="citations-title">
+          <span>📚</span> <span>Authoritative Document Citations</span>
+        </div>
+        <div class="citations-grid"></div>
+      </div>
+    </div>
+  `;
+  container.appendChild(msgDiv);
+  scrollAiChatToBottom();
+  return msgDiv.querySelector('.ai-bubble');
+}
+
+function addToolBadge(container, toolName, input) {
+  const badgeId = `tool-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+  const badge = document.createElement('div');
+  badge.className = 'tool-badge';
+  badge.id = badgeId;
+
+  const toolIcon = toolName === 'search_documents' ? '🔍' : toolName === 'fetch_document' ? '📄' : '🛠️';
+  let summary = '';
+  if (input) {
+    if (input.customer_id) summary += ` customer:${input.customer_id}`;
+    if (input.loan_number) summary += ` loan:${input.loan_number}`;
+    if (input.document_id) summary += ` doc:${input.document_id.substring(0, 8)}...`;
+    if (input.query) summary += ` query:"${input.query}"`;
+    if (input.document_class) summary += ` class:${input.document_class}`;
+  }
+
+  badge.innerHTML = `
+    <div class="tool-badge-header" onclick="const det = this.nextElementSibling; det.style.display = det.style.display === 'none' ? 'block' : 'none';">
+      <div class="tool-badge-left">
+        <span>${toolIcon}</span>
+        <span class="tool-badge-name">${toolName}</span>
+        <span style="font-size: 0.72rem; color: #94a3b8;">${summary}</span>
+      </div>
+      <div class="tool-badge-status running">
+        <span class="spin-icon">⏳</span> <span>Executing...</span>
+      </div>
+    </div>
+    <div class="tool-badge-details" style="display: none;">
+      <strong>Input:</strong> ${JSON.stringify(input || {}, null, 2)}
+    </div>
+  `;
+  container.appendChild(badge);
+  scrollAiChatToBottom();
+  return badgeId;
+}
+
+function updateToolBadge(container, toolName, output) {
+  const badges = container.querySelectorAll('.tool-badge');
+  if (badges.length === 0) return;
+  const latestBadge = badges[badges.length - 1];
+  const statusEl = latestBadge.querySelector('.tool-badge-status');
+  const detailsEl = latestBadge.querySelector('.tool-badge-details');
+
+  const isError = output && output.error;
+  if (statusEl) {
+    statusEl.className = `tool-badge-status ${isError ? 'error' : 'success'}`;
+    statusEl.innerHTML = isError ? '❌ Error' : '✅ Complete';
+  }
+  if (detailsEl) {
+    const existing = detailsEl.innerHTML;
+    detailsEl.innerHTML = `${existing}\n\n<strong>Result:</strong> ${JSON.stringify(output || {}, null, 2)}`;
+  }
+}
+
+function renderCitationCard(container, cit) {
+  const card = document.createElement('div');
+  card.className = 'citation-card';
+  card.onclick = () => openCitationInViewer(cit.document_id);
+  card.title = `Click to inspect DOC#${cit.document_id} in Document Viewer`;
+
+  const classBadgeColor =
+    cit.document_class === 'loan_agreement'
+      ? '#38bdf8'
+      : cit.document_class === 'compliance_retention'
+      ? '#34d399'
+      : '#fbbf24';
+
+  card.innerHTML = `
+    <div class="citation-card-header">
+      <span class="citation-filename">📄 ${cit.filename || 'Document'}</span>
+      <span class="badge" style="background: rgba(255,255,255,0.08); font-size: 0.68rem; color: #f8fafc;">v${cit.application_version || 1}</span>
+    </div>
+    <div class="citation-meta-row">
+      <span style="color: ${classBadgeColor}; font-weight: 600;">${cit.document_class || 'document'}</span>
+      <span class="citation-doc-id">DOC#${(cit.document_id || '').substring(0, 12)}...</span>
+    </div>
+  `;
+  container.appendChild(card);
+}
+
+async function streamFromFunctionUrl(url, prompt, signal, callbacks) {
+  const headers = {
+    'Content-Type': 'application/json',
+  };
+  if (state.auth.token) {
+    headers['Authorization'] = `Bearer ${state.auth.token}`;
+  }
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      message: prompt,
+      sessionId: state.ai.sessionId,
+    }),
+    signal,
+  });
+
+  if (!response.ok) {
+    const errText = await response.text();
+    let msg = `HTTP ${response.status}`;
+    try {
+      const parsed = JSON.parse(errText);
+      msg = parsed.message || parsed.error?.message || msg;
+    } catch (_) {
+      if (errText) msg = errText;
+    }
+    throw new Error(msg);
+  }
+
+  if (!response.body) {
+    throw new Error('ReadableStream not supported by server response');
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder('utf-8');
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split(/\r?\n/);
+    buffer = lines.pop() || '';
+
+    let currentEvent = 'message';
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed) {
+        currentEvent = 'message';
+        continue;
+      }
+      if (trimmed.startsWith('event:')) {
+        currentEvent = trimmed.slice(6).trim();
+      } else if (trimmed.startsWith('data:')) {
+        const rawData = trimmed.slice(5).trim();
+        try {
+          const data = JSON.parse(rawData);
+          switch (currentEvent) {
+            case 'progress':
+              callbacks.onProgress?.(data);
+              break;
+            case 'tool_call':
+              callbacks.onToolCall?.(data);
+              break;
+            case 'tool_result':
+              callbacks.onToolResult?.(data);
+              break;
+            case 'text_delta':
+              callbacks.onTextDelta?.(data);
+              break;
+            case 'done':
+              callbacks.onDone?.(data);
+              break;
+            case 'error':
+              throw new Error(data.message || data.code || 'Streaming error');
+          }
+        } catch (jsonErr) {
+          if (jsonErr.message && !jsonErr.message.includes('JSON')) {
+            throw jsonErr;
+          }
+        }
+      }
+    }
+  }
+}
+
+async function simulateStreamingTyping(targetEl, fullText, cursorEl) {
+  cursorEl?.remove();
+  const words = fullText.split(/(\s+)/);
+  let current = '';
+  for (let i = 0; i < words.length; i++) {
+    current += words[i];
+    targetEl.innerHTML = formatAiMarkdown(current);
+    if (cursorEl) targetEl.appendChild(cursorEl);
+    scrollAiChatToBottom();
+    if (i % 2 === 0) {
+      await new Promise((resolve) => setTimeout(resolve, 15));
+    }
+  }
+  cursorEl?.remove();
+  targetEl.innerHTML = formatAiMarkdown(fullText);
+}
+
+async function submitAiMessage() {
+  const input = document.getElementById('ai-user-input');
+  if (!input) return;
+  const prompt = input.value.trim();
+  if (!prompt) return;
+
+  if (!state.auth.token) {
+    showToast('Please sign in first to interact with the AI Document Assistant', 'warning');
+    showLoginView();
+    return;
+  }
+
+  if (state.ai.isStreaming) return;
+
+  input.value = '';
+  autoResizeAiTextarea(input);
+
+  appendAiUserMessage(prompt);
+
+  const assistantBubble = appendAiAssistantMessageContainer();
+  if (!assistantBubble) return;
+
+  const textContentDiv = assistantBubble.querySelector('.ai-text-content');
+  const toolContainerDiv = assistantBubble.querySelector('.tool-calls-container');
+  const citationsBoxDiv = assistantBubble.querySelector('.citations-box');
+  const citationsGridDiv = assistantBubble.querySelector('.citations-grid');
+
+  setAiStreamingMode(true);
+  setAiStatus('Connecting to AgentCore...', '#a78bfa');
+
+  const cursorSpan = document.createElement('span');
+  cursorSpan.className = 'streaming-cursor';
+  textContentDiv.appendChild(cursorSpan);
+
+  const abortController = new AbortController();
+  state.ai.abortController = abortController;
+
+  const streamingUrl = state.ai.streamingUrl || state.config.agentStreamingUrl;
+  const isFunctionUrl = !!(streamingUrl && streamingUrl.includes('lambda-url'));
+
+  let accumulatedText = '';
+  const citationsReceived = [];
+
+  try {
+    if (isFunctionUrl) {
+      setAiStatus('Streaming from Amazon Bedrock...', '#38bdf8');
+      await streamFromFunctionUrl(streamingUrl, prompt, abortController.signal, {
+        onProgress: (data) => {
+          setAiStatus(data.status || 'Processing...', '#38bdf8');
+        },
+        onToolCall: (data) => {
+          addToolBadge(toolContainerDiv, data.tool, data.input);
+          setAiStatus(`Invoking ${data.tool}...`, '#c084fc');
+        },
+        onToolResult: (data) => {
+          updateToolBadge(toolContainerDiv, data.tool, data.output);
+        },
+        onTextDelta: (data) => {
+          accumulatedText += data.delta || '';
+          cursorSpan.remove();
+          textContentDiv.innerHTML = formatAiMarkdown(accumulatedText);
+          textContentDiv.appendChild(cursorSpan);
+          scrollAiChatToBottom();
+        },
+        onDone: (data) => {
+          if (data.citations && Array.isArray(data.citations)) {
+            citationsReceived.push(...data.citations);
+          }
+        },
+      });
+      cursorSpan.remove();
+      textContentDiv.innerHTML = formatAiMarkdown(accumulatedText);
+    } else {
+      setAiStatus('Reasoning with Amazon Bedrock & MCP Tools...', '#38bdf8');
+      const res = await apiCall('POST', '/agent/chat', {
+        message: prompt,
+        sessionId: state.ai.sessionId,
+      });
+
+      if (res.tools_used && Array.isArray(res.tools_used)) {
+        res.tools_used.forEach((tool) => {
+          addToolBadge(toolContainerDiv, tool, { status: 'Executed via AgentCore Harness' });
+          updateToolBadge(toolContainerDiv, tool, { status: 'Complete' });
+        });
+      }
+
+      accumulatedText = res.message || '';
+      await simulateStreamingTyping(textContentDiv, accumulatedText, cursorSpan);
+
+      if (res.citations && Array.isArray(res.citations)) {
+        citationsReceived.push(...res.citations);
+      }
+    }
+
+    cursorSpan.remove();
+    if (citationsReceived.length > 0) {
+      citationsBoxDiv.style.display = 'block';
+      citationsGridDiv.innerHTML = '';
+      citationsReceived.forEach((cit) => {
+        renderCitationCard(citationsGridDiv, cit);
+      });
+    }
+
+    setAiStatus('Ready', '#34d399');
+  } catch (err) {
+    cursorSpan.remove();
+    if (err.name === 'AbortError') {
+      textContentDiv.innerHTML += '<p style="color: #f87171; font-style: italic;">[Generation cancelled by user]</p>';
+      setAiStatus('Stopped', '#f87171');
+    } else {
+      console.error('AI assistant error:', err);
+      if (isFunctionUrl && state.config.apiUrl) {
+        showToast(`Function URL stream unavailable. Retrying via API Gateway...`, 'warning');
+        try {
+          setAiStatus('Retrying via API Gateway...', '#fbbf24');
+          const res = await apiCall('POST', '/agent/chat', {
+            message: prompt,
+            sessionId: state.ai.sessionId,
+          });
+          if (res.tools_used && Array.isArray(res.tools_used)) {
+            res.tools_used.forEach((tool) => {
+              addToolBadge(toolContainerDiv, tool, { fallback: true });
+              updateToolBadge(toolContainerDiv, tool, { status: 'Complete' });
+            });
+          }
+          accumulatedText = res.message || '';
+          await simulateStreamingTyping(textContentDiv, accumulatedText, cursorSpan);
+          if (res.citations && Array.isArray(res.citations)) {
+            citationsBoxDiv.style.display = 'block';
+            citationsGridDiv.innerHTML = '';
+            res.citations.forEach((cit) => renderCitationCard(citationsGridDiv, cit));
+          }
+          setAiStatus('Ready', '#34d399');
+          return;
+        } catch (fallbackErr) {
+          if (fallbackErr.status === 401 || fallbackErr.message?.includes('expired') || fallbackErr.message?.includes('Unauthorized')) {
+            textContentDiv.innerHTML += `
+              <div class="alert alert-warning" style="margin-top: 8px; display: flex; justify-content: space-between; align-items: center; gap: 10px;">
+                <div><strong>Session Expired:</strong> Your authentication token has expired. Please sign in to resume.</div>
+                <button class="btn btn-primary btn-sm" onclick="showLoginView()" style="white-space: nowrap;">🔑 Sign In</button>
+              </div>`;
+            setAiStatus('Session Expired', '#f87171');
+          } else {
+            textContentDiv.innerHTML += `<div class="alert alert-danger" style="margin-top: 8px;"><strong>Error:</strong> ${fallbackErr.message}</div>`;
+            setAiStatus('Error', '#f87171');
+          }
+        }
+      } else {
+        if (err.status === 401 || err.message?.includes('expired') || err.message?.includes('Unauthorized')) {
+          textContentDiv.innerHTML += `
+            <div class="alert alert-warning" style="margin-top: 8px; display: flex; justify-content: space-between; align-items: center; gap: 10px;">
+              <div><strong>Session Expired:</strong> Your authentication token has expired. Please sign in to resume.</div>
+              <button class="btn btn-primary btn-sm" onclick="showLoginView()" style="white-space: nowrap;">🔑 Sign In</button>
+            </div>`;
+          setAiStatus('Session Expired', '#f87171');
+        } else {
+          textContentDiv.innerHTML += `<div class="alert alert-danger" style="margin-top: 8px;"><strong>Error:</strong> ${err.message}</div>`;
+          setAiStatus('Error', '#f87171');
+        }
+      }
+    }
+  } finally {
+    setAiStreamingMode(false);
+    state.ai.abortController = null;
+    scrollAiChatToBottom();
+  }
+}
 
 // Auto-run on DOM ready
 document.addEventListener('DOMContentLoaded', initApp);
+
 

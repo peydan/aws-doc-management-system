@@ -15,6 +15,7 @@ export interface ComputeStackProps extends cdk.StackProps {
   auditBucket: s3.IBucket;
   controlTable: dynamodb.ITable;
   indexQueue: sqs.IQueue;
+  enrichmentQueue?: sqs.IQueue;
   userPool: cognito.IUserPool;
   userPoolClient: cognito.IUserPoolClient;
   openSearchEndpoint?: string;
@@ -26,6 +27,7 @@ export class ComputeStack extends cdk.Stack {
   public readonly searchApiFunction: nodejs.NodejsFunction;
   public readonly backgroundWorkerFunction: nodejs.NodejsFunction;
   public readonly indexerFunction: nodejs.NodejsFunction;
+  public readonly metadataEnricherFunction?: nodejs.NodejsFunction;
 
   constructor(scope: Construct, id: string, props: ComputeStackProps) {
     super(scope, id, props);
@@ -35,6 +37,7 @@ export class ComputeStack extends cdk.Stack {
       AUDIT_BUCKET_NAME: props.auditBucket.bucketName,
       DYNAMODB_TABLE_NAME: props.controlTable.tableName,
       INDEX_QUEUE_URL: props.indexQueue.queueUrl,
+      ENRICHMENT_QUEUE_URL: props.enrichmentQueue?.queueUrl || '',
       COGNITO_USER_POOL_ID: props.userPool.userPoolId,
       COGNITO_CLIENT_ID: props.userPoolClient.userPoolClientId,
       OPENSEARCH_ENDPOINT: props.openSearchEndpoint || '',
@@ -104,7 +107,7 @@ export class ComputeStack extends cdk.Stack {
       environment: commonEnv,
     });
 
-    props.documentBucket.grantReadWrite(this.queryApiFunction);
+    props.documentBucket.grantRead(this.queryApiFunction);
     props.controlTable.grantReadData(this.queryApiFunction);
     this.queryApiFunction.addToRolePolicy(s3AnnotationReadPolicy);
     this.queryApiFunction.addToRolePolicy(denyDeleteVersionPolicy);
@@ -147,6 +150,9 @@ export class ComputeStack extends cdk.Stack {
 
     props.auditBucket.grantWrite(this.backgroundWorkerFunction);
     props.indexQueue.grantSendMessages(this.backgroundWorkerFunction);
+    if (props.enrichmentQueue) {
+      props.enrichmentQueue.grantSendMessages(this.backgroundWorkerFunction);
+    }
     this.backgroundWorkerFunction.addToRolePolicy(denyDeleteVersionPolicy);
 
     if (props.controlTable.tableStreamArn) {
@@ -155,6 +161,8 @@ export class ComputeStack extends cdk.Stack {
           startingPosition: lambda.StartingPosition.LATEST,
           batchSize: 10,
           retryAttempts: 3,
+          bisectBatchOnError: true,
+          onFailure: new lambdaEventSources.SqsDlq(props.indexQueue),
         })
       );
     }
@@ -188,7 +196,44 @@ export class ComputeStack extends cdk.Stack {
     this.indexerFunction.addEventSource(
       new lambdaEventSources.SqsEventSource(props.indexQueue, {
         batchSize: 5,
+        reportBatchItemFailures: true,
       })
     );
+
+    // 6. LLM Metadata Enricher Consumer Function
+    if (props.enrichmentQueue) {
+      this.metadataEnricherFunction = new nodejs.NodejsFunction(this, 'MetadataEnricherFunction', {
+        runtime: lambda.Runtime.NODEJS_20_X,
+        architecture: lambda.Architecture.ARM_64,
+        entry: path.join(__dirname, '../src/background-worker/metadata-enricher.ts'),
+        handler: 'handler',
+        timeout: cdk.Duration.seconds(60),
+        memorySize: 512,
+        bundling: {
+          externalModules: [],
+        },
+        environment: commonEnv,
+      });
+
+      props.documentBucket.grantReadWrite(this.metadataEnricherFunction);
+      props.auditBucket.grantWrite(this.metadataEnricherFunction);
+      props.controlTable.grantReadWriteData(this.metadataEnricherFunction);
+      props.enrichmentQueue.grantConsumeMessages(this.metadataEnricherFunction);
+      this.metadataEnricherFunction.addToRolePolicy(s3AnnotationWritePolicy);
+      this.metadataEnricherFunction.addToRolePolicy(denyDeleteVersionPolicy);
+      this.metadataEnricherFunction.addToRolePolicy(
+        new iam.PolicyStatement({
+          actions: ['bedrock:InvokeModel'],
+          resources: ['*'],
+        })
+      );
+
+      this.metadataEnricherFunction.addEventSource(
+        new lambdaEventSources.SqsEventSource(props.enrichmentQueue, {
+          batchSize: 5,
+          reportBatchItemFailures: true,
+        })
+      );
+    }
   }
 }

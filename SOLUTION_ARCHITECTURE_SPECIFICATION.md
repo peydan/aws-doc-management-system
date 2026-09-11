@@ -155,7 +155,8 @@ To maintain engineering discipline and establish clear delivery milestones, capa
 | **AWS Key Management Service (AWS KMS)** | Customer Managed Key (`alias/doc-platform-mvp`) with annual rotation encrypting S3 buckets, DynamoDB tables, SQS queues, and CloudWatch logs. | Centralized cryptographic access control; hardware security module (HSM) backing; compliance-ready audit trail of all cryptographic operations. |
 | **Amazon CloudWatch** | Centralized log ingestion, custom operational metrics, proactive alarms on DLQ depth and API 5xx errors, and operational dashboards. | Native AWS observability tier; immediate alerting on system degradation; zero-agent setup for serverless components. |
 | **AWS CloudTrail** | Captures all management events and selected S3 data events. | Immutable non-repudiation audit trail for all AWS infrastructure changes and storage operations. |
-| **AWS CDK v2** (TypeScript) | Infrastructure as Code defining 8 modular stacks with compile-time type safety. | Enables deterministic infrastructure provisioning, automated CI/CD deployment, least-privilege IAM policy generation, and code-level architectural assertions. |
+| **Amazon Bedrock & AgentCore** | Managed agent execution loop (AgentCore Harness) with Anthropic Claude Sonnet 5 (1M token window) and Model Context Protocol (MCP) tool routing via AgentCore Gateway. | Provides conversational reasoning, grounded document Q&A, and tool dispatch without custom orchestration frameworks; native support for real-time SSE streaming and ephemeral session memory. |
+| **AWS CDK v2** (TypeScript) | Infrastructure as Code defining 10 modular stacks with compile-time type safety. | Enables deterministic infrastructure provisioning, automated CI/CD deployment, least-privilege IAM policy generation, and code-level architectural assertions. |
 
 ---
 

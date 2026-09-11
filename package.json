@@ -19,6 +19,7 @@
     "deploy:frontend-assets": "ts-node scripts/deploy-serverless-frontend.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-bedrock-runtime": "^3.600.0",
     "@aws-sdk/client-cognito-identity-provider": "^3.600.0",
     "@aws-sdk/client-dynamodb": "^3.600.0",
     "@aws-sdk/client-opensearchserverless": "^3.600.0",

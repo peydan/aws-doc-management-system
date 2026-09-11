@@ -22,6 +22,7 @@ export class ControlPlaneStack extends cdk.Stack {
       encryption: dynamodb.TableEncryption.CUSTOMER_MANAGED,
       encryptionKey: props.kmsKey,
       stream: dynamodb.StreamViewType.NEW_AND_OLD_IMAGES,
+      timeToLiveAttribute: 'ttl_expiry',
       removalPolicy: cdk.RemovalPolicy.RETAIN,
     });
   }

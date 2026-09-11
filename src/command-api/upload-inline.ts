@@ -60,6 +60,22 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       throw new ChecksumMismatchError('X-Content-SHA256 header does not match calculated body checksum');
     }
 
+    if (idempotencyKey) {
+      const existing = await DynamoManager.checkOrSetIdempotency(
+        user.userId,
+        idempotencyKey,
+        calculatedSha256
+      );
+      if (existing && existing.status === 'COMPLETED' && existing.response_summary) {
+        Logger.info('Idempotent request: returning cached response', { idempotencyKey, correlationId });
+        return {
+          statusCode: 201,
+          headers: CORS_HEADERS,
+          body: JSON.stringify(existing.response_summary),
+        };
+      }
+    }
+
     const documentId = uuidv4();
     const documentClass = metadataRaw.document_class || 'loan_agreement';
     const contentType = event.headers['Content-Type'] || event.headers['content-type'] || 'application/pdf';

@@ -59,6 +59,7 @@ export interface IdempotencyItem {
   status: 'IN_PROGRESS' | 'COMPLETED';
   response_summary?: any;
   created_at: string;
+  ttl_expiry?: number;
 }
 
 export interface UploadSessionItem {
@@ -254,6 +255,7 @@ export class DynamoManager {
       inMemoryTable.set(`${verItem.pk}#${verItem.sk}`, verItem);
       if (params.idempotencyKey && params.clientId) {
         const idempKey = `IDEMP#${params.clientId}#${params.idempotencyKey}`;
+        const ttlExpiry = Math.floor(Date.now() / 1000) + 86400;
         inMemoryTable.set(`${idempKey}#REQUEST`, {
           pk: idempKey,
           sk: 'REQUEST',
@@ -261,7 +263,16 @@ export class DynamoManager {
           idempotency_key: params.idempotencyKey,
           request_hash: params.requestHash || '',
           status: 'COMPLETED',
+          response_summary: {
+            document_id: params.documentId,
+            application_version: 1,
+            s3_version_id: params.s3VersionId,
+            metadata_revision: 1,
+            status: 'ACTIVE',
+            created_at: now,
+          },
           created_at: now,
+          ttl_expiry: ttlExpiry,
         });
       }
       return docItem;
@@ -284,6 +295,7 @@ export class DynamoManager {
     ];
 
     if (params.idempotencyKey && params.clientId) {
+      const ttlExpiry = Math.floor(Date.now() / 1000) + 86400;
       const idempItem: IdempotencyItem = {
         pk: `IDEMP#${params.clientId}#${params.idempotencyKey}`,
         sk: 'REQUEST',
@@ -291,13 +303,22 @@ export class DynamoManager {
         idempotency_key: params.idempotencyKey,
         request_hash: params.requestHash || '',
         status: 'COMPLETED',
-        response_summary: { document_id: params.documentId, application_version: 1 },
+        response_summary: {
+          document_id: params.documentId,
+          application_version: 1,
+          s3_version_id: params.s3VersionId,
+          metadata_revision: 1,
+          status: 'ACTIVE',
+          created_at: now,
+        },
         created_at: now,
+        ttl_expiry: ttlExpiry,
       };
       transactItems.push({
         Put: {
           TableName: TABLE_NAME,
           Item: idempItem,
+          ConditionExpression: 'attribute_not_exists(pk)',
         },
       });
     }
@@ -446,6 +467,37 @@ export class DynamoManager {
       }
       throw err;
     }
+  }
+
+  // Update annotation eTag after successful S3 write (post-OCC)
+  static async updateAnnotationEtag(
+    documentId: string,
+    revision: number,
+    newEtag: string
+  ): Promise<void> {
+    const docPk = `DOC#${documentId}`;
+
+    if (process.env.MOCK_STORAGE_BYPASS === 'true') {
+      const item = inMemoryTable.get(`${docPk}#DOC`);
+      if (item) {
+        item.current_annotation_etag = newEtag;
+        inMemoryTable.set(`${docPk}#DOC`, item);
+      }
+      return;
+    }
+
+    await dynamoDocClient.send(
+      new UpdateCommand({
+        TableName: TABLE_NAME,
+        Key: { pk: docPk, sk: 'DOC' },
+        UpdateExpression: 'SET current_annotation_etag = :etag',
+        ConditionExpression: 'current_metadata_revision = :rev',
+        ExpressionAttributeValues: {
+          ':etag': newEtag,
+          ':rev': revision,
+        },
+      })
+    );
   }
 
   // Soft delete / Restore

@@ -129,7 +129,6 @@ When extending schemas or writing validators, agents must use these standard pro
 * `pii_categories` (`array[string]`): e.g. `["NATIONAL_ID", "FINANCIAL_HISTORY", "BIOMETRIC"]`.
 * `minimum_clearance_role` (`string`, Enum): `Document.Reader` | `Document.Writer` | `Document.MetadataEditor` | `Document.Admin`.
 * `encryption_requirement` (`string`, Enum): `SSE_S3` | `SSE_KMS_DEFAULT` | `SSE_KMS_CUSTOMER_MANAGED`.
-* `data_residency_jurisdiction` (`string`, 2-letter ISO): e.g. `IL`, `US`, `EU`.
 
 ---
 
@@ -168,5 +167,7 @@ Enforced via Cognito User Pools and JWT Role claims:
 7. **Batch Document ZIP Exports**: Multi-document ZIP exports generated via `POST /documents/batch-download` are transient read projections stored under `exports/{batch_id}.zip` and served via S3 presigned URLs. Always include an audit `manifest.json` and never mutate canonical WORM versions or DynamoDB pointers.
 8. **PDF Page Additions & Binary Mutations**: Adding or inserting pages into a document (via `POST /documents/{document_id}/pages`) is an authoritative binary content mutation. It must produce a brand-new versioned S3 object under the canonical document key, update authoritative S3 metadata annotations (`document-metadata`), and atomically increment `current_application_version` via DynamoDB OCC. Historical versions must remain strictly immutable.
 9. **Maintain System Capabilities Catalog in Impact Analysis**: Any architectural mutation, new API endpoint, modified parameter, schema change, or updated RBAC rule must be evaluated in Layer 6 impact analysis and updated in `SYSTEM_CAPABILITIES.md` to ensure the catalog accurately reflects the live system capabilities.
+10. **LLM Metadata Enrichment & Governance**: Automated metadata enrichment executed by background workers must never alter or downgrade uploader-defined policy fields (`confidentiality_tier`, `minimum_clearance_role`, `classification_owner`, `encryption_requirement`). PII discovery must enforce the non-downgrade safety ratchet (unioning newly discovered `pii_categories` without downgrading `contains_pii: true`). All enrichments must update authoritative S3 annotations via DynamoDB OCC (`metadata_revision = :expected`) and persist an immutable audit trail in the S3 audit bucket.
+11. **AI Conversational Document Assistant Invariants**: The conversational document assistant must execute through Amazon Bedrock AgentCore Harness / Gateway MCP tools, strictly cite authoritative `document_id` and `application_version`, convert minor monetary units to major currency displays without floating point inaccuracies, refuse or warn on access to `SOFT_DELETED` documents, and maintain ephemeral session memory without permanent un-audited storage.
 
 

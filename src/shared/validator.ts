@@ -158,7 +158,6 @@ export function buildFullMetadata(params: {
     if (!baseMetadata.pii_categories || !Array.isArray(baseMetadata.pii_categories)) baseMetadata.pii_categories = ['NONE'];
     if (!baseMetadata.minimum_clearance_role) baseMetadata.minimum_clearance_role = 'Document.Reader';
     if (!baseMetadata.encryption_requirement) baseMetadata.encryption_requirement = 'SSE_KMS_DEFAULT';
-    if (!baseMetadata.data_residency_jurisdiction) baseMetadata.data_residency_jurisdiction = 'IL';
     if (baseMetadata.export_restricted !== undefined) baseMetadata.export_restricted = String(baseMetadata.export_restricted).toLowerCase() === 'true';
     else baseMetadata.export_restricted = false;
     if (!baseMetadata.classification_owner) baseMetadata.classification_owner = 'SEC-OPS-01';

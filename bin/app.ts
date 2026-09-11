@@ -10,6 +10,7 @@ import { ComputeStack } from '../lib/compute-stack';
 import { ApiStack } from '../lib/api-stack';
 import { ObservabilityStack } from '../lib/observability-stack';
 import { ServerlessFrontendStack } from '../lib/serverless-frontend-stack';
+import { AgentStack } from '../lib/agent-stack';
 
 const app = new cdk.App();
 const env = {
@@ -51,6 +52,7 @@ const computeStack = new ComputeStack(app, 'DocPlatformComputeStack', {
   auditBucket: storageStack.auditBucket,
   controlTable: controlPlaneStack.table,
   indexQueue: messagingStack.indexQueue,
+  enrichmentQueue: messagingStack.enrichmentQueue,
   userPool: securityStack.userPool,
   userPoolClient: securityStack.userPoolClient,
   openSearchEndpoint: searchStack.collection.attrCollectionEndpoint,
@@ -83,6 +85,17 @@ const serverlessFrontendStack = new ServerlessFrontendStack(app, 'DocPlatformSer
   userPoolClient: securityStack.userPoolClient,
 });
 
+// 10. AI Document Assistant Stack (AgentCore Harness + Claude Sonnet 5 + SSE Streaming)
+const agentStack = new AgentStack(app, 'DocPlatformAgentStack', {
+  env,
+  documentBucket: storageStack.documentBucket,
+  auditBucket: storageStack.auditBucket,
+  controlTable: controlPlaneStack.table,
+  userPool: securityStack.userPool,
+  userPoolClient: securityStack.userPoolClient,
+  openSearchEndpoint: searchStack.collection.attrCollectionEndpoint,
+});
+
 // Apply standard tags to all stacks (excluding SearchStack due to CloudFormation CfnCollection replacement limitation)
 const environment = process.env.ENVIRONMENT || 'dev';
 const taggableStacks = [
@@ -94,6 +107,7 @@ const taggableStacks = [
   apiStack,
   observabilityStack,
   serverlessFrontendStack,
+  agentStack,
 ];
 
 for (const stack of taggableStacks) {

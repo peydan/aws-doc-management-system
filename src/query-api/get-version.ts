@@ -2,7 +2,7 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { authenticateRequest, authorizeRoles } from '../shared/auth';
 import { DynamoManager } from '../shared/dynamo';
 import { S3Manager } from '../shared/s3';
-import { PlatformError, ValidationError } from '../shared/errors';
+import { PlatformError, ValidationError, NotFoundError } from '../shared/errors';
 import { CORS_HEADERS } from '../shared/headers';
 import { isConvertibleToPdf } from '../shared/pdf-converter';
 
@@ -25,6 +25,9 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     const requestedFormat = event.queryStringParameters?.format?.toLowerCase();
     const doc = await DynamoManager.getDocument(documentId);
+    if (doc.status === 'SOFT_DELETED') {
+      throw new NotFoundError(`Document ${documentId} not found`);
+    }
     const ver = await DynamoManager.getVersion(documentId, versionNum);
 
     let targetKey = ver.s3_key;

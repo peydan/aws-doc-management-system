@@ -184,6 +184,22 @@
       "type": "string",
       "maxLength": 40,
       "description": "DOCUMENT_GROUP_ID VARCHAR2(40)"
+    },
+    "skip_enrichment": {
+      "type": "boolean",
+      "description": "If true, bypasses automatic LLM metadata enrichment on document creation"
+    },
+    "enrichment_audit": {
+      "type": "object",
+      "description": "Execution audit metadata populated by background AI enrichment workers",
+      "properties": {
+        "model_id": { "type": "string" },
+        "prompt_tokens": { "type": "integer" },
+        "completion_tokens": { "type": "integer" },
+        "total_tokens": { "type": "integer" },
+        "latency_ms": { "type": "integer" },
+        "applied_at": { "type": "string" }
+      }
     }
   }
 }

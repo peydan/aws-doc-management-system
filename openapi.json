@@ -88,7 +88,7 @@
               },
               "security_classification_example": {
                 "summary": "Security Classification Metadata",
-                "value": "{\"document_class\":\"security_classification\",\"document_type\":\"BOARD_RESOLUTION\",\"customer_id\":1094827,\"complete_customer_id_code\":{\"id_number\":\"123456789\",\"id_type\":1},\"account_id\":{\"bank_id\":10,\"branch_id\":802,\"account_number\":123456},\"business_area_code\":100,\"business_sub_area_code\":101,\"confidentiality_tier\":\"HIGHLY_CONFIDENTIAL\",\"contains_pii\":true,\"pii_categories\":[\"NATIONAL_ID\",\"FINANCIAL_ACCOUNT\"],\"minimum_clearance_role\":\"Document.Admin\",\"encryption_requirement\":\"SSE_KMS_CUSTOM_KEY\",\"data_residency_jurisdiction\":\"IL\",\"export_restricted\":true,\"classification_owner\":\"CISO_OFFICE\"}"
+                "value": "{\"document_class\":\"security_classification\",\"document_type\":\"BOARD_RESOLUTION\",\"customer_id\":1094827,\"complete_customer_id_code\":{\"id_number\":\"123456789\",\"id_type\":1},\"account_id\":{\"bank_id\":10,\"branch_id\":802,\"account_number\":123456},\"business_area_code\":100,\"business_sub_area_code\":101,\"confidentiality_tier\":\"HIGHLY_CONFIDENTIAL\",\"contains_pii\":true,\"pii_categories\":[\"NATIONAL_ID\",\"FINANCIAL_ACCOUNT\"],\"minimum_clearance_role\":\"Document.Admin\",\"encryption_requirement\":\"SSE_KMS_CUSTOM_KEY\",\"export_restricted\":true,\"classification_owner\":\"CISO_OFFICE\"}"
               }
             }
           },
@@ -882,6 +882,79 @@
         }
       }
     },
+    "/documents/{document_id}/audit": {
+      "get": {
+        "summary": "Get Document Audit Trail & LLM Inspection",
+        "description": "Retrieves the complete document-specific audit trail, including Amazon Bedrock automated metadata enrichment metrics, token consumption, PII discovery results, S3 compliance audit log paths, and DynamoDB version/mutation lifecycle events.",
+        "operationId": "getDocumentAudit",
+        "security": [
+          {
+            "CognitoAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "document_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Document audit trail retrieved.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "document_id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "document_class": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "current_application_version": {
+                      "type": "integer"
+                    },
+                    "current_metadata_revision": {
+                      "type": "integer"
+                    },
+                    "current_s3_version_id": {
+                      "type": "string"
+                    },
+                    "created_at": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "updated_at": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "llm_enrichment_audit": {
+                      "type": "object"
+                    },
+                    "lifecycle_audit": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Document not found."
+          }
+        }
+      }
+    },
     "/search": {
       "post": {
         "summary": "Search Active Documents",
@@ -915,6 +988,52 @@
           },
           "503": {
             "$ref": "#/components/responses/503SearchUnavailable"
+          }
+        }
+      }
+    },
+    "/agent/chat": {
+      "post": {
+        "summary": "Conversational AI Document Assistant",
+        "description": "Interacts with the AI Document Assistant powered by Amazon Bedrock AgentCore Harness and Anthropic Claude Sonnet 5 to search documents, fetch authoritative content, and answer questions.",
+        "operationId": "chatWithDocumentAssistant",
+        "security": [
+          {
+            "CognitoAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentChatRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Assistant response with citations.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentChatResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/401AuthenticationError"
+          },
+          "403": {
+            "$ref": "#/components/responses/403AuthorizationError"
+          },
+          "500": {
+            "$ref": "#/components/responses/500InternalError"
           }
         }
       }
@@ -1541,6 +1660,42 @@
           "document_group_id": {
             "type": "string",
             "example": "GRP-FIN-001"
+          },
+          "skip_enrichment": {
+            "type": "boolean",
+            "description": "If true, bypasses automatic LLM metadata enrichment on document creation.",
+            "example": false
+          },
+          "enrichment_audit": {
+            "type": "object",
+            "description": "Execution audit metadata populated by background AI enrichment workers.",
+            "properties": {
+              "model_id": {
+                "type": "string",
+                "example": "anthropic.claude-3-haiku-20240307-v1:0"
+              },
+              "prompt_tokens": {
+                "type": "integer",
+                "example": 420
+              },
+              "completion_tokens": {
+                "type": "integer",
+                "example": 95
+              },
+              "total_tokens": {
+                "type": "integer",
+                "example": 515
+              },
+              "latency_ms": {
+                "type": "integer",
+                "example": 1380
+              },
+              "applied_at": {
+                "type": "string",
+                "format": "date-time",
+                "example": "2026-09-11T12:00:00Z"
+              }
+            }
           }
         }
       },
@@ -1739,7 +1894,6 @@
               "pii_categories",
               "minimum_clearance_role",
               "encryption_requirement",
-              "data_residency_jurisdiction",
               "export_restricted",
               "classification_owner"
             ],
@@ -1814,16 +1968,6 @@
                   "DUAL_LAYER_KMS"
                 ],
                 "example": "SSE_KMS_CUSTOM_KEY"
-              },
-              "data_residency_jurisdiction": {
-                "type": "string",
-                "enum": [
-                  "IL",
-                  "EU",
-                  "US",
-                  "GLOBAL"
-                ],
-                "example": "IL"
               },
               "export_restricted": {
                 "type": "boolean",
@@ -2023,6 +2167,71 @@
                 }
               }
             }
+          }
+        }
+      },
+      "AgentChatRequest": {
+        "type": "object",
+        "required": [
+          "message"
+        ],
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "Natural language query or prompt for the assistant.",
+            "example": "Find the signed loan agreements for customer 998877 in 2026 and tell me the total loan amount."
+          },
+          "sessionId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Optional ephemeral session identifier to maintain conversation context (1-hour TTL)."
+          }
+        }
+      },
+      "AgentChatResponse": {
+        "type": "object",
+        "required": [
+          "session_id",
+          "message"
+        ],
+        "properties": {
+          "session_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "message": {
+            "type": "string",
+            "description": "Markdown-formatted assistant response with grounded citations."
+          },
+          "citations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "document_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "application_version": {
+                  "type": "integer"
+                },
+                "filename": {
+                  "type": "string"
+                },
+                "document_class": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "tools_used": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "correlation_id": {
+            "type": "string"
           }
         }
       }

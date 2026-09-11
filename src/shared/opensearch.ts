@@ -104,7 +104,6 @@ async function ensureIndexExists(client: Client): Promise<void> {
               pii_categories: { type: 'keyword' },
               minimum_clearance_role: { type: 'keyword' },
               encryption_requirement: { type: 'keyword' },
-              data_residency_jurisdiction: { type: 'keyword' },
               export_restricted: { type: 'boolean' },
               classification_owner: { type: 'keyword' },
             },

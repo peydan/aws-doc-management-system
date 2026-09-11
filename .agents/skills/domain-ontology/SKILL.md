@@ -43,7 +43,7 @@ All document classes compose with the shared schema (`https://bank.internal/sche
 - `compliance_retention`: `STATUTORY_RECORD`, `FINANCIAL_LEDGER`, `AUDIT_EVIDENCE`, `CONTRACT_ARCHIVE`, `COMMUNICATION_LOG`
   - Traits: `retention_schedule_code`, `retention_period_years`, `regulatory_framework`, `retention_start_date`, `retention_expiry_date`, `legal_hold_active`, `disposal_action`, `compliance_officer_id`.
 - `security_classification`: `CUSTOMER_RECORD`, `INTERNAL_MEMO`, `BOARD_RESOLUTION`, `FINANCIAL_FORECAST`, `SECURITY_ASSESSMENT`
-  - Traits: `confidentiality_tier`, `contains_pii`, `pii_categories`, `minimum_clearance_role`, `encryption_requirement`, `data_residency_jurisdiction`, `export_restricted`, `classification_owner`.
+  - Traits: `confidentiality_tier`, `contains_pii`, `pii_categories`, `minimum_clearance_role`, `encryption_requirement`, `export_restricted`, `classification_owner`.
 
 ## 4. Key Invariants & Rules
 - **Monetary values**: Always integer minor units (`loan_amount_minor_units` in cents/agorot). Never floating-point.
@@ -56,4 +56,6 @@ All document classes compose with the shared schema (`https://bank.internal/sche
 - **Schema Inheritance**: All class schemas must use `$ref: "https://bank.internal/schemas/shared-document-metadata-v1.json"` with `allOf`.
 - **Content Mutations**: Adding pages or mutating binary content produces a new S3 VersionId, updates S3 annotations, and creates an immutable `VER#{versionNum}` record via DynamoDB OCC.
 - **Capabilities Maintenance**: Any modification to domain models, API routes, or storage invariants must be reflected in `SYSTEM_CAPABILITIES.md` during Layer 6 impact analysis.
+- **LLM Enrichment Governance**: Automated metadata enrichment must never overwrite or downgrade uploader-defined policy fields (`confidentiality_tier`, `minimum_clearance_role`, `classification_owner`, `encryption_requirement`). PII discovery enforces the safety ratchet (union of `pii_categories`, non-downgrade of `contains_pii`). All mutations must update S3 annotations via DynamoDB OCC and persist an immutable audit trail in S3.
+- **AI Conversational Assistant**: The conversational document assistant executes via Amazon Bedrock AgentCore Harness & MCP Gateway, cites authoritative `document_id` and `application_version`, converts minor currency units to major units for human display, enforces soft-delete boundaries, and uses ephemeral session memory.
 

@@ -1,11 +1,20 @@
-import { SQSEvent } from 'aws-lambda';
+import { SQSEvent, SQSBatchResponse, SQSBatchItemFailure } from 'aws-lambda';
 import { S3Manager } from '../shared/s3';
 import { DynamoManager } from '../shared/dynamo';
 import { OpenSearchManager } from '../shared/opensearch';
 
-export async function handler(event: SQSEvent): Promise<void> {
+export async function handler(event: SQSEvent): Promise<SQSBatchResponse> {
+  const batchItemFailures: SQSBatchItemFailure[] = [];
+
   for (const record of event.Records) {
-    const payload = JSON.parse(record.body);
+    let payload: any;
+    try {
+      payload = JSON.parse(record.body);
+    } catch {
+      console.warn('Skipping unparseable SQS index message:', record.body);
+      continue;
+    }
+
     const { document_id, document_class, metadata_revision, status } = payload;
 
     if (!document_id || !document_class) {
@@ -40,7 +49,9 @@ export async function handler(event: SQSEvent): Promise<void> {
       console.log(`Successfully indexed document ${document_id} into OpenSearch`);
     } catch (err: any) {
       console.error(`Error indexing document ${document_id}:`, err);
-      throw err; // Throw to trigger SQS retry / DLQ routing
+      batchItemFailures.push({ itemIdentifier: record.messageId });
     }
   }
+
+  return { batchItemFailures };
 }

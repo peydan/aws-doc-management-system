@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>AWS Document Management Platform — Serverless Portal</title>
-  <link rel="stylesheet" href="styles.css?v=5" />
+  <link rel="stylesheet" href="styles.css?v=6" />
 </head>
 <body class="unauthenticated">
 
@@ -92,6 +92,7 @@
       <button class="tab-btn active" data-tab="tab-viewer">📂 Document Viewer</button>
       <button class="tab-btn" data-tab="tab-upload">📤 Ingestion & Upload</button>
       <button class="tab-btn" data-tab="tab-search">🔍 OpenSearch Explorer</button>
+      <button class="tab-btn" data-tab="tab-ai-assistant">🤖 AI Assistant</button>
       <button class="tab-btn" data-tab="tab-metadata">✏️ Metadata & Concurrency</button>
       <button class="tab-btn" data-tab="tab-admin">🛡️ Admin & Lifecycle</button>
       <button class="tab-btn" data-tab="tab-health">🩺 System Health</button>
@@ -192,6 +193,49 @@
 
             <!-- Metadata & Versions -->
             <div>
+              <!-- AI Enrichment Audit & Pipeline Card -->
+              <div class="card" id="viewer-ai-audit-card" style="display: none; border-left: 4px solid var(--aws-orange); margin-bottom: 1rem;">
+                <div class="card-header" style="padding-bottom: 0.5rem;">
+                  <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                      <div class="card-title" style="font-size: 0.95rem;">🤖 AI Enrichment & Pipeline Status</div>
+                      <span id="ai-audit-status-badge" class="badge badge-success" style="font-size: 0.7rem;">Enriched by Bedrock</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                      <span id="ai-audit-latency-badge" class="badge badge-info" style="font-size: 0.7rem;">-</span>
+                      <button type="button" class="btn btn-secondary btn-sm" style="font-size: 0.68rem; padding: 2px 6px;" onclick="openTriggerRulesModal()">Trigger Rules ℹ️</button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Pipeline Stepper -->
+                <div id="ai-pipeline-stepper" style="display: flex; align-items: center; justify-content: space-between; gap: 4px; padding: 6px 10px; background: rgba(0,0,0,0.2); border-radius: 6px; font-size: 0.72rem; margin-bottom: 8px; flex-wrap: wrap;">
+                  <span id="step-1-ingest" class="badge badge-success">✓ 1. Ingestion</span>
+                  <span style="color: var(--text-dim);">──►</span>
+                  <span id="step-2-sqs" class="badge badge-info">✓ 2. SQS Dispatched</span>
+                  <span style="color: var(--text-dim);">──►</span>
+                  <span id="step-3-bedrock" class="badge badge-info">✓ 3. Bedrock Scanned</span>
+                  <span style="color: var(--text-dim);">──►</span>
+                  <span id="step-4-occ" class="badge badge-success">✓ 4. Rev 2 Committed</span>
+                </div>
+
+                <!-- Explicit Trigger Diagnosis -->
+                <div id="ai-audit-diagnosis" style="font-size: 0.78rem; line-height: 1.5; padding: 6px 8px; background: rgba(255,255,255,0.03); border-radius: 4px; margin-bottom: 8px;">
+                </div>
+
+                <div id="ai-audit-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; font-size: 0.8rem; margin-bottom: 8px; padding: 0.5rem 0; border-bottom: 1px solid rgba(255,255,255,0.06);">
+                  <div><span style="color: var(--text-dim);">Model:</span> <strong id="ai-audit-model" style="color: #38bdf8;">-</strong></div>
+                  <div><span style="color: var(--text-dim);">Total Tokens:</span> <strong id="ai-audit-tokens" style="color: #fbbf24;">-</strong></div>
+                  <div><span style="color: var(--text-dim);">PII Detected:</span> <strong id="ai-audit-pii">-</strong></div>
+                  <div><span style="color: var(--text-dim);">Enriched At:</span> <span id="ai-audit-time" style="color: var(--text-dim); font-size: 0.75rem;">-</span></div>
+                </div>
+                <div id="ai-audit-cats" style="margin-top: 4px;">
+                  <div style="font-size: 0.75rem; color: var(--text-dim); margin-bottom: 4px;">PII Categories Identified:</div>
+                  <div id="ai-audit-categories-container" style="display: flex; gap: 6px; flex-wrap: wrap;"></div>
+                </div>
+                <div id="ai-audit-message" style="display: none; font-size: 0.8rem; color: var(--text-dim); padding: 0.5rem 0;"></div>
+              </div>
+
               <div class="card">
                 <div class="card-header">
                   <div class="card-title">🏷️ S3 Annotations & Full Metadata</div>
@@ -338,7 +382,7 @@
               <div style="font-size: 0.75rem; color: var(--text-dim); margin-bottom: 4px;">
                 Domain-specific attributes (updates automatically when you change Document Class).
               </div>
-              <textarea id="direct-class-metadata" class="form-control code-area" rows="5">{
+              <textarea id="direct-class-metadata" class="form-control code-area" rows="5" oninput="updateEnrichmentAdvisor('direct')">{
   "document_type": "SIGNED_AGREEMENT",
   "loan_number": "LN-2026-88821",
   "loan_amount_minor_units": 150000000,
@@ -347,6 +391,23 @@
   "branch_code": "TLV-01",
   "signed_date": "2026-08-31"
 }</textarea>
+            </div>
+
+            <!-- Bedrock AI Auto-Enrichment Advisor Card -->
+            <div class="card" style="background: rgba(255, 153, 0, 0.04); border: 1px solid rgba(255, 153, 0, 0.28); border-radius: 8px; padding: 12px 14px; margin-bottom: 1rem;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 8px;">
+                <div style="display: flex; align-items: center; gap: 6px;">
+                  <span style="font-size: 1.1rem;">🤖</span>
+                  <strong style="color: var(--aws-orange); font-size: 0.86rem;">Amazon Bedrock AI Advisor</strong>
+                  <button type="button" class="btn btn-secondary btn-sm" style="font-size: 0.68rem; padding: 1px 6px;" onclick="openTriggerRulesModal()">Trigger Rules ℹ️</button>
+                </div>
+                <label style="display: flex; align-items: center; gap: 6px; font-size: 0.8rem; cursor: pointer; user-select: none;">
+                  <input type="checkbox" id="direct-enable-enrichment" checked onchange="onEnrichmentToggle('direct', this.checked)">
+                  <span style="font-weight: 600;">Auto-Enrich Document</span>
+                </label>
+              </div>
+              <div id="direct-enrichment-guide" style="font-size: 0.78rem; line-height: 1.5; color: var(--text-dim);">
+              </div>
             </div>
 
             <div id="direct-progress-container" style="display: none;">
@@ -421,7 +482,7 @@
                   <span id="inline-class-badge" class="badge badge-warning" style="font-size: 0.7rem; margin-left: 4px;">loan_agreement</span>
                 </div>
               </label>
-              <textarea id="inline-class-metadata" class="form-control code-area" rows="5">{
+              <textarea id="inline-class-metadata" class="form-control code-area" rows="5" oninput="updateEnrichmentAdvisor('inline')">{
   "document_type": "SIGNED_AGREEMENT",
   "loan_number": "LN-2026-99001",
   "loan_amount_minor_units": 75000000,
@@ -430,6 +491,23 @@
   "branch_code": "NYC-04",
   "signed_date": "2026-08-31"
 }</textarea>
+            </div>
+
+            <!-- Inline Bedrock AI Auto-Enrichment Advisor Card -->
+            <div class="card" style="background: rgba(255, 153, 0, 0.04); border: 1px solid rgba(255, 153, 0, 0.28); border-radius: 8px; padding: 12px 14px; margin-bottom: 1rem;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 8px;">
+                <div style="display: flex; align-items: center; gap: 6px;">
+                  <span style="font-size: 1.1rem;">🤖</span>
+                  <strong style="color: var(--aws-orange); font-size: 0.86rem;">Amazon Bedrock AI Advisor</strong>
+                  <button type="button" class="btn btn-secondary btn-sm" style="font-size: 0.68rem; padding: 1px 6px;" onclick="openTriggerRulesModal()">Trigger Rules ℹ️</button>
+                </div>
+                <label style="display: flex; align-items: center; gap: 6px; font-size: 0.8rem; cursor: pointer; user-select: none;">
+                  <input type="checkbox" id="inline-enable-enrichment" checked onchange="onEnrichmentToggle('inline', this.checked)">
+                  <span style="font-weight: 600;">Auto-Enrich Document</span>
+                </label>
+              </div>
+              <div id="inline-enrichment-guide" style="font-size: 0.78rem; line-height: 1.5; color: var(--text-dim);">
+              </div>
             </div>
 
             <button id="btn-inline-upload" class="btn btn-secondary btn-block" onclick="executeInlineUpload()">
@@ -728,17 +806,174 @@
 
       <!-- ================= TAB: AUDIT INSPECTOR ================= -->
       <section id="tab-audit" class="tab-content">
-        <div class="card">
+        <!-- Document Context Selector Header -->
+        <div class="card" style="margin-bottom: 1.5rem;">
           <div class="card-header">
             <div>
-              <div class="card-title">📊 Session API Request & Audit Log</div>
-              <div class="card-subtitle">Every API call made by this single-page app with generated cURL commands</div>
+              <div class="card-title">🔍 Document Audit Context</div>
+              <div class="card-subtitle">Inspect server-side Bedrock LLM enrichment and authoritative S3/DynamoDB lifecycle audit for a specific document</div>
             </div>
-            <button class="btn btn-secondary btn-sm" onclick="clearAuditLog()">Clear Log</button>
+            <div id="audit-doc-badges" style="display: none; align-items: center; gap: 8px;">
+              <span id="audit-doc-status" class="badge badge-success">ACTIVE</span>
+              <span id="audit-doc-class" class="badge badge-info">-</span>
+              <span id="audit-doc-version" class="badge badge-secondary">v1</span>
+              <span id="audit-doc-revision" class="badge badge-secondary">rev 1</span>
+            </div>
           </div>
 
-          <div id="audit-log-container" style="display: flex; flex-direction: column; gap: 12px;">
-            <div style="color: var(--text-dim); text-align: center; padding: 2rem;">No API calls logged in this session yet.</div>
+          <div style="display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap;">
+            <div class="form-group" style="flex: 1; min-width: 280px; margin-bottom: 0;">
+              <label class="form-label">Document ID (UUID)</label>
+              <input type="text" id="audit-doc-id" class="form-control" placeholder="Enter Document UUID to inspect audit (e.g. 550e8400-e29b-41d4-a716-446655440000)" />
+            </div>
+            <button class="btn btn-primary" onclick="fetchDocumentAuditFromInput()">🔎 Fetch Audit Trail</button>
+            <button id="btn-audit-use-active" class="btn btn-secondary" onclick="loadActiveDocumentIntoAudit()">📌 Use Active Document</button>
+          </div>
+        </div>
+
+        <!-- Sub-Navigation: Two Kinds of Audit -->
+        <div class="sub-tabs-bar">
+          <button class="sub-tab-btn active" id="btn-subtab-llm" onclick="setAuditSubTab('llm')">
+            🤖 LLM Enrichment Audit
+          </button>
+          <button class="sub-tab-btn" id="btn-subtab-lifecycle" onclick="setAuditSubTab('lifecycle')">
+            📋 Lifecycle &amp; System Audit
+          </button>
+          <button class="sub-tab-btn" id="btn-subtab-both" onclick="setAuditSubTab('both')">
+            🔀 View Both (Side-by-Side)
+          </button>
+        </div>
+
+        <!-- Audit Panels Container -->
+        <div id="audit-panels-container">
+          <!-- KIND 1: LLM Enrichment Audit Panel -->
+          <div id="audit-panel-llm" style="margin-bottom: 1.5rem;">
+            <div class="card" style="border-left: 4px solid var(--aws-orange);">
+              <div class="card-header">
+                <div>
+                  <div class="card-title">🤖 Amazon Bedrock Automated Metadata &amp; PII Enrichment Audit</div>
+                  <div class="card-subtitle">Authoritative execution record captured from S3 metadata annotations &amp; immutable S3 compliance bucket</div>
+                </div>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                  <span id="audit-llm-status-badge" class="badge badge-success">Bedrock Audited</span>
+                  <span id="audit-llm-latency-badge" class="badge badge-info">- ms</span>
+                </div>
+              </div>
+
+              <div id="audit-llm-empty-state" style="display: block; text-align: center; padding: 2rem; color: var(--text-dim);">
+                Please fetch or select a document above to inspect its Bedrock LLM enrichment audit trail.
+              </div>
+
+              <div id="audit-llm-content-container" style="display: none;">
+                <div class="grid-4" style="margin-bottom: 1.5rem;">
+                  <div class="audit-metric-tile">
+                    <div class="audit-metric-tile-label">Bedrock Model</div>
+                    <div id="audit-llm-model" class="audit-metric-tile-value" style="font-size: 0.95rem; color: #38bdf8;">Claude 3 Haiku</div>
+                  </div>
+                  <div class="audit-metric-tile">
+                    <div class="audit-metric-tile-label">Total Tokens</div>
+                    <div id="audit-llm-tokens" class="audit-metric-tile-value" style="color: #fbbf24;">-</div>
+                    <div id="audit-llm-tokens-sub" style="font-size: 0.72rem; color: var(--text-dim);">- in / - out</div>
+                  </div>
+                  <div class="audit-metric-tile">
+                    <div class="audit-metric-tile-label">Inference Latency</div>
+                    <div id="audit-llm-latency" class="audit-metric-tile-value" style="color: #34d399;">- ms</div>
+                  </div>
+                  <div class="audit-metric-tile">
+                    <div class="audit-metric-tile-label">Enriched At</div>
+                    <div id="audit-llm-time" class="audit-metric-tile-value" style="font-size: 0.9rem;">-</div>
+                  </div>
+                </div>
+
+                <!-- PII Discovery & Classification -->
+                <div class="card" style="background-color: rgba(15, 23, 42, 0.5); border: 1px solid rgba(255,255,255,0.06); margin-bottom: 1rem; padding: 1rem;">
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <div style="font-weight: 600; font-size: 0.9rem;">🛡️ PII Discovery &amp; Safety Ratchet</div>
+                    <span id="audit-llm-pii-badge" class="badge badge-success">NO PII</span>
+                  </div>
+                  <div style="font-size: 0.8rem; color: var(--text-dim); margin-bottom: 8px;">
+                    Enforces monotonic safety ratchet: PII flags cannot be downgraded, and newly detected categories are merged.
+                  </div>
+                  <div id="audit-llm-pii-cats" style="display: flex; gap: 6px; flex-wrap: wrap;"></div>
+                </div>
+
+                <!-- S3 Compliance Log Path -->
+                <div class="form-group" style="margin-bottom: 1rem;">
+                  <label class="form-label" style="display: flex; justify-content: space-between;">
+                    <span>📦 Immutable S3 Compliance Audit URI</span>
+                    <button class="btn btn-secondary btn-sm" style="font-size: 0.7rem; padding: 2px 8px;" onclick="copyAuditS3Uri()">📋 Copy S3 URI</button>
+                  </label>
+                  <div id="audit-llm-s3-path" class="code-box" style="font-size: 0.8rem; padding: 8px 12px; word-break: break-all;">-</div>
+                </div>
+
+                <!-- Formatted JSON Audit Record -->
+                <details open>
+                  <summary style="cursor: pointer; font-size: 0.85rem; color: var(--aws-orange); margin-bottom: 6px;">
+                    🔍 Full Bedrock Audit Record Payload
+                  </summary>
+                  <div id="audit-llm-raw-box" class="code-box" style="max-height: 250px; overflow-y: auto;"></div>
+                </details>
+              </div>
+            </div>
+          </div>
+
+          <!-- KIND 2: Document Lifecycle & System Audit Panel -->
+          <div id="audit-panel-lifecycle" style="display: none; margin-bottom: 1.5rem;">
+            <!-- Document Version Lineage Card -->
+            <div class="card" style="margin-bottom: 1.5rem;">
+              <div class="card-header">
+                <div>
+                  <div class="card-title">🕒 Document Version Lineage (DynamoDB &amp; S3 WORM)</div>
+                  <div class="card-subtitle">Cryptographic checksums and version history for canonical document binaries</div>
+                </div>
+              </div>
+              <div class="table-container">
+                <table id="audit-lifecycle-versions-table">
+                  <thead>
+                    <tr>
+                      <th>App Version</th>
+                      <th>S3 Version ID</th>
+                      <th>SHA-256 Checksum</th>
+                      <th>State</th>
+                    </tr>
+                  </thead>
+                  <tbody id="audit-lifecycle-versions-tbody">
+                    <tr><td colspan="4" style="text-align: center; color: var(--text-dim);">No document selected</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Chronological Lifecycle Timeline -->
+            <div class="card" style="margin-bottom: 1.5rem;">
+              <div class="card-header">
+                <div>
+                  <div class="card-title">🏛️ Document Mutation &amp; Lifecycle Timeline</div>
+                  <div class="card-subtitle">Server-side lifecycle events recorded in S3 audit bucket and DynamoDB Streams</div>
+                </div>
+              </div>
+              <div id="audit-lifecycle-events-container" class="audit-timeline">
+                <div style="color: var(--text-dim); text-align: center; padding: 1.5rem;">No lifecycle events loaded yet.</div>
+              </div>
+            </div>
+
+            <!-- Session API Request Log ("The Rest of the Audit") -->
+            <div class="card">
+              <div class="card-header">
+                <div>
+                  <div class="card-title">📊 Session API Request &amp; cURL Inspector</div>
+                  <div class="card-subtitle">Operational API calls made during this single-page app session</div>
+                </div>
+                <div style="display: flex; gap: 8px;">
+                  <button class="btn btn-secondary btn-sm" onclick="exportAuditLogs()">⬇️ Export JSON</button>
+                  <button class="btn btn-secondary btn-sm" onclick="clearAuditLog()">Clear Log</button>
+                </div>
+              </div>
+
+              <div id="audit-log-container" style="display: flex; flex-direction: column; gap: 12px;">
+                <div style="color: var(--text-dim); text-align: center; padding: 2rem;">No API calls logged in this session yet.</div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -826,13 +1061,176 @@
           </div>
         </div>
       </section>
+ 
+       <!-- ================= TAB: AI CONVERSATIONAL ASSISTANT ================= -->
+       <section id="tab-ai-assistant" class="tab-content">
+         <div class="ai-assistant-wrapper">
+           <!-- Top Control / Status Bar -->
+           <div class="ai-header-bar">
+             <div class="ai-header-info">
+               <span class="ai-model-badge">🤖 Amazon Bedrock</span>
+               <span class="badge badge-info" style="font-size: 0.72rem;">Bedrock AgentCore</span>
+               <div class="ai-session-pill" id="ai-session-display" title="Active Ephemeral Session ID">
+                 Session: <span id="ai-current-session-id">loading...</span>
+               </div>
+             </div>
+             <div class="ai-header-actions">
+               <button class="btn btn-secondary btn-sm" onclick="startNewAiSession()" title="Start a fresh conversation session">
+                 ➕ New Session
+               </button>
+               <button class="btn btn-secondary btn-sm" onclick="clearAiChat()" title="Clear messages from current view">
+                 🗑️ Clear
+               </button>
+               <button class="btn btn-secondary btn-sm" onclick="toggleAiSettings()" title="Configure streaming endpoint">
+                 ⚙️ Endpoint
+               </button>
+             </div>
+           </div>
 
-    </main>
+           <!-- Collapsible Endpoint Config Bar -->
+           <div id="ai-endpoint-config" class="ai-endpoint-config" style="display: none;">
+             <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+               <div style="flex: 1; min-width: 260px;">
+                 <label class="form-label" style="margin-bottom: 2px; font-size: 0.75rem;">Agent Streaming URL (SSE Function URL or leave blank for /v1/agent/chat)</label>
+                 <input type="text" id="ai-custom-endpoint" class="form-control" style="padding: 6px 10px; font-size: 0.8rem;" placeholder="Leave blank to use API Gateway /v1/agent/chat" />
+               </div>
+               <div style="display: flex; gap: 8px; margin-top: 1.1rem;">
+                 <button class="btn btn-primary btn-sm" onclick="saveAiEndpointConfig()">Save Endpoint</button>
+                 <button class="btn btn-secondary btn-sm" onclick="resetAiEndpointConfig()">Reset Default</button>
+               </div>
+             </div>
+           </div>
+
+           <!-- Prompt Starters / Suggestion Chips -->
+           <div class="ai-prompts-bar">
+             <span style="font-size: 0.75rem; color: var(--text-dim); margin-right: 4px;">Suggestions:</span>
+             <button class="ai-prompt-chip" onclick="handlePromptChipClick('Find all mortgage loan agreements for customer 1094827 and summarize their terms.')">
+               📋 Find loans for customer 1094827
+             </button>
+             <button class="ai-prompt-chip" onclick="handlePromptChipClick('Search for loan agreement LN-2026-88821 and check its signed amount, currency, and date.')">
+               🔍 Inspect loan LN-2026-88821
+             </button>
+             <button class="ai-prompt-chip" onclick="handlePromptChipClick('Which documents have an active legal hold or SOX regulatory framework?')">
+               ⚖️ Check SOX / Legal Hold records
+             </button>
+             <button class="ai-prompt-chip" onclick="handlePromptChipClick('Identify documents containing PII categories such as NATIONAL_ID or FINANCIAL_HISTORY.')">
+               🔒 Check PII &amp; Security Classifications
+             </button>
+           </div>
+
+           <!-- Chat Messages Container -->
+           <div id="ai-chat-messages" class="ai-chat-messages">
+             <!-- Initial Welcome Message -->
+             <div class="ai-message ai-message-assistant" id="ai-welcome-msg">
+               <div class="ai-avatar ai-avatar-assistant">🤖</div>
+               <div class="ai-bubble">
+                 <p><strong>Hello! I am your AI Document Assistant</strong>, powered by Amazon Bedrock AgentCore and intelligent MCP tools.</p>
+                 <p>I have direct real-time access to your repository via MCP Gateway tools:</p>
+                 <ul>
+                   <li>🔍 <code>search_documents</code>: Multi-attribute search across customers, loan numbers, document classes, and metadata.</li>
+                   <li>📄 <code>fetch_document</code>: Retrieval of authoritative S3 document annotations, versions, and verified content.</li>
+                 </ul>
+                 <p style="color: var(--text-dim); font-size: 0.85rem; margin-top: 0.5rem;">
+                   Ask questions in plain English or select a suggestion above. Responses include real-time SSE streaming, live tool badges, and interactive citations you can open in the Document Viewer.
+                 </p>
+               </div>
+             </div>
+           </div>
+
+           <!-- Chat Input Bar -->
+           <div class="ai-input-wrapper">
+             <div class="ai-input-area">
+               <textarea
+                 id="ai-user-input"
+                 class="ai-input-textarea"
+                 placeholder="Ask about documents, loans, compliance, or customer records... (Enter to send, Shift+Enter for newline)"
+                 rows="1"
+                 onkeydown="handleAiInputKeydown(event)"
+                 oninput="autoResizeAiTextarea(this)"
+               ></textarea>
+               <div class="ai-input-footer-hint">
+                 <span>Press <strong>Enter</strong> to send • <strong>Shift+Enter</strong> for newline</span>
+                 <span id="ai-stream-status" style="color: #a5b4fc;">Idle</span>
+               </div>
+             </div>
+             <button id="btn-ai-send" class="btn btn-primary" onclick="submitAiMessage()" style="padding: 10px 20px;">
+               🚀 Send
+             </button>
+             <button id="btn-ai-stop" class="btn btn-danger" onclick="stopAiStreaming()" style="display: none; padding: 10px 20px;">
+               ⏹️ Stop
+             </button>
+           </div>
+         </div>
+       </section>
+
+     </main>
   </div>
+
+    <!-- Trigger Rules Reference Dialog -->
+    <dialog id="trigger-rules-modal" style="background: #1e293b; color: #f8fafc; border: 1px solid rgba(255,255,255,0.18); border-radius: 12px; max-width: 680px; width: 92%; padding: 1.5rem; box-shadow: 0 20px 30px -5px rgba(0,0,0,0.7); margin: auto;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 0.75rem;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 1.3rem;">🤖</span>
+          <h3 style="margin: 0; font-size: 1.1rem; color: var(--aws-orange);">Amazon Bedrock AI Auto-Enrichment Guide</h3>
+        </div>
+        <button class="btn btn-secondary btn-sm" onclick="document.getElementById('trigger-rules-modal').close()">✕ Close</button>
+      </div>
+      <div style="font-size: 0.85rem; line-height: 1.6; color: var(--text-dim);">
+        <p style="margin-top: 0; margin-bottom: 0.75rem;">
+          Automated metadata enrichment executes asynchronously in the background via <strong>Amazon Bedrock (Claude 3 Haiku)</strong> and <strong>Amazon SQS</strong>, decoupled from direct uploads (< 200ms).
+        </p>
+        
+        <table style="width: 100%; border-collapse: collapse; margin: 0.75rem 0; font-size: 0.8rem; background: rgba(0,0,0,0.2); border-radius: 6px; overflow: hidden;">
+          <thead>
+            <tr style="border-bottom: 1px solid rgba(255,255,255,0.15); text-align: left; background: rgba(255,255,255,0.03);">
+              <th style="padding: 8px 10px;">Lifecycle Event / Scenario</th>
+              <th style="padding: 8px 10px;">Triggers AI?</th>
+              <th style="padding: 8px 10px;">Architectural Reason & Governance Invariant</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr style="border-bottom: 1px solid rgba(255,255,255,0.06);">
+              <td style="padding: 8px 10px;"><strong>New Document Upload (Rev 1)</strong></td>
+              <td style="padding: 8px 10px;"><span class="badge badge-success">YES</span></td>
+              <td style="padding: 8px 10px;">DynamoDB Stream INSERT event dispatches to SQS ➔ Bedrock scans text, extracts missing fields, and detects PII ➔ Bumps revision 1 ➔ 2 via OCC.</td>
+            </tr>
+            <tr style="border-bottom: 1px solid rgba(255,255,255,0.06);">
+              <td style="padding: 8px 10px;"><strong><code>skip_enrichment: true</code></strong></td>
+              <td style="padding: 8px 10px;"><span class="badge badge-secondary">NO</span></td>
+              <td style="padding: 8px 10px;">Cost guardrail. Bypasses Bedrock invocation completely (0 tokens consumed, no SQS enqueue).</td>
+            </tr>
+            <tr style="border-bottom: 1px solid rgba(255,255,255,0.06);">
+              <td style="padding: 8px 10px;"><strong>Pre-populated Identifiers</strong></td>
+              <td style="padding: 8px 10px;"><span class="badge badge-info">PARTIAL</span></td>
+              <td style="padding: 8px 10px;">If <code>loan_number</code> is already provided, attribute extraction skips to save tokens; only PII safety check runs.</td>
+            </tr>
+            <tr style="border-bottom: 1px solid rgba(255,255,255,0.06);">
+              <td style="padding: 8px 10px;"><strong>Subsequent Page Additions (v2+)</strong></td>
+              <td style="padding: 8px 10px;"><span class="badge badge-secondary">NO</span></td>
+              <td style="padding: 8px 10px;">Binary version mutation. Generates new WORM S3 VersionId but preserves established metadata annotations.</td>
+            </tr>
+            <tr style="border-bottom: 1px solid rgba(255,255,255,0.06);">
+              <td style="padding: 8px 10px;"><strong>Manual Metadata Update (PATCH)</strong></td>
+              <td style="padding: 8px 10px;"><span class="badge badge-secondary">NO</span></td>
+              <td style="padding: 8px 10px;">Direct user updates via DynamoDB OCC are authoritative and immutable to the LLM.</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 10px;"><strong>Sensitivity & Clearance Roles</strong></td>
+              <td style="padding: 8px 10px;"><span class="badge badge-warning">LOCKED</span></td>
+              <td style="padding: 8px 10px;"><code>confidentiality_tier</code> and <code>minimum_clearance_role</code> are strictly governed by the uploader. AI can NEVER modify or downgrade them.</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div style="margin-top: 1rem; text-align: right;">
+          <button class="btn btn-primary btn-sm" onclick="document.getElementById('trigger-rules-modal').close()">Got it</button>
+        </div>
+      </div>
+    </dialog>
 
   <!-- Toast Notification Container -->
   <div id="toast-container"></div>
 
-  <script src="app.js?v=5"></script>
+  <script src="app.js?v=7"></script>
 </body>
 </html>

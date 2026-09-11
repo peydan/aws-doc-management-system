@@ -165,6 +165,7 @@ export class ApiStack extends cdk.Stack {
     const getDownloadUrlLambda = createHandlerLambda('GetDownloadUrlLambda', '../src/query-api/get-download-url.ts');
     const batchDownloadLambda = createHandlerLambda('BatchDownloadLambda', '../src/query-api/batch-download.ts');
     const healthLambda = createHandlerLambda('HealthLambda', '../src/query-api/health.ts');
+    const getAuditLambda = createHandlerLambda('GetAuditLambda', '../src/query-api/get-audit.ts');
 
     const queryLambdas = [
       getDocLambda,
@@ -174,17 +175,50 @@ export class ApiStack extends cdk.Stack {
       getDownloadUrlLambda,
       batchDownloadLambda,
       healthLambda,
+      getAuditLambda,
     ];
     for (const fn of queryLambdas) {
-      props.documentBucket.grantReadWrite(fn);
+      props.documentBucket.grantRead(fn);
       props.controlTable.grantReadData(fn);
       fn.addToRolePolicy(s3AnnotationReadPolicy);
     }
+    props.auditBucket.grantRead(getAuditLambda);
+
+    const projectionWritePolicy = new iam.PolicyStatement({
+      actions: ['s3:PutObject'],
+      resources: [
+        `${props.documentBucket.bucketArn}/derivatives/*`,
+        `${props.documentBucket.bucketArn}/exports/*`,
+      ],
+    });
+    getDocLambda.addToRolePolicy(projectionWritePolicy);
+    getVersionLambda.addToRolePolicy(projectionWritePolicy);
+    getDownloadUrlLambda.addToRolePolicy(projectionWritePolicy);
+    batchDownloadLambda.addToRolePolicy(projectionWritePolicy);
 
     const searchLambda = createHandlerLambda('SearchLambdaHandler', '../src/search-api/search-documents.ts');
     searchLambda.addToRolePolicy(
       new iam.PolicyStatement({
         actions: ['aoss:APIAccessAll'],
+        resources: ['*'],
+      })
+    );
+
+    const agentChatLambda = createHandlerLambda('AgentChatLambdaHandler', '../src/agent/chat-handler.ts', {
+      BEDROCK_MODEL_ID: process.env.BEDROCK_MODEL_ID || 'amazon.nova-pro-v1:0',
+    });
+    props.documentBucket.grantRead(agentChatLambda);
+    props.controlTable.grantReadData(agentChatLambda);
+    agentChatLambda.addToRolePolicy(s3AnnotationReadPolicy);
+    agentChatLambda.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['aoss:APIAccessAll'],
+        resources: ['*'],
+      })
+    );
+    agentChatLambda.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['bedrock:InvokeModel', 'bedrock:InvokeModelWithResponseStream'],
         resources: ['*'],
       })
     );
@@ -216,6 +250,13 @@ export class ApiStack extends cdk.Stack {
 
     // Search
     search.addMethod('POST', new apigateway.LambdaIntegration(searchLambda), authOptions);
+
+    // /v1/agent/chat (Conversational AI Assistant via Claude Sonnet 5)
+    const agent = this.api.root.addResource('agent');
+    addCors(agent);
+    const agentChat = agent.addResource('chat');
+    addCors(agentChat);
+    agentChat.addMethod('POST', new apigateway.LambdaIntegration(agentChatLambda), authOptions);
 
     // /v1/documents
     documents.addMethod('POST', new apigateway.LambdaIntegration(uploadInlineLambda), authOptions);
@@ -278,6 +319,11 @@ export class ApiStack extends cdk.Stack {
     const restoreRes = docIdRes.addResource('restore');
     addCors(restoreRes);
     restoreRes.addMethod('POST', new apigateway.LambdaIntegration(restoreLambda), authOptions);
+
+    // /v1/documents/{document_id}/audit
+    const docAuditRes = docIdRes.addResource('audit');
+    addCors(docAuditRes);
+    docAuditRes.addMethod('GET', new apigateway.LambdaIntegration(getAuditLambda), authOptions);
   }
 }
 

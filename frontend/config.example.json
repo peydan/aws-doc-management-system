@@ -1,5 +1,6 @@
 {
   "apiUrl": "https://<api-id>.execute-api.<region>.amazonaws.com/v1",
+  "agentStreamingUrl": "https://<lambda-function-url-id>.lambda-url.<region>.on.aws/",
   "userPoolId": "<region>_xxxxxxxxx",
   "userPoolClientId": "<cognito-app-client-id>",
   "region": "us-east-1",

@@ -79,6 +79,9 @@ The table below catalogs all capabilities exposed across the platform's API Gate
 | **23** | **Cognito Persona Role Simulation** | Frontend UI | In-Browser Header Injection | Developer / Tester | 1-click persona switcher simulating `Reader`, `Writer`, `MetadataEditor`, and `Admin` JWT claims. |
 | **24** | **In-Browser Client-Side SHA-256 Calculation** | Frontend UI | Web Crypto API | All Personas | Generates client-side SHA-256 hashes prior to upload for end-to-end cryptographic integrity verification. |
 | **25** | **Dynamic Multi-Tenant Schema Validation** | Core Engine | Precompiled Ajv Schemas | Internal / API | Validates structured metadata against domain schemas (`loan_agreement`, `compliance_retention`, `security_classification`). |
+| **26** | **Automated LLM Metadata & PII Enrichment** | Background Event Pipeline | SQS Enrichment Queue | System / Bedrock | Asynchronously extracts domain metadata and discovers PII via Amazon Bedrock (Claude 3 Haiku); applies non-downgrade safety ratchet; commits revision bump via DynamoDB OCC; persists compliance audit trail in S3. |
+| **27** | **AI Conversational Document Assistant** | REST API & Function URL | `POST /agent/chat` & SSE URL | `Document.Reader` | Managed conversational reasoning via Amazon Bedrock AgentCore Harness and Anthropic Claude Sonnet 5 (1M token window); invokes MCP tools (`search_documents`, `fetch_document`); ephemeral 1-hour session memory; real-time progress and token streaming. |
+| **28** | **Document Audit Trail & LLM Inspection** | REST API & Frontend UI | `GET /documents/{document_id}/audit` | `Document.Reader` | Unified document-specific audit trail combining Amazon Bedrock LLM enrichment metrics (model, prompt/completion tokens, latency, PII safety ratchets, S3 compliance URI) and server-side lifecycle mutations from DynamoDB & S3 WORM audit bucket. |
 
 ---
 
@@ -206,6 +209,19 @@ Consists of three coordinated operations designed to bypass API Gateway payload 
      - Generates 15-minute presigned GET URL pointing to the derivative PDF.
   3. Otherwise, generates 15-minute presigned GET URL pointing directly to the canonical WORM version in S3.
 - **Response:** Returns JSON containing `download_url`, `expires_in: 900`, `content_type`, `filename`, `is_derivative: boolean`.
+
+#### Capability: Document Audit Trail & LLM Inspection
+- **Method & Route:** `GET /documents/{document_id}/audit`
+- **Operation ID:** `getDocumentAudit`
+- **Required Role:** `Document.Reader`
+- **Execution Flow:**
+  1. Resolves document pointer and active S3 version ID from DynamoDB (`DOC#{id}`).
+  2. Fetches immutable version lineage records from DynamoDB (`sk` begins with `VER#`).
+  3. Retrieves authoritative S3 Object Annotation (`document-metadata`) from S3 primary bucket.
+  4. Inspects Amazon Bedrock LLM enrichment audit (`enrichment_audit`), extracting model ID, prompt/completion/total token counts, latency ms, PII detection status, and safety ratchet categories.
+  5. Deterministically resolves and streams compliance records from the immutable S3 Audit Bucket (`audit/llm-enrichment/YYYY-MM-DD/{id}_rev{rev}.json`).
+  6. Synthesizes a chronological lifecycle event timeline (`DOCUMENT_INGESTED`, `LLM_METADATA_ENRICHMENT`, `VERSION_CREATED`, `DOCUMENT_SOFT_DELETED`).
+- **Response:** Returns dual-kind audit JSON structure separating `llm_enrichment_audit` and `lifecycle_audit`.
 
 #### Capability: Multi-Document Batch Download (ZIP Archive)
 - **Method & Route:** `POST /documents/batch-download`
@@ -356,6 +372,29 @@ Consists of three coordinated operations designed to bypass API Gateway payload 
   3. Executes query against `documents-v1` OpenSearch collection.
   4. Returns paginated results with total hits, score, and indexed metadata attributes.
 
+### 3.6 AI & Conversational Assistant Operations
+
+#### Capability: AI Conversational Document Assistant (AgentCore Harness + Claude Sonnet 5)
+- **Method & Route:** `POST /agent/chat` (REST API) & Lambda Function URL (`RESPONSE_STREAM` SSE)
+- **Operation ID:** `chatWithDocumentAssistant`
+- **Required Role:** `Document.Reader`
+- **Foundation Model:** Anthropic Claude Sonnet 5 (`anthropic.claude-sonnet-5-v1:0` via Amazon Bedrock) with 1 Million token context window and adaptive thinking.
+- **Request Body:**
+  ```json
+  {
+    "message": "Find the signed loan agreements for customer 998877 in 2026 and tell me the total loan amount.",
+    "sessionId": "b8f041cb-7df4-44aa-8f69-d977a4192b0c"
+  }
+  ```
+- **Execution Flow:**
+  1. **Authentication & Session Lookup**: Authenticates Cognito JWT; initializes or resumes an ephemeral session (1-hour TTL keyed by `sessionId`).
+  2. **On-Behalf-Of (OBO) Identity Propagation & MCP Tool Dispatch**:
+     - The user's authenticated identity (`sub`, `roles`) is propagated into downstream tool execution contexts, ensuring the agent acts strictly on behalf of the caller rather than with a shared privileged service identity.
+     - **Tool 1 (`search_documents`)**: Queries OpenSearch Serverless `documents-v1` and applies defense-in-depth filtering: candidate documents exceeding the caller's role clearance (`minimum_clearance_role`) or classified as `HIGHLY_CONFIDENTIAL` / `RESTRICTED` are filtered out for unprivileged users.
+     - **Tool 2 (`fetch_document`)**: Resolves DynamoDB pointer, verifies `ACTIVE` status (warns on `SOFT_DELETED`), fetches authoritative S3 metadata annotation, and asserts that caller holds the required `minimum_clearance_role` and confidentiality clearance before returning content or generating presigned download URLs. If clearance is insufficient, returns an explicit `ACCESS DENIED (OBO Clearance Policy)` denial.
+  3. **Grounded Synthesis & Citation**: Ingests document context, formats currency in major units while verifying integer minor units, cites exact `document_id` and `application_version`, and outputs answer.
+  4. **Streaming & Response Delivery**: Emits real-time Server-Sent Events (`notifications/progress`, `tool_call`, `tool_result`, `text_delta`, `done`) over Lambda Function URL or returns structured JSON over REST API.
+
 ---
 
 ## 4. Dynamic Multi-Tenant Schema Validation & Domain Taxonomies
@@ -421,7 +460,6 @@ Every document in the system inherits and validates against the shared enterpris
   - `pii_categories` (`array[string]`): Categories present (`NATIONAL_ID`, `FINANCIAL_ACCOUNT`, `BIOMETRIC`).
   - `minimum_clearance_role` (`string`): Minimum RBAC role required to view (`Document.Reader`, `Document.Admin`).
   - `encryption_requirement` (`string`): Enum: `SSE_S3`, `SSE_KMS_CUSTOMER_MANAGED`.
-  - `data_residency_jurisdiction` (`string`): 2-letter ISO country code (`IL`, `US`, `EU`).
   - `export_restricted` (`boolean`): Enforces boundary export restrictions.
   - `classification_owner` (`string`): Authorizing department or officer.
 
@@ -469,6 +507,8 @@ The platform delivers an enterprise Single-Page Application (SPA) hosted serverl
 8. **Live Metadata Editor with OCC Shielding**: Enables editing structured metadata with client-side JSON syntax checking and automatic submission of the current `metadata_revision` to prevent lost updates.
 9. **Page Splice & Append Studio**: Allows users to upload a donor PDF or image and splice it into an existing document at any position (append, prepend, or specific page index).
 10. **Multi-Document Batch ZIP Exporter**: Allows operators to select checkboxes across multiple search results and trigger an on-demand ZIP export with an embedded manifest.
+11. **Conversational AI Assistant UI**: Dedicated '🤖 AI Assistant' interface powered by Amazon Bedrock AgentCore and Anthropic Claude Sonnet 5, featuring real-time Server-Sent Events (SSE) streaming via Lambda Function URL / REST API Gateway, live MCP tool call badges (`search_documents`, `fetch_document`) with expandable JSON payload inspection, interactive document citation cards with one-click navigation into the Document Viewer, prompt starter chips, and ephemeral session management.
+12. **AI Auto-Enrichment Advisor & Pipeline Stepper UI**: Dynamic pre-flight trigger evaluation embedded directly into upload studios, reactive `Auto-Enrich Document` cost guardrails (dynamically injecting `skip_enrichment: true`), 4-step asynchronous lifecycle pipeline visualizer (`Ingestion ➔ SQS Queue ➔ Bedrock Scan ➔ Rev 2 OCC`), explicit trigger diagnosis explaining why a document was enriched, skipped, or ineligible, and an in-app Bedrock Trigger Rules reference matrix.
 
 ---
 
@@ -520,6 +560,14 @@ The platform delivers an enterprise Single-Page Application (SPA) hosted serverl
 - **Regulatory Audit Logging**: Every DynamoDB Stream event is serialized into the dedicated S3 Audit Bucket (`audit/YYYY/MM/DD/{eventId}.json`), creating an immutable chronological audit trail.
 - **Automated Data Reconciler**: A scheduled EventBridge rule executes the `reconciler.ts` Lambda hourly, identifying any drift between DynamoDB pointers and OpenSearch records and healing discrepancies automatically.
 
+### 6.2 Automated LLM Metadata & PII Enrichment Pipeline:
+- **Event-Driven Bedrock Invocation**: On initial document creation (`metadata_revision = 1`), `stream-processor.ts` enqueues an event to `doc-platform-mvp-enrichment-queue`.
+- **Bedrock Worker (`metadata-enricher.ts`)**: Consumes the SQS message, evaluates pre-flight skip rules (`skip_enrichment` or existing key fields), reads document text, and invokes Amazon Bedrock (Claude 3 Haiku).
+- **PII Discovery with Safety Ratchet**: Automatically scans text for PII entities, populates `contains_pii`, and unions discovered types into `pii_categories` (`NATIONAL_ID`, `FINANCIAL_ACCOUNT`, `CONTACT_INFO`, etc.). Strictly preserves uploader `contains_pii: true` without allowing downgrades.
+- **Governance Invariant Preservation**: Uploader-defined policy fields (`confidentiality_tier`, `minimum_clearance_role`, `classification_owner`, `encryption_requirement`) are strictly immutable and cannot be modified by the LLM.
+- **DynamoDB OCC & OpenSearch Re-Index**: Bumps `metadata_revision` from 1 to 2 via conditional check (`expected_metadata_revision = 1`), updates the native S3 annotation (`document-metadata`), which automatically triggers the DynamoDB Stream to update the OpenSearch search projection.
+- **Immutable S3 Compliance Audit**: Persists an immutable execution audit record to `audit/llm-enrichment/YYYY-MM-DD/${document_id}_rev2.json` in the S3 audit bucket, capturing model ID, prompt/completion tokens, latency, raw extractions, applied diffs, and confidentiality preservation proofs.
+
 ---
 
 ## 7. Enterprise Security, Governance & RBAC Matrix
@@ -545,6 +593,8 @@ The system enforces granular Role-Based Access Control (RBAC) via Amazon Cognito
 | `POST /documents/{id}/soft-delete` | ❌ | ❌ | ❌ | ✅ |
 | `POST /documents/{id}/restore` | ❌ | ❌ | ❌ | ✅ |
 | `POST /search` | ✅ | ✅ | ✅ | ✅ |
+| `POST /agent/chat` (Conversational AI Assistant) | ✅ | ✅ | ✅ | ✅ |
+| `GET /documents/{id}/audit` (Audit Trail & LLM Inspection) | ✅ | ✅ | ✅ | ✅ |
 
 ### Governance & Compliance Invariants:
 1. **WORM Enforced via IAM**: Application execution roles have explicit `Deny` policies for `s3:DeleteObjectVersion` and `s3:DeleteBucket`. Once an S3 VersionId is created, it cannot be deleted by the application.
@@ -552,7 +602,7 @@ The system enforces granular Role-Based Access Control (RBAC) via Amazon Cognito
 3. **Data Encryption**:
    - **At Rest**: Amazon S3 SSE-KMS / SSE-S3 with automated key rotation. DynamoDB single-table encrypted via AWS KMS. OpenSearch Serverless collection encrypted with AWS KMS.
    - **In Transit**: Enforced TLS 1.3 across API Gateway, CloudFront CDN, and internal AWS service-to-service calls.
-4. **Data Residency**: Documents are tagged and classified by residency jurisdiction (`IL`, `US`, `EU`), enabling strict regional sovereignty compliance.
+4. **Data Sovereignty**: Regional compliance and data sovereignty are strictly enforced at the infrastructure topology layer via deployment in the designated AWS Region (e.g. AWS Israel `il-central-1`) with customer-managed KMS keys rather than arbitrary client metadata.
 
 ---
 

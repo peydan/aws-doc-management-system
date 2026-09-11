@@ -49,6 +49,10 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     const currentDoc = await DynamoManager.getDocument(documentId);
+    if (currentDoc.status === 'SOFT_DELETED') {
+      throw new ValidationError(`Cannot update metadata on soft-deleted document ${documentId}`);
+    }
+
     if (currentDoc.current_metadata_revision !== expectedRevision) {
       throw new MetadataConflictError(expectedRevision, currentDoc.current_metadata_revision);
     }
@@ -73,6 +77,15 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     validateMetadataSchema(updatedMetadata);
 
+    // 1. Atomically claim the revision in DynamoDB (OCC gate)
+    const updatedDoc = await DynamoManager.updateMetadataRevision(
+      documentId,
+      expectedRevision,
+      nextRevision,
+      'pending'
+    );
+
+    // 2. Now that we own this revision, write the authoritative S3 annotation
     const annotationPut = await S3Manager.putAnnotation(
       currentDoc.document_class,
       documentId,
@@ -80,12 +93,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       updatedMetadata
     );
 
-    const updatedDoc = await DynamoManager.updateMetadataRevision(
-      documentId,
-      expectedRevision,
-      nextRevision,
-      annotationPut.eTag
-    );
+    // 3. Update DynamoDB with the real annotation eTag
+    await DynamoManager.updateAnnotationEtag(documentId, nextRevision, annotationPut.eTag);
 
     Logger.info('Metadata updated successfully', {
       documentId,

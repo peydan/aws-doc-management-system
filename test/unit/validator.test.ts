@@ -135,7 +135,6 @@ describe('Metadata Validator Unit Tests', () => {
       pii_categories: ['FINANCIAL_ACCOUNT', 'CREDIT_SCORE'],
       minimum_clearance_role: 'Executive.Only',
       encryption_requirement: 'SSE_KMS_CUSTOM_KEY',
-      data_residency_jurisdiction: 'IL',
       export_restricted: true,
       classification_owner: 'CISO_OFFICE',
       content_type: 'application/pdf',
