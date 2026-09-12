@@ -123,6 +123,19 @@ npm run deploy:frontend-assets
 npm run gui:local
 ```
 
+### 4. On-Demand Testing & Verification (Zero Standing Cost)
+```bash
+# Run the complete test suite (Live AWS API + Headless UI + CloudWatch review)
+npm run test:complete
+
+# Or run individual verification suites on-demand:
+npm run test:aws          # Live AWS API capability verification
+npm run test:ui           # Headless Web Portal UI test
+npm run review:cloudwatch # CloudWatch log & metrics audit
+npm run test:postman      # Newman CLI Postman collection regression
+npm test                  # Local unit tests (125 tests with mocks)
+```
+
 ---
 
 ## 📖 Key Documentation & Deliverables

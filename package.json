@@ -17,7 +17,12 @@
     "reload": "ts-node scripts/reload-documents.ts",
     "gui:local": "npx serve frontend/dist -l 3000",
     "gui": "npx serve frontend/dist -l 3000",
-    "deploy:frontend-assets": "ts-node scripts/deploy-serverless-frontend.ts"
+    "deploy:frontend-assets": "ts-node scripts/deploy-serverless-frontend.ts",
+    "test:complete": "ts-node scripts/test-complete.ts",
+    "test:aws": "ts-node scripts/test-live-aws.ts",
+    "test:ui": "ts-node test/e2e/ui-test.ts",
+    "review:cloudwatch": "ts-node scripts/review-cloudwatch.ts",
+    "test:postman": "npx newman run postman_collection.json -e postman_environment.json"
   },
   "dependencies": {
     "@aws-sdk/client-bedrock-runtime": "^3.600.0",
