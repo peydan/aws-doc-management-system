@@ -17,22 +17,25 @@ const env = {
   account: process.env.CDK_DEFAULT_ACCOUNT || process.env.AWS_ACCOUNT_ID,
   region: process.env.CDK_DEFAULT_REGION || process.env.AWS_REGION || 'us-east-1',
 };
+const environment = process.env.ENVIRONMENT || 'dev';
+const isProduction = environment === 'prod' || environment === 'production';
 
 // 1. Security Stack
-const securityStack = new SecurityStack(app, 'DocPlatformSecurityStack', { env });
+const securityStack = new SecurityStack(app, 'DocPlatformSecurityStack', { env, environment, isProduction });
 
 // 2. Storage Stack
 const storageStack = new StorageStack(app, 'DocPlatformStorageStack', { env });
 
 // 3. Control Plane Stack
-const controlPlaneStack = new ControlPlaneStack(app, 'DocPlatformControlPlaneStack', { env });
+const controlPlaneStack = new ControlPlaneStack(app, 'DocPlatformControlPlaneStack', { env, environment });
 
 // 4. Messaging Stack
-const messagingStack = new MessagingStack(app, 'DocPlatformMessagingStack', { env });
+const messagingStack = new MessagingStack(app, 'DocPlatformMessagingStack', { env, environment });
 
 // 5. Search Stack
 const searchStack = new SearchStack(app, 'DocPlatformSearchStack', {
   env,
+  environment,
 });
 
 // 6. Compute Stack
@@ -52,6 +55,7 @@ const computeStack = new ComputeStack(app, 'DocPlatformComputeStack', {
 // 7. API Stack
 const apiStack = new ApiStack(app, 'DocPlatformApiStack', {
   env,
+  environment,
   documentBucket: storageStack.documentBucket,
   auditBucket: storageStack.auditBucket,
   controlTable: controlPlaneStack.table,
@@ -90,7 +94,6 @@ const agentStack = new AgentStack(app, 'DocPlatformAgentStack', {
 });
 
 // Apply standard tags to all stacks (excluding SearchStack due to CloudFormation CfnCollection replacement limitation)
-const environment = process.env.ENVIRONMENT || 'dev';
 const taggableStacks = [
   securityStack,
   storageStack,

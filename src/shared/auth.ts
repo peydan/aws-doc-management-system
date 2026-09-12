@@ -1,6 +1,7 @@
 import { CognitoJwtVerifier } from 'aws-jwt-verify';
 import { APIGatewayProxyEvent } from 'aws-lambda';
 import { AuthenticationError, AuthorizationError } from './errors';
+import { isMockAuthEnabled } from './adapters/in-memory-storage';
 
 export type ApplicationRole = 'Document.Reader' | 'Document.Writer' | 'Document.MetadataEditor' | 'Document.Admin';
 
@@ -26,8 +27,8 @@ function getVerifier() {
 export async function authenticateRequest(event: APIGatewayProxyEvent): Promise<UserContext> {
   const authHeader = event.headers.Authorization || event.headers.authorization;
   
-  // Allow test mock bypass in local unit testing if explicit flag is set
-  if (process.env.MOCK_AUTH_BYPASS === 'true') {
+  // Allow test mock bypass in local unit testing if explicit flag is set (forbidden in production)
+  if (isMockAuthEnabled()) {
     const mockRole = (event.headers['x-mock-role'] as ApplicationRole) || 'Document.Admin';
     const mockUser = event.headers['x-mock-user'] || 'test-user-id';
     return {

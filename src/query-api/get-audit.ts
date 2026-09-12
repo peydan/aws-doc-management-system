@@ -5,6 +5,7 @@ import { DynamoManager } from '../shared/dynamo';
 import { S3Manager } from '../shared/s3';
 import { PlatformError, ValidationError, NotFoundError, isPlatformError } from '../shared/errors';
 import { CORS_HEADERS } from '../shared/headers';
+import { isMockStorageEnabled } from '../shared/adapters/in-memory-storage';
 
 const s3Client = new S3Client({ region: process.env.AWS_REGION || 'us-east-1' });
 const AUDIT_BUCKET_NAME = process.env.AUDIT_BUCKET_NAME || 'doc-platform-mvp-audit';
@@ -61,7 +62,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     let rawAuditRecord: any = null;
     if (isEnriched) {
       try {
-        if (process.env.MOCK_STORAGE_BYPASS !== 'true') {
+        if (!isMockStorageEnabled()) {
           const s3Res = await s3Client.send(
             new GetObjectCommand({
               Bucket: AUDIT_BUCKET_NAME,

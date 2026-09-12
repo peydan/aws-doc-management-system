@@ -1,18 +1,14 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { authenticateRequest, authorizeRoles } from '../shared/auth';
+import { createApiHandler, ApiHandlerContext } from '../shared/api-handler';
 import { DynamoManager } from '../shared/dynamo';
 import { S3Manager } from '../shared/s3';
 import { OpenSearchManager } from '../shared/opensearch';
 import { Logger } from '../shared/logger';
-import { PlatformError, ValidationError } from '../shared/errors';
+import { ValidationError } from '../shared/errors';
 import { CORS_HEADERS } from '../shared/headers';
 
-export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-  const correlationId = event.requestContext.requestId;
-  try {
-    const user = await authenticateRequest(event);
-    authorizeRoles(user, ['Document.Admin']);
-
+export const handler = createApiHandler(
+  async (event: APIGatewayProxyEvent, { correlationId }: ApiHandlerContext): Promise<APIGatewayProxyResult> => {
     const documentId = event.pathParameters?.document_id;
     if (!documentId) {
       throw new ValidationError('document_id is required');
@@ -42,25 +38,6 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         updated_at: updatedDoc.updated_at,
       }),
     };
-  } catch (err: any) {
-    if (err instanceof PlatformError) {
-      return {
-        statusCode: err.statusCode,
-        headers: CORS_HEADERS,
-        body: JSON.stringify(err.toResponse(correlationId)),
-      };
-    }
-    return {
-      statusCode: 500,
-      headers: CORS_HEADERS,
-      body: JSON.stringify({
-        error: {
-          code: 'INTERNAL_ERROR',
-          message: 'An unexpected internal error occurred',
-          correlation_id: correlationId,
-          retryable: true,
-        },
-      }),
-    };
-  }
-}
+  },
+  { allowedRoles: ['Document.Admin'], handlerName: 'restore' }
+);

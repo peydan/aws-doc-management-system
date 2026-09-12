@@ -1,18 +1,14 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { authenticateRequest, authorizeRoles } from '../shared/auth';
+import { createApiHandler, ApiHandlerContext } from '../shared/api-handler';
 import { validateMetadataSchema, parseJsonBody, getImmutableFields } from '../shared/validator';
 import { S3Manager } from '../shared/s3';
 import { DynamoManager } from '../shared/dynamo';
 import { Logger } from '../shared/logger';
-import { PlatformError, ValidationError, MetadataConflictError } from '../shared/errors';
+import { ValidationError, MetadataConflictError } from '../shared/errors';
 import { CORS_HEADERS } from '../shared/headers';
 
-export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-  const correlationId = event.requestContext.requestId;
-  try {
-    const user = await authenticateRequest(event);
-    authorizeRoles(user, ['Document.MetadataEditor', 'Document.Writer', 'Document.Admin']);
-
+export const handler = createApiHandler(
+  async (event: APIGatewayProxyEvent, { correlationId, user }: ApiHandlerContext): Promise<APIGatewayProxyResult> => {
     const documentId = event.pathParameters?.document_id;
     if (!documentId) {
       throw new ValidationError('document_id path parameter is required');
@@ -72,7 +68,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     );
 
     // 2. Atomically claim the revision in DynamoDB with real annotation eTag (OCC gate)
-    const updatedDoc = await DynamoManager.updateMetadataRevision(
+    await DynamoManager.updateMetadataRevision(
       documentId,
       expectedRevision,
       nextRevision,
@@ -96,26 +92,6 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         metadata: updatedMetadata,
       }),
     };
-  } catch (err: any) {
-    if (err instanceof PlatformError) {
-      return {
-        statusCode: err.statusCode,
-        headers: CORS_HEADERS,
-        body: JSON.stringify(err.toResponse(correlationId)),
-      };
-    }
-    Logger.error('Unhandled error in metadata update handler', err, { correlationId });
-    return {
-      statusCode: 500,
-      headers: CORS_HEADERS,
-      body: JSON.stringify({
-        error: {
-          code: 'INTERNAL_ERROR',
-          message: 'An unexpected internal error occurred',
-          correlation_id: correlationId,
-          retryable: true,
-        },
-      }),
-    };
-  }
-}
+  },
+  { allowedRoles: ['Document.MetadataEditor', 'Document.Writer', 'Document.Admin'], handlerName: 'metadata-update' }
+);

@@ -1,17 +1,13 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { authenticateRequest, authorizeRoles } from '../shared/auth';
+import { createApiHandler, ApiHandlerContext } from '../shared/api-handler';
 import { DynamoManager } from '../shared/dynamo';
 import { S3Manager } from '../shared/s3';
-import { PlatformError, ValidationError, NotFoundError, isPlatformError } from '../shared/errors';
+import { ValidationError, NotFoundError } from '../shared/errors';
 import { CORS_HEADERS } from '../shared/headers';
 import { isConvertibleToPdf } from '../shared/pdf-converter';
 
-export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-  const correlationId = event.requestContext.requestId;
-  try {
-    const user = await authenticateRequest(event);
-    authorizeRoles(user, ['Document.Reader', 'Document.Writer', 'Document.MetadataEditor', 'Document.Admin']);
-
+export const handler = createApiHandler(
+  async (event: APIGatewayProxyEvent, _ctx: ApiHandlerContext): Promise<APIGatewayProxyResult> => {
     const documentId = event.pathParameters?.document_id;
     if (!documentId) {
       throw new ValidationError('document_id is required');
@@ -89,26 +85,9 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         updated_at: doc.updated_at,
       }),
     };
-  } catch (err: any) {
-    console.error(`[${event.path || 'get-document'}] Error:`, err);
-    if (err instanceof PlatformError || isPlatformError(err)) {
-      return {
-        statusCode: err.statusCode,
-        headers: CORS_HEADERS,
-        body: JSON.stringify(err.toResponse(correlationId)),
-      };
-    }
-    return {
-      statusCode: 500,
-      headers: CORS_HEADERS,
-      body: JSON.stringify({
-        error: {
-          code: 'INTERNAL_ERROR',
-          message: err?.message || 'An unexpected internal error occurred',
-          correlation_id: correlationId,
-          retryable: true,
-        },
-      }),
-    };
+  },
+  {
+    allowedRoles: ['Document.Reader', 'Document.Writer', 'Document.MetadataEditor', 'Document.Admin'],
+    handlerName: 'get-document',
   }
-}
+);

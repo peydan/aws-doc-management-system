@@ -18,6 +18,7 @@ export interface ApiStackProps extends cdk.StackProps {
   userPool: cognito.IUserPool;
   userPoolClient: cognito.IUserPoolClient;
   openSearchEndpoint?: string;
+  environment?: string;
 }
 
 export class ApiStack extends cdk.Stack {
@@ -26,8 +27,12 @@ export class ApiStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: ApiStackProps) {
     super(scope, id, props);
 
+    const apiName = props.environment && props.environment !== 'mvp' && props.environment !== 'dev'
+      ? `doc-platform-${props.environment}-api`
+      : 'doc-platform-mvp-api';
+
     this.api = new apigateway.RestApi(this, 'DocumentApi', {
-      restApiName: 'doc-platform-mvp-api',
+      restApiName: apiName,
       description: 'AWS Document Management Platform MVP REST API',
       binaryMediaTypes: ['*/*'],
       cloudWatchRole: true,
@@ -92,7 +97,7 @@ export class ApiStack extends cdk.Stack {
         architecture: lambda.Architecture.ARM_64,
         entry: path.join(__dirname, filePath),
         handler: 'handler',
-        timeout: cdk.Duration.seconds(30),
+        timeout: cdk.Duration.seconds(29),
         memorySize: 512,
         bundling: {
           externalModules: [],

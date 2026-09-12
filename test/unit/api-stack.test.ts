@@ -118,4 +118,14 @@ describe('ApiStack Infrastructure & CORS Architecture Assertions', () => {
       expect(count).toBeLessThanOrEqual(10);
     }
   });
+
+  test('All API Lambda functions have timeout <= 29 seconds to match API Gateway limit', () => {
+    const lambdas = template.findResources('AWS::Lambda::Function');
+    for (const [key, fn] of Object.entries(lambdas)) {
+      const timeout = fn.Properties.Timeout;
+      if (timeout) {
+        expect(timeout).toBeLessThanOrEqual(29);
+      }
+    }
+  });
 });

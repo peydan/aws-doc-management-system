@@ -2,26 +2,41 @@ import * as cdk from 'aws-cdk-lib';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
 import { Construct } from 'constructs';
 
+export interface SecurityStackProps extends cdk.StackProps {
+  environment?: string;
+  isProduction?: boolean;
+}
+
 export class SecurityStack extends cdk.Stack {
   public readonly userPool: cognito.UserPool;
   public readonly userPoolClient: cognito.UserPoolClient;
 
-  constructor(scope: Construct, id: string, props?: cdk.StackProps) {
+  constructor(scope: Construct, id: string, props?: SecurityStackProps) {
     super(scope, id, props);
+
+    const userPoolName = props?.environment && props.environment !== 'mvp' && props.environment !== 'dev'
+      ? `doc-platform-${props.environment}-user-pool`
+      : 'doc-platform-user-pool';
+
+    const clientName = props?.environment && props.environment !== 'mvp' && props.environment !== 'dev'
+      ? `doc-platform-${props.environment}-client`
+      : 'doc-platform-client';
+
+    const removalPolicy = props?.isProduction ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY;
 
     // AWS Cognito User Pool
     this.userPool = new cognito.UserPool(this, 'UserPool', {
-      userPoolName: 'doc-platform-user-pool',
+      userPoolName,
       selfSignUpEnabled: false,
       signInAliases: { email: true, username: true },
       autoVerify: { email: true },
-      removalPolicy: cdk.RemovalPolicy.DESTROY,
+      removalPolicy,
     });
 
     // Cognito App Client
     this.userPoolClient = new cognito.UserPoolClient(this, 'UserPoolClient', {
       userPool: this.userPool,
-      userPoolClientName: 'doc-platform-client',
+      userPoolClientName: clientName,
       generateSecret: false,
       authFlows: {
         userPassword: true,

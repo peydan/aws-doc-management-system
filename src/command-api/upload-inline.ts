@@ -1,13 +1,12 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { v4 as uuidv4 } from 'uuid';
 import * as crypto from 'crypto';
-import { authenticateRequest, authorizeRoles } from '../shared/auth';
+import { createApiHandler, getHeader, ApiHandlerContext } from '../shared/api-handler';
 import { validateMetadataSchema, buildFullMetadata } from '../shared/validator';
 import { S3Manager } from '../shared/s3';
 import { DynamoManager } from '../shared/dynamo';
 import { Logger } from '../shared/logger';
 import {
-  PlatformError,
   ValidationError,
   InlineUploadLimitExceededError,
   ChecksumMismatchError,
@@ -17,15 +16,11 @@ import { detectFileFormat, getPdfPageCount } from '../shared/pdf-converter';
 
 const INLINE_MAX_BYTES = parseInt(process.env.INLINE_UPLOAD_MAX_BYTES || '4194304', 10);
 
-export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-  const correlationId = event.requestContext.requestId;
-  try {
-    const user = await authenticateRequest(event);
-    authorizeRoles(user, ['Document.Writer', 'Document.Admin']);
-
-    const idempotencyKey = event.headers['Idempotency-Key'] || event.headers['idempotency-key'];
-    const clientProvidedSha256 = event.headers['X-Content-SHA256'] || event.headers['x-content-sha256'];
-    const metadataHeader = event.headers['X-Document-Metadata'] || event.headers['x-document-metadata'];
+export const handler = createApiHandler(
+  async (event: APIGatewayProxyEvent, { correlationId, user }: ApiHandlerContext): Promise<APIGatewayProxyResult> => {
+    const idempotencyKey = getHeader(event, 'Idempotency-Key');
+    const clientProvidedSha256 = getHeader(event, 'X-Content-SHA256');
+    const metadataHeader = getHeader(event, 'X-Document-Metadata');
 
     if (!metadataHeader) {
       throw new ValidationError('Missing required header X-Document-Metadata');
@@ -76,15 +71,23 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       }
     }
 
+    const documentClass = metadataRaw.document_class;
+    if (!documentClass) {
+      throw new ValidationError('document_class is required in metadata');
+    }
+
     const documentId = uuidv4();
-    const documentClass = metadataRaw.document_class || 'loan_agreement';
-    const contentType = event.headers['Content-Type'] || event.headers['content-type'] || 'application/pdf';
-    const filename = metadataRaw.filename || `document_${documentId}.pdf`;
+    const contentType = getHeader(event, 'Content-Type') || 'application/octet-stream';
+    const filename = metadataRaw.filename || 'document.bin';
 
     const format = detectFileFormat(contentType, filename);
     let pageCount: number | undefined;
     if (format === 'pdf') {
-      pageCount = await getPdfPageCount(bodyBuffer);
+      try {
+        pageCount = await getPdfPageCount(bodyBuffer);
+      } catch {
+        pageCount = undefined;
+      }
     }
 
     const fullMetadata = buildFullMetadata({
@@ -93,7 +96,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       filename,
       contentType,
       contentLength: bodyBuffer.length,
-      checksum: calculatedSha256,
+      checksum: `sha256:${calculatedSha256}`,
       userId: user.userId,
       clientMetadata: metadataRaw,
       format,
@@ -103,10 +106,11 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     validateMetadataSchema(fullMetadata);
 
     const s3Key = S3Manager.getDocumentKey(documentClass, documentId);
+
     const contentResult = await S3Manager.putContent(
       s3Key,
       bodyBuffer,
-      fullMetadata.content_type,
+      contentType,
       calculatedSha256
     );
 
@@ -117,13 +121,13 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       fullMetadata
     );
 
-    const docRecord = await DynamoManager.commitDocumentCreation({
+    await DynamoManager.commitDocumentCreation({
       documentId,
       documentClass,
       s3Key,
       s3VersionId: contentResult.versionId,
       annotationEtag: annotationResult.eTag,
-      checksum: fullMetadata.content_checksum,
+      checksum: `sha256:${calculatedSha256}`,
       idempotencyKey,
       clientId: user.userId,
       requestHash: calculatedSha256,
@@ -145,26 +149,6 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         created_at: fullMetadata.created_at,
       }),
     };
-  } catch (err: any) {
-    if (err instanceof PlatformError) {
-      return {
-        statusCode: err.statusCode,
-        headers: CORS_HEADERS,
-        body: JSON.stringify(err.toResponse(correlationId)),
-      };
-    }
-    Logger.error('Unhandled error in inline upload handler', err, { correlationId });
-    return {
-      statusCode: 500,
-      headers: CORS_HEADERS,
-      body: JSON.stringify({
-        error: {
-          code: 'INTERNAL_ERROR',
-          message: 'An unexpected internal error occurred',
-          correlation_id: correlationId,
-          retryable: true,
-        },
-      }),
-    };
-  }
-}
+  },
+  { allowedRoles: ['Document.Writer', 'Document.Admin'], handlerName: 'upload-inline' }
+);

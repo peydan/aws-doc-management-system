@@ -13,6 +13,7 @@ import {
   MetadataConflictError,
   VersionConflictError,
 } from './errors';
+import { isMockStorageEnabled, InMemoryStorageAdapter } from './adapters/in-memory-storage';
 
 const rawClient = new DynamoDBClient({ region: process.env.AWS_REGION || 'us-east-1' });
 export const dynamoDocClient = DynamoDBDocumentClient.from(rawClient, {
@@ -20,8 +21,6 @@ export const dynamoDocClient = DynamoDBDocumentClient.from(rawClient, {
 });
 
 const TABLE_NAME = process.env.DYNAMODB_TABLE_NAME || 'doc-platform-mvp-control';
-
-const inMemoryTable = new Map<string, any>();
 
 export interface DocumentItem {
   pk: string;
@@ -92,14 +91,8 @@ export class DynamoManager {
     const pk = `IDEMP#${clientId}#${idempotencyKey}`;
     const sk = 'REQUEST';
 
-    if (process.env.MOCK_STORAGE_BYPASS === 'true') {
-      const item = inMemoryTable.get(`${pk}#${sk}`);
-      if (item && item.request_hash !== requestHash) {
-        throw new IdempotencyConflictError(
-          `Idempotency key ${idempotencyKey} already used with a different request payload.`
-        );
-      }
-      return item || null;
+    if (isMockStorageEnabled()) {
+      return InMemoryStorageAdapter.checkOrSetIdempotency(pk, sk, idempotencyKey, requestHash);
     }
 
     const existing = await dynamoDocClient.send(
@@ -128,12 +121,8 @@ export class DynamoManager {
     const pk = `DOC#${documentId}`;
     const sk = 'DOC';
 
-    if (process.env.MOCK_STORAGE_BYPASS === 'true') {
-      const item = inMemoryTable.get(`${pk}#${sk}`);
-      if (!item) {
-        throw new NotFoundError(`Document ${documentId} not found`);
-      }
-      return item as DocumentItem;
+    if (isMockStorageEnabled()) {
+      return InMemoryStorageAdapter.getDocument(documentId);
     }
 
     const result = await dynamoDocClient.send(
@@ -155,14 +144,8 @@ export class DynamoManager {
   static async listVersions(documentId: string): Promise<VersionItem[]> {
     const pk = `DOC#${documentId}`;
 
-    if (process.env.MOCK_STORAGE_BYPASS === 'true') {
-      const items: VersionItem[] = [];
-      for (const [key, val] of inMemoryTable.entries()) {
-        if (key.startsWith(`${pk}#VER#`)) {
-          items.push(val as VersionItem);
-        }
-      }
-      return items.sort((a, b) => b.application_version - a.application_version);
+    if (isMockStorageEnabled()) {
+      return InMemoryStorageAdapter.listVersions(documentId);
     }
 
     const result = await dynamoDocClient.send(
@@ -185,12 +168,8 @@ export class DynamoManager {
     const pk = `DOC#${documentId}`;
     const sk = `VER#${this.padVersion(version)}`;
 
-    if (process.env.MOCK_STORAGE_BYPASS === 'true') {
-      const item = inMemoryTable.get(`${pk}#${sk}`);
-      if (!item) {
-        throw new NotFoundError(`Version ${version} for document ${documentId} not found`);
-      }
-      return item as VersionItem;
+    if (isMockStorageEnabled()) {
+      return InMemoryStorageAdapter.getVersion(documentId, version, (v) => this.padVersion(v));
     }
 
     const result = await dynamoDocClient.send(
@@ -250,32 +229,21 @@ export class DynamoManager {
       state: 'ACTIVE',
     };
 
-    if (process.env.MOCK_STORAGE_BYPASS === 'true') {
-      inMemoryTable.set(`${docItem.pk}#${docItem.sk}`, docItem);
-      inMemoryTable.set(`${verItem.pk}#${verItem.sk}`, verItem);
-      if (params.idempotencyKey && params.clientId) {
-        const idempKey = `IDEMP#${params.clientId}#${params.idempotencyKey}`;
-        const ttlExpiry = Math.floor(Date.now() / 1000) + 86400;
-        inMemoryTable.set(`${idempKey}#REQUEST`, {
-          pk: idempKey,
-          sk: 'REQUEST',
-          client_id: params.clientId,
-          idempotency_key: params.idempotencyKey,
-          request_hash: params.requestHash || '',
-          status: 'COMPLETED',
-          response_summary: {
-            document_id: params.documentId,
-            application_version: 1,
-            s3_version_id: params.s3VersionId,
-            metadata_revision: 1,
-            status: 'ACTIVE',
-            created_at: now,
-          },
-          created_at: now,
-          ttl_expiry: ttlExpiry,
-        });
-      }
-      return docItem;
+    if (isMockStorageEnabled()) {
+      return InMemoryStorageAdapter.commitDocumentCreation(
+        docItem,
+        verItem,
+        params.idempotencyKey && params.clientId
+          ? {
+              clientId: params.clientId,
+              idempotencyKey: params.idempotencyKey,
+              requestHash: params.requestHash,
+              now,
+              s3VersionId: params.s3VersionId,
+              documentId: params.documentId,
+            }
+          : undefined
+      );
     }
 
     const transactItems: any[] = [
@@ -351,25 +319,20 @@ export class DynamoManager {
       state: 'ACTIVE',
     };
 
-    if (process.env.MOCK_STORAGE_BYPASS === 'true') {
+    if (isMockStorageEnabled()) {
       const currentDoc = await this.getDocument(params.documentId);
       if (currentDoc.current_application_version !== params.expectedAppVersion) {
         throw new VersionConflictError(
           `Version conflict: expected application version ${params.expectedAppVersion}, but current is ${currentDoc.current_application_version}`
         );
       }
-      const updated: DocumentItem = {
-        ...currentDoc,
-        current_application_version: params.nextAppVersion,
-        current_s3_key: params.s3Key,
-        current_s3_version_id: params.s3VersionId,
-        current_metadata_revision: 1,
-        current_annotation_etag: params.annotationEtag,
-        updated_at: now,
-      };
-      inMemoryTable.set(`${docPk}#DOC`, updated);
-      inMemoryTable.set(`${verItem.pk}#${verItem.sk}`, verItem);
-      return updated;
+      return InMemoryStorageAdapter.commitNewVersion(docPk, currentDoc, verItem, {
+        nextAppVersion: params.nextAppVersion,
+        s3Key: params.s3Key,
+        s3VersionId: params.s3VersionId,
+        annotationEtag: params.annotationEtag,
+        now,
+      });
     }
 
     try {
@@ -432,15 +395,14 @@ export class DynamoManager {
       throw new MetadataConflictError(expectedRevision, currentDoc.current_metadata_revision);
     }
 
-    if (process.env.MOCK_STORAGE_BYPASS === 'true') {
-      const updated: DocumentItem = {
-        ...currentDoc,
-        current_metadata_revision: newRevision,
-        current_annotation_etag: newEtag,
-        updated_at: now,
-      };
-      inMemoryTable.set(`${docPk}#DOC`, updated);
-      return updated;
+    if (isMockStorageEnabled()) {
+      return InMemoryStorageAdapter.updateMetadataRevision(
+        docPk,
+        currentDoc,
+        newRevision,
+        newEtag,
+        now
+      );
     }
 
     try {
@@ -479,12 +441,8 @@ export class DynamoManager {
   ): Promise<void> {
     const docPk = `DOC#${documentId}`;
 
-    if (process.env.MOCK_STORAGE_BYPASS === 'true') {
-      const item = inMemoryTable.get(`${docPk}#DOC`);
-      if (item) {
-        item.current_annotation_etag = newEtag;
-        inMemoryTable.set(`${docPk}#DOC`, item);
-      }
+    if (isMockStorageEnabled()) {
+      InMemoryStorageAdapter.updateAnnotationEtag(docPk, newEtag);
       return;
     }
 
@@ -512,14 +470,8 @@ export class DynamoManager {
 
     const currentDoc = await this.getDocument(documentId);
 
-    if (process.env.MOCK_STORAGE_BYPASS === 'true') {
-      const updated: DocumentItem = {
-        ...currentDoc,
-        status,
-        updated_at: now,
-      };
-      inMemoryTable.set(`${docPk}#DOC`, updated);
-      return updated;
+    if (isMockStorageEnabled()) {
+      return InMemoryStorageAdapter.setDocumentStatus(docPk, currentDoc, status, now);
     }
 
     const result = await dynamoDocClient.send(
@@ -541,8 +493,8 @@ export class DynamoManager {
 
   // Save Upload Session
   static async createUploadSession(session: UploadSessionItem): Promise<void> {
-    if (process.env.MOCK_STORAGE_BYPASS === 'true') {
-      inMemoryTable.set(`${session.pk}#${session.sk}`, session);
+    if (isMockStorageEnabled()) {
+      InMemoryStorageAdapter.createUploadSession(session);
       return;
     }
 
@@ -559,12 +511,8 @@ export class DynamoManager {
     const pk = `UPLOAD#${uploadId}`;
     const sk = 'SESSION';
 
-    if (process.env.MOCK_STORAGE_BYPASS === 'true') {
-      const item = inMemoryTable.get(`${pk}#${sk}`);
-      if (!item) {
-        throw new NotFoundError(`Upload session ${uploadId} not found`);
-      }
-      return item as UploadSessionItem;
+    if (isMockStorageEnabled()) {
+      return InMemoryStorageAdapter.getUploadSession(uploadId);
     }
 
     const result = await dynamoDocClient.send(

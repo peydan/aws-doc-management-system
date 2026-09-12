@@ -2,7 +2,10 @@ import * as cdk from 'aws-cdk-lib';
 import * as opensearchserverless from 'aws-cdk-lib/aws-opensearchserverless';
 import { Construct } from 'constructs';
 
-export interface SearchStackProps extends cdk.StackProps {}
+export interface SearchStackProps extends cdk.StackProps {
+  environment?: string;
+  collectionName?: string;
+}
 
 export class SearchStack extends cdk.Stack {
   public readonly collection: opensearchserverless.CfnCollection;
@@ -10,7 +13,9 @@ export class SearchStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: SearchStackProps) {
     super(scope, id, props);
 
-    const collectionName = 'documents-v1';
+    const collectionName = props?.collectionName || (props?.environment && props.environment !== 'mvp' && props.environment !== 'dev'
+      ? `docs-${props.environment}-v1`
+      : 'documents-v1');
 
     // 1. Encryption Policy
     const encryptionPolicy = new opensearchserverless.CfnSecurityPolicy(this, 'EncryptionPolicy', {

@@ -12,6 +12,7 @@ import {
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { NotFoundError } from './errors';
 import { convertDocumentToPdf, getPdfPageCount } from './pdf-converter';
+import { isMockStorageEnabled, InMemoryStorageAdapter } from './adapters/in-memory-storage';
 
 const s3Client = new S3Client({ region: process.env.AWS_REGION || 'us-east-1' });
 
@@ -43,9 +44,6 @@ async function payloadToString(payload: any): Promise<string> {
   return String(payload);
 }
 
-const inMemoryS3Content = new Map<string, { body: Buffer; contentType: string; versionId: string; metadata?: Record<string, any> }>();
-const inMemoryS3Annotations = new Map<string, Record<string, any>>();
-
 export interface S3PutResult {
   versionId: string;
   eTag: string;
@@ -76,40 +74,9 @@ export class S3Manager {
   ): Promise<PdfDerivativeResult> {
     const derivativeKey = this.getDerivativeKey(documentClass, meta.documentId, meta.sourceVersionId);
 
-    if (process.env.MOCK_STORAGE_BYPASS === 'true') {
-      const mockKey = `${derivativeKey}#mock-pdf`;
-      let cached = inMemoryS3Content.get(mockKey) || inMemoryS3Content.get(derivativeKey);
-      if (!cached) {
-        const sourceData =
-          inMemoryS3Content.get(`${rawKey}#${meta.sourceVersionId}`) ||
-          inMemoryS3Content.get(rawKey);
-        let pdfBuffer: Buffer;
-        if (sourceData && sourceData.body) {
-          pdfBuffer = await convertDocumentToPdf(sourceData.body, meta.sourceContentType);
-        } else {
-          // Fallback mock 1x1 image converted to PDF
-          const dummyPng = Buffer.from(
-            'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
-            'base64'
-          );
-          pdfBuffer = await convertDocumentToPdf(dummyPng, 'image/png');
-        }
-        const pageCount = await getPdfPageCount(pdfBuffer);
-        cached = {
-          body: pdfBuffer,
-          contentType: 'application/pdf',
-          versionId: 'mock-derivative-v1',
-          metadata: {
-            'format': 'pdf',
-            'page-count': String(pageCount),
-          },
-        };
-        inMemoryS3Content.set(derivativeKey, cached);
-      }
-      const pageCount = cached.metadata?.['page-count']
-        ? parseInt(cached.metadata['page-count'], 10)
-        : (await getPdfPageCount(cached.body)) || 1;
-      return { derivativeKey, pageCount };
+    if (isMockStorageEnabled()) {
+      const res = await InMemoryStorageAdapter.getOrCreatePdfDerivative(derivativeKey, rawKey, meta);
+      return { derivativeKey, pageCount: res.pageCount };
     }
 
     // 1. Check if derivative already exists in S3 (Cache Hit)
@@ -176,11 +143,8 @@ export class S3Manager {
     contentType: string,
     checksumSha256?: string
   ): Promise<S3PutResult> {
-    if (process.env.MOCK_STORAGE_BYPASS === 'true') {
-      const versionId = `mock-v-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
-      inMemoryS3Content.set(`${key}#${versionId}`, { body, contentType, versionId });
-      inMemoryS3Content.set(key, { body, contentType, versionId });
-      return { versionId, eTag: `mock-etag-${Date.now()}` };
+    if (isMockStorageEnabled()) {
+      return InMemoryStorageAdapter.putObject(key, body, contentType);
     }
 
     const base64Checksum = checksumSha256
@@ -215,11 +179,15 @@ export class S3Manager {
   ): Promise<{ eTag: string }> {
     const key = this.getDocumentKey(documentClass, documentId);
 
-    if (process.env.MOCK_STORAGE_BYPASS === 'true') {
-      inMemoryS3Annotations.set(`${key}#${s3VersionId}#${annotationName}`, metadata);
-      inMemoryS3Annotations.set(`${key}#${annotationName}`, metadata);
-      inMemoryS3Annotations.set(`documents/${documentClass}/${documentId}.annotation.json`, metadata);
-      return { eTag: `mock-anno-etag-${Date.now()}` };
+    if (isMockStorageEnabled()) {
+      return InMemoryStorageAdapter.putAnnotation(
+        key,
+        documentClass,
+        documentId,
+        s3VersionId,
+        metadata,
+        annotationName
+      );
     }
 
     const payload = Buffer.from(JSON.stringify(metadata, null, 2), 'utf-8');
@@ -244,15 +212,14 @@ export class S3Manager {
   ): Promise<{ metadata: Record<string, any>; eTag: string }> {
     const key = this.getDocumentKey(documentClass, documentId);
 
-    if (process.env.MOCK_STORAGE_BYPASS === 'true') {
-      const existing =
-        (versionId && inMemoryS3Annotations.get(`${key}#${versionId}#${annotationName}`)) ||
-        inMemoryS3Annotations.get(`${key}#${annotationName}`) ||
-        inMemoryS3Annotations.get(`documents/${documentClass}/${documentId}.annotation.json`);
-      if (!existing) {
-        throw new NotFoundError(`Authoritative annotation for document ${documentId} not found`);
-      }
-      return { metadata: existing, eTag: 'mock-anno-etag-1' };
+    if (isMockStorageEnabled()) {
+      return InMemoryStorageAdapter.getAnnotation(
+        key,
+        documentClass,
+        documentId,
+        versionId,
+        annotationName
+      );
     }
 
     try {
@@ -298,10 +265,14 @@ export class S3Manager {
   ): Promise<void> {
     const key = this.getDocumentKey(documentClass, documentId);
 
-    if (process.env.MOCK_STORAGE_BYPASS === 'true') {
-      if (versionId) inMemoryS3Annotations.delete(`${key}#${versionId}#${annotationName}`);
-      inMemoryS3Annotations.delete(`${key}#${annotationName}`);
-      inMemoryS3Annotations.delete(`documents/${documentClass}/${documentId}.annotation.json`);
+    if (isMockStorageEnabled()) {
+      InMemoryStorageAdapter.deleteAnnotation(
+        key,
+        documentClass,
+        documentId,
+        versionId,
+        annotationName
+      );
       return;
     }
 
@@ -325,8 +296,8 @@ export class S3Manager {
     contentType: string,
     expiresInSeconds = 900
   ): Promise<string> {
-    if (process.env.MOCK_STORAGE_BYPASS === 'true') {
-      return `https://mock-s3-upload.local/${key}?expires=${expiresInSeconds}`;
+    if (isMockStorageEnabled()) {
+      return InMemoryStorageAdapter.generatePresignedUploadUrl(key, expiresInSeconds);
     }
     const command = new PutObjectCommand({
       Bucket: getBucketName(),
@@ -341,9 +312,8 @@ export class S3Manager {
     versionId?: string,
     expiresInSeconds = 900
   ): Promise<string> {
-    if (process.env.MOCK_STORAGE_BYPASS === 'true') {
-      const vParam = versionId ? `?versionId=${versionId}` : '';
-      return `https://mock-s3-download.local/${key}${vParam}`;
+    if (isMockStorageEnabled()) {
+      return InMemoryStorageAdapter.generatePresignedDownloadUrl(key, versionId);
     }
     const command = new GetObjectCommand({
       Bucket: getBucketName(),
@@ -357,13 +327,8 @@ export class S3Manager {
     key: string,
     versionId?: string
   ): Promise<{ contentLength: number; contentType: string; versionId: string; eTag: string }> {
-    if (process.env.MOCK_STORAGE_BYPASS === 'true') {
-      return {
-        contentLength: 5242880,
-        contentType: 'application/pdf',
-        versionId: versionId || 'mock-v-head-1',
-        eTag: 'mock-etag-head-1',
-      };
+    if (isMockStorageEnabled()) {
+      return InMemoryStorageAdapter.verifyObjectExists(key, versionId);
     }
     try {
       const command = new HeadObjectCommand({
@@ -388,16 +353,8 @@ export class S3Manager {
     key: string,
     versionId?: string
   ): Promise<{ body: Buffer; contentType: string }> {
-    if (process.env.MOCK_STORAGE_BYPASS === 'true') {
-      const mockKey = versionId ? `${key}#${versionId}` : key;
-      const cached = inMemoryS3Content.get(mockKey) || inMemoryS3Content.get(key);
-      if (cached) {
-        return { body: cached.body, contentType: cached.contentType };
-      }
-      return {
-        body: Buffer.from('%PDF-1.4 mock document binary content', 'utf-8'),
-        contentType: 'application/pdf',
-      };
+    if (isMockStorageEnabled()) {
+      return InMemoryStorageAdapter.getObjectBuffer(key, versionId);
     }
 
     try {
