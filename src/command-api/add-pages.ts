@@ -6,7 +6,7 @@ import { DynamoManager } from '../shared/dynamo';
 import { Logger } from '../shared/logger';
 import { PlatformError, ValidationError } from '../shared/errors';
 import { CORS_HEADERS } from '../shared/headers';
-import { validateAddPagesPayload } from '../shared/validator';
+import { validateAddPagesPayload, parseJsonBody } from '../shared/validator';
 import { addPagesToPdf, convertDocumentToPdf, isConvertibleToPdf } from '../shared/pdf-converter';
 
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
@@ -20,18 +20,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       throw new ValidationError('document_id is required');
     }
 
-    if (!event.body) {
-      throw new ValidationError('Request body is required');
-    }
-
-    let parsedBody: any;
-    try {
-      parsedBody = JSON.parse(event.body);
-    } catch {
-      throw new ValidationError('Invalid JSON request body');
-    }
-
-    const payload = validateAddPagesPayload(parsedBody);
+    const payload = validateAddPagesPayload(parseJsonBody(event));
 
     const currentDoc = await DynamoManager.getDocument(documentId);
     if (currentDoc.status === 'SOFT_DELETED') {

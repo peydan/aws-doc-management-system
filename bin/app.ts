@@ -42,7 +42,6 @@ const messagingStack = new MessagingStack(app, 'DocPlatformMessagingStack', {
 // 5. Search Stack
 const searchStack = new SearchStack(app, 'DocPlatformSearchStack', {
   env,
-  kmsKey: securityStack.kmsKey,
 });
 
 // 6. Compute Stack
@@ -75,6 +74,8 @@ const apiStack = new ApiStack(app, 'DocPlatformApiStack', {
 const observabilityStack = new ObservabilityStack(app, 'DocPlatformObservabilityStack', {
   env,
   indexDlq: messagingStack.indexDlq,
+  streamDlq: messagingStack.streamDlq,
+  enrichmentDlq: messagingStack.enrichmentDlq,
   api: apiStack.api,
 });
 

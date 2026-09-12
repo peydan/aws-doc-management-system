@@ -17,15 +17,12 @@ export interface ComputeStackProps extends cdk.StackProps {
   indexQueue: sqs.IQueue;
   streamDlq?: sqs.IQueue;
   enrichmentQueue?: sqs.IQueue;
-  userPool: cognito.IUserPool;
-  userPoolClient: cognito.IUserPoolClient;
+  userPool?: cognito.IUserPool;
+  userPoolClient?: cognito.IUserPoolClient;
   openSearchEndpoint?: string;
 }
 
 export class ComputeStack extends cdk.Stack {
-  public readonly commandApiFunction: nodejs.NodejsFunction;
-  public readonly queryApiFunction: nodejs.NodejsFunction;
-  public readonly searchApiFunction: nodejs.NodejsFunction;
   public readonly backgroundWorkerFunction: nodejs.NodejsFunction;
   public readonly indexerFunction: nodejs.NodejsFunction;
   public readonly metadataEnricherFunction?: nodejs.NodejsFunction;
@@ -39,10 +36,9 @@ export class ComputeStack extends cdk.Stack {
       DYNAMODB_TABLE_NAME: props.controlTable.tableName,
       INDEX_QUEUE_URL: props.indexQueue.queueUrl,
       ENRICHMENT_QUEUE_URL: props.enrichmentQueue?.queueUrl || '',
-      COGNITO_USER_POOL_ID: props.userPool.userPoolId,
-      COGNITO_CLIENT_ID: props.userPoolClient.userPoolClientId,
+      COGNITO_USER_POOL_ID: props.userPool?.userPoolId || '',
+      COGNITO_CLIENT_ID: props.userPoolClient?.userPoolClientId || '',
       OPENSEARCH_ENDPOINT: props.openSearchEndpoint || '',
-      INLINE_UPLOAD_MAX_BYTES: '4194304',
       BEDROCK_MODEL_ID: process.env.BEDROCK_MODEL_ID || 'us.amazon.nova-2-lite-v1:0',
     };
 
@@ -50,20 +46,6 @@ export class ComputeStack extends cdk.Stack {
       effect: iam.Effect.DENY,
       actions: ['s3:DeleteObjectVersion'],
       resources: ['*'],
-    });
-
-    // 1. Command API Function
-    this.commandApiFunction = new nodejs.NodejsFunction(this, 'CommandApiFunction', {
-      runtime: lambda.Runtime.NODEJS_20_X,
-      architecture: lambda.Architecture.ARM_64,
-      entry: path.join(__dirname, '../src/command-api/upload-inline.ts'),
-      handler: 'handler',
-      timeout: cdk.Duration.seconds(30),
-      memorySize: 1024,
-      bundling: {
-        externalModules: [],
-      },
-      environment: commonEnv,
     });
 
     const s3AnnotationWritePolicy = new iam.PolicyStatement({
@@ -90,53 +72,7 @@ export class ComputeStack extends cdk.Stack {
       resources: [`${props.documentBucket.bucketArn}/*`],
     });
 
-    props.documentBucket.grantReadWrite(this.commandApiFunction);
-    props.controlTable.grantReadWriteData(this.commandApiFunction);
-    this.commandApiFunction.addToRolePolicy(s3AnnotationWritePolicy);
-    this.commandApiFunction.addToRolePolicy(denyDeleteVersionPolicy);
-
-    // 2. Query API Function
-    this.queryApiFunction = new nodejs.NodejsFunction(this, 'QueryApiFunction', {
-      runtime: lambda.Runtime.NODEJS_20_X,
-      architecture: lambda.Architecture.ARM_64,
-      entry: path.join(__dirname, '../src/query-api/get-document.ts'),
-      handler: 'handler',
-      timeout: cdk.Duration.seconds(15),
-      memorySize: 512,
-      bundling: {
-        externalModules: [],
-      },
-      environment: commonEnv,
-    });
-
-    props.documentBucket.grantRead(this.queryApiFunction);
-    props.controlTable.grantReadData(this.queryApiFunction);
-    this.queryApiFunction.addToRolePolicy(s3AnnotationReadPolicy);
-    this.queryApiFunction.addToRolePolicy(denyDeleteVersionPolicy);
-
-    // 3. Search API Function
-    this.searchApiFunction = new nodejs.NodejsFunction(this, 'SearchApiFunction', {
-      runtime: lambda.Runtime.NODEJS_20_X,
-      architecture: lambda.Architecture.ARM_64,
-      entry: path.join(__dirname, '../src/search-api/search-documents.ts'),
-      handler: 'handler',
-      timeout: cdk.Duration.seconds(15),
-      memorySize: 512,
-      bundling: {
-        externalModules: [],
-      },
-      environment: commonEnv,
-    });
-
-    this.searchApiFunction.addToRolePolicy(
-      new iam.PolicyStatement({
-        actions: ['aoss:APIAccessAll'],
-        resources: ['*'],
-      })
-    );
-    this.searchApiFunction.addToRolePolicy(denyDeleteVersionPolicy);
-
-    // 4. Background Stream Processor Worker
+    // 1. Background Stream Processor Worker
     this.backgroundWorkerFunction = new nodejs.NodejsFunction(this, 'BackgroundWorkerFunction', {
       runtime: lambda.Runtime.NODEJS_20_X,
       architecture: lambda.Architecture.ARM_64,
@@ -173,7 +109,7 @@ export class ComputeStack extends cdk.Stack {
       );
     }
 
-    // 5. Indexer Consumer Function
+    // 2. Indexer Consumer Function
     this.indexerFunction = new nodejs.NodejsFunction(this, 'IndexerFunction', {
       runtime: lambda.Runtime.NODEJS_20_X,
       architecture: lambda.Architecture.ARM_64,
@@ -206,7 +142,7 @@ export class ComputeStack extends cdk.Stack {
       })
     );
 
-    // 6. LLM Metadata Enricher Consumer Function
+    // 3. LLM Metadata Enricher Consumer Function
     if (props.enrichmentQueue) {
       this.metadataEnricherFunction = new nodejs.NodejsFunction(this, 'MetadataEnricherFunction', {
         runtime: lambda.Runtime.NODEJS_20_X,

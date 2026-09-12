@@ -46,6 +46,12 @@ export class StorageStack extends cdk.Stack {
           expiration: cdk.Duration.days(14),
           abortIncompleteMultipartUploadAfter: cdk.Duration.days(1),
         },
+        {
+          id: 'ExpireTransientExports',
+          prefix: 'exports/',
+          expiration: cdk.Duration.days(3),
+          abortIncompleteMultipartUploadAfter: cdk.Duration.days(1),
+        },
       ],
     });
 

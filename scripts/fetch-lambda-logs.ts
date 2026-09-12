@@ -67,6 +67,7 @@ async function checkLogGroup(prefix: string) {
 }
 
 async function main() {
+  await checkLogGroup("/aws/lambda/DocPlatformApiStack-SearchLambdaHandler");
   await checkLogGroup("/aws/lambda/DocPlatformComputeStack-BackgroundWorkerFunction");
   await checkLogGroup("/aws/lambda/DocPlatformComputeStack-IndexerFunction");
 }

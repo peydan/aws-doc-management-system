@@ -8,6 +8,8 @@ import { Construct } from 'constructs';
 
 export interface ObservabilityStackProps extends cdk.StackProps {
   indexDlq: sqs.IQueue;
+  streamDlq?: sqs.IQueue;
+  enrichmentDlq?: sqs.IQueue;
   api: apigateway.IRestApi;
 }
 
@@ -23,7 +25,7 @@ export class ObservabilityStack extends cdk.Stack {
       displayName: 'Document Platform Operations Alerts',
     });
 
-    // 1. Alarm on DLQ Depth > 0
+    // 1. Alarm on Index DLQ Depth > 0
     const dlqAlarm = new cloudwatch.Alarm(this, 'IndexDLQMessagesAlarm', {
       alarmName: 'doc-platform-mvp-dlq-messages',
       alarmDescription: 'Alert when messages land in the OpenSearch Index Dead-Letter Queue',
@@ -36,7 +38,37 @@ export class ObservabilityStack extends cdk.Stack {
     });
     dlqAlarm.addAlarmAction(new cw_actions.SnsAction(this.opsTopic));
 
-    // 2. Alarm on API 5xx Error Rate
+    // 2. Alarm on Stream DLQ Depth > 0
+    if (props.streamDlq) {
+      const streamDlqAlarm = new cloudwatch.Alarm(this, 'StreamDLQMessagesAlarm', {
+        alarmName: 'doc-platform-mvp-stream-dlq-messages',
+        alarmDescription: 'Alert when messages land in the DynamoDB Stream Processing Dead-Letter Queue',
+        metric: props.streamDlq.metricApproximateNumberOfMessagesVisible({
+          period: cdk.Duration.minutes(1),
+        }),
+        threshold: 1,
+        evaluationPeriods: 1,
+        comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+      });
+      streamDlqAlarm.addAlarmAction(new cw_actions.SnsAction(this.opsTopic));
+    }
+
+    // 3. Alarm on Enrichment DLQ Depth > 0
+    if (props.enrichmentDlq) {
+      const enrichmentDlqAlarm = new cloudwatch.Alarm(this, 'EnrichmentDLQMessagesAlarm', {
+        alarmName: 'doc-platform-mvp-enrichment-dlq-messages',
+        alarmDescription: 'Alert when messages land in the Bedrock Metadata Enrichment Dead-Letter Queue',
+        metric: props.enrichmentDlq.metricApproximateNumberOfMessagesVisible({
+          period: cdk.Duration.minutes(1),
+        }),
+        threshold: 1,
+        evaluationPeriods: 1,
+        comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+      });
+      enrichmentDlqAlarm.addAlarmAction(new cw_actions.SnsAction(this.opsTopic));
+    }
+
+    // 4. Alarm on API 5xx Error Rate
     const api5xxAlarm = new cloudwatch.Alarm(this, 'ApiGateway5xxAlarm', {
       alarmName: 'doc-platform-mvp-api-5xx',
       alarmDescription: 'Alert when API Gateway 5xx server error rate increases',
@@ -58,7 +90,7 @@ export class ObservabilityStack extends cdk.Stack {
       description: 'SNS Topic ARN for operational alerts',
     });
 
-    // 3. CloudWatch Dashboard
+    // 5. CloudWatch Dashboard
     const dashboard = new cloudwatch.Dashboard(this, 'PlatformDashboard', {
       dashboardName: 'doc-platform-mvp-dashboard',
     });
@@ -84,9 +116,11 @@ export class ObservabilityStack extends cdk.Stack {
         ],
       }),
       new cloudwatch.GraphWidget({
-        title: 'SQS Index Queue & DLQ Depth',
+        title: 'SQS Dead-Letter Queues (DLQ) Depth',
         left: [
-          props.indexDlq.metricApproximateNumberOfMessagesVisible(),
+          props.indexDlq.metricApproximateNumberOfMessagesVisible({ label: 'Index DLQ' }),
+          ...(props.streamDlq ? [props.streamDlq.metricApproximateNumberOfMessagesVisible({ label: 'Stream DLQ' })] : []),
+          ...(props.enrichmentDlq ? [props.enrichmentDlq.metricApproximateNumberOfMessagesVisible({ label: 'Enrichment DLQ' })] : []),
         ],
       })
     );

@@ -3,11 +3,12 @@
 // Global Application State
 const state = {
   config: {
-    apiUrl: '',
+    apiUrl: 'https://k0urmbeen9.execute-api.us-east-1.amazonaws.com/v1',
     agentStreamingUrl: '',
-    userPoolId: '',
-    userPoolClientId: '',
+    userPoolId: 'us-east-1_aMUcSBi6e',
+    userPoolClientId: '3fcn104kkvrb642f33khd5c0p6',
     region: 'us-east-1',
+    authFlow: 'USER_PASSWORD_AUTH',
   },
   auth: {
     token: localStorage.getItem('doc_platform_token') || '',
@@ -2041,6 +2042,8 @@ function resetAndSearchAll() {
   executeSearch();
 }
 
+const selectedSearchDocIds = new Set();
+
 async function executeSearch() {
   const docClass = document.getElementById('search-doc-class')?.value || '';
   const customerId = document.getElementById('search-customer-id')?.value?.trim() || '';
@@ -2063,7 +2066,7 @@ async function executeSearch() {
   const diagContent = document.getElementById('search-diagnostics-content');
 
   if (tbody) {
-    tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 1.5rem;">🔍 Executing OpenSearch query...</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; padding: 1.5rem;">🔍 Executing OpenSearch query...</td></tr>`;
   }
 
   try {
@@ -2126,7 +2129,7 @@ async function executeSearch() {
       diagContent.innerText = `SEARCH ERROR [HTTP ${err.status || 500}]:\n${err.message}\nResponse: ${JSON.stringify(err.response || {}, null, 2)}`;
     }
     if (tbody) {
-      tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--color-danger); padding: 1.5rem;">Search failed: ${err.message}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--color-danger); padding: 1.5rem;">Search failed: ${err.message}</td></tr>`;
     }
     showToast(`Search error: ${err.message}`, 'danger');
   }
@@ -2317,8 +2320,6 @@ function updateCalculator() {
 // ============================================================================
 // BATCH ZIP DOWNLOAD & MULTI-DOC EXPORT
 // ============================================================================
-const selectedSearchDocIds = new Set();
-
 function updateSearchBatchToolbar() {
   const toolbar = document.getElementById('search-batch-toolbar');
   const countBadge = document.getElementById('search-selected-count');

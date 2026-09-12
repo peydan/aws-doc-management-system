@@ -196,6 +196,13 @@ export class ApiStack extends cdk.Stack {
     getDownloadUrlLambda.addToRolePolicy(projectionWritePolicy);
     batchDownloadLambda.addToRolePolicy(projectionWritePolicy);
 
+    if (props.documentBucket.encryptionKey) {
+      props.documentBucket.encryptionKey.grantEncrypt(getDocLambda);
+      props.documentBucket.encryptionKey.grantEncrypt(getVersionLambda);
+      props.documentBucket.encryptionKey.grantEncrypt(getDownloadUrlLambda);
+      props.documentBucket.encryptionKey.grantEncrypt(batchDownloadLambda);
+    }
+
     const searchLambda = createHandlerLambda('SearchLambdaHandler', '../src/search-api/search-documents.ts');
     searchLambda.addToRolePolicy(
       new iam.PolicyStatement({
@@ -234,9 +241,11 @@ export class ApiStack extends cdk.Stack {
     );
 
     const mockCorsIntegration = new apigateway.MockIntegration({
+      contentHandling: apigateway.ContentHandling.CONVERT_TO_TEXT,
       integrationResponses: [
         {
           statusCode: '200',
+          contentHandling: apigateway.ContentHandling.CONVERT_TO_TEXT,
           responseParameters: {
             'method.response.header.Access-Control-Allow-Headers': "'Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent,X-Document-Metadata,X-Content-SHA256,x-correlation-id'",
             'method.response.header.Access-Control-Allow-Methods': "'GET,POST,PATCH,DELETE,OPTIONS'",
@@ -245,7 +254,7 @@ export class ApiStack extends cdk.Stack {
           },
         },
       ],
-      passthroughBehavior: apigateway.PassthroughBehavior.NEVER,
+      passthroughBehavior: apigateway.PassthroughBehavior.WHEN_NO_MATCH,
       requestTemplates: {
         'application/json': '{"statusCode": 200}',
       },

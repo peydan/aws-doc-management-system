@@ -4,7 +4,7 @@ import * as kms from 'aws-cdk-lib/aws-kms';
 import { Construct } from 'constructs';
 
 export interface SearchStackProps extends cdk.StackProps {
-  kmsKey: kms.IKey;
+  kmsKey?: kms.IKey;
 }
 
 export class SearchStack extends cdk.Stack {

@@ -7,9 +7,9 @@ import * as cognito from 'aws-cdk-lib/aws-cognito';
 import { Construct } from 'constructs';
 
 export interface ServerlessFrontendStackProps extends cdk.StackProps {
-  api: apigateway.RestApi;
-  userPool: cognito.IUserPool;
-  userPoolClient: cognito.IUserPoolClient;
+  api?: apigateway.RestApi;
+  userPool?: cognito.IUserPool;
+  userPoolClient?: cognito.IUserPoolClient;
 }
 
 export class ServerlessFrontendStack extends cdk.Stack {
@@ -26,7 +26,7 @@ export class ServerlessFrontendStack extends cdk.Stack {
       encryption: s3.BucketEncryption.S3_MANAGED,
       enforceSSL: true,
       removalPolicy: cdk.RemovalPolicy.DESTROY,
-      autoDeleteObjects: false,
+      autoDeleteObjects: true,
     });
 
     // 2. CloudFront Security Headers Response Policy

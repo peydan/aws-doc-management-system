@@ -86,10 +86,15 @@ async function apiRequest(
 
   let data: any = null;
   const contentType = res.headers.get('content-type') || '';
-  if (contentType.includes('application/json')) {
-    data = await res.json();
+  const text = await res.text();
+  if (text && contentType.includes('application/json')) {
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = text;
+    }
   } else if (!options.rawResponse) {
-    data = await res.text();
+    data = text;
   }
 
   return {
@@ -204,6 +209,17 @@ export async function runLiveAwsTests(): Promise<{ passed: number; failed: numbe
       metadata: {
         document_type: 'SIGNED_AGREEMENT',
         customer_id: testCustomerId,
+        complete_customer_id_code: {
+          id_number: '123456789',
+          id_type: 1,
+        },
+        account_id: {
+          bank_id: 10,
+          branch_id: 802,
+          account_number: 123456,
+        },
+        business_area_code: 100,
+        business_sub_area_code: 101,
         loan_number: `${testLoanNumber}-CANCEL`,
         loan_amount_minor_units: 50000000,
         currency: 'ILS',
@@ -271,7 +287,7 @@ export async function runLiveAwsTests(): Promise<{ passed: number; failed: numbe
     if (res.status !== 201) throw new Error(`Expected 201, got ${res.status} - ${JSON.stringify(res.data)}`);
     if (!res.data?.document_id) throw new Error('No document_id returned');
     documentId = res.data.document_id;
-    return `document_id: ${documentId} (v${res.data.version}, rev${res.data.metadata_revision})`;
+    return `document_id: ${documentId} (v${res.data.application_version ?? res.data.version}, rev${res.data.metadata_revision})`;
   });
 
   // Phase 4: Document Retrieval & Authoritative S3 Metadata Inspection
@@ -286,8 +302,9 @@ export async function runLiveAwsTests(): Promise<{ passed: number; failed: numbe
   await recordStep('07', 'Direct S3 Metadata Annotation Inspection (GET /metadata)', async () => {
     const res = await apiRequest('GET', `/documents/${documentId}/metadata`);
     if (res.status !== 200) throw new Error(`Expected 200, got ${res.status}`);
-    if (res.data?.loan_number !== testLoanNumber) throw new Error(`Metadata mismatch: expected ${testLoanNumber}`);
-    return `Document Class: ${res.data?.document_class}, Branch: ${res.data?.branch_code}`;
+    const metadata = res.data?.metadata || res.data;
+    if (metadata?.loan_number !== testLoanNumber) throw new Error(`Metadata mismatch: expected ${testLoanNumber}`);
+    return `Document Class: ${metadata?.document_class}, Branch: ${metadata?.branch_code}`;
   });
 
   // Phase 5: Optimistic Concurrency Control (OCC)
@@ -317,8 +334,9 @@ export async function runLiveAwsTests(): Promise<{ passed: number; failed: numbe
 
     const res = await apiRequest('PATCH', `/documents/${documentId}/metadata`, { body: stalePatch });
     if (res.status !== 409) throw new Error(`Expected 409 Conflict, got ${res.status}`);
-    if (res.data?.code !== 'METADATA_CONFLICT') throw new Error(`Expected METADATA_CONFLICT, got ${res.data?.code}`);
-    return `409 Confirmed: ${res.data.code}`;
+    const errorCode = res.data?.code || res.data?.error?.code;
+    if (errorCode !== 'METADATA_CONFLICT') throw new Error(`Expected METADATA_CONFLICT, got ${errorCode}`);
+    return `409 Confirmed: ${errorCode}`;
   });
 
   // Phase 6: Version Lineage & Mutations
@@ -346,8 +364,9 @@ export async function runLiveAwsTests(): Promise<{ passed: number; failed: numbe
     });
 
     if (res.status !== 201) throw new Error(`Expected 201, got ${res.status} - ${JSON.stringify(res.data)}`);
-    if (res.data?.version !== 2) throw new Error(`Expected version 2, got ${res.data?.version}`);
-    return `Created Version ${res.data.version} (s3_version: ${res.data.s3_version_id.slice(0, 12)}...)`;
+    const appVersion = res.data?.application_version ?? res.data?.version;
+    if (appVersion !== 2) throw new Error(`Expected version 2, got ${appVersion}`);
+    return `Created Version ${appVersion} (s3_version: ${res.data.s3_version_id.slice(0, 12)}...)`;
   });
 
   await recordStep('12', 'Retrieve Historical Version 1 (GET /versions/1)', async () => {
@@ -368,14 +387,15 @@ export async function runLiveAwsTests(): Promise<{ passed: number; failed: numbe
 
     const res = await apiRequest('POST', `/documents/${documentId}/pages`, { body: spliceBody });
     if (res.status !== 201) throw new Error(`Expected 201, got ${res.status} - ${JSON.stringify(res.data)}`);
-    return `New Version: ${res.data.version}, Total Pages: ${res.data.page_count}`;
+    const newVersion = res.data?.application_version ?? res.data?.version;
+    return `New Version: ${newVersion}, Total Pages: ${res.data.page_count}`;
   });
 
   await recordStep('14', 'Generate Presigned Download URL (GET /download)', async () => {
     const res = await apiRequest('GET', `/documents/${documentId}/download?disposition=inline`);
     if (res.status !== 200) throw new Error(`Expected 200, got ${res.status}`);
     if (!res.data?.download_url) throw new Error('No download_url returned');
-    return `Presigned URL valid for ${res.data.expires_in}s`;
+    return `Presigned URL: ${res.data.download_url ? 'OK' : 'N/A'}`;
   });
 
   await recordStep('15', 'Batch Download Multi-Document ZIP (POST /batch-download)', async () => {
@@ -391,8 +411,37 @@ export async function runLiveAwsTests(): Promise<{ passed: number; failed: numbe
     return `Batch ID: ${res.data.batch_id}, Files: ${res.data.file_count}`;
   });
 
-  // Phase 8: Search Discovery (OpenSearch)
-  await recordStep('16', 'OpenSearch Metadata Discovery (POST /search)', async () => {
+  // Phase 8: Search Discovery (OpenSearch) & CORS Preflight Matrix
+  await recordStep('16a', 'CORS Browser Preflight Matrix (OPTIONS across all API routes)', async () => {
+    const testEndpoints = [
+      { path: '/search', method: 'POST' },
+      { path: '/documents', method: 'POST' },
+      { path: '/metadata/suggest', method: 'POST' },
+      { path: '/agent/chat', method: 'POST' },
+      { path: '/health', method: 'GET' },
+    ];
+
+    for (const ep of testEndpoints) {
+      const res = await apiRequest('OPTIONS', ep.path, {
+        headers: {
+          'Origin': 'https://d1ic1jcz65ca9j.cloudfront.net',
+          'Access-Control-Request-Method': ep.method,
+          'Access-Control-Request-Headers': 'authorization,content-type',
+        },
+        noAuth: true,
+      });
+      if (res.status !== 200 && res.status !== 204) {
+        throw new Error(`Expected 200/204 on OPTIONS ${ep.path}, got ${res.status} - ${JSON.stringify(res.data)}`);
+      }
+      const allowOrigin = res.headers.get('access-control-allow-origin');
+      const allowMethods = res.headers.get('access-control-allow-methods');
+      if (!allowOrigin) throw new Error(`Missing Access-Control-Allow-Origin header on ${ep.path}`);
+      if (!allowMethods?.includes(ep.method)) throw new Error(`Access-Control-Allow-Methods on ${ep.path} missing ${ep.method}: ${allowMethods}`);
+    }
+    return `Verified 5/5 routes (search, documents, suggest, agent, health)`;
+  });
+
+  await recordStep('16b', 'OpenSearch Metadata Discovery (POST /search)', async () => {
     const searchBody = {
       filters: {
         document_class: 'loan_agreement',
@@ -435,7 +484,7 @@ export async function runLiveAwsTests(): Promise<{ passed: number; failed: numbe
   await recordStep('19', 'Document Audit Trail Inspection (GET /audit)', async () => {
     const res = await apiRequest('GET', `/documents/${documentId}/audit`);
     if (res.status !== 200) throw new Error(`Expected 200, got ${res.status}`);
-    const events = res.data?.lifecycle_audit || [];
+    const events = res.data?.lifecycle_audit?.system_events || res.data?.lifecycle_audit || [];
     return `Retrieved ${events.length} lifecycle event(s)`;
   });
 
