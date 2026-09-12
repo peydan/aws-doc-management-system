@@ -58,6 +58,10 @@ export function extractJsonFromLlmResponse(text: string): Record<string, any> {
 }
 
 export function buildEnrichmentPrompt(textSnippet: string, documentClass: string): string {
+  const snippetSection = textSnippet
+    ? `\nDocument Excerpt:\n"""\n${textSnippet.substring(0, 4000)}\n"""`
+    : '\nDocument Excerpt:\n(Refer to attached multimodal document/image content)';
+
   return `You are an expert document metadata extractor and data classification specialist for an enterprise banking platform.
 Analyze the following document excerpt and extract structured metadata and PII classification.
 
@@ -107,28 +111,51 @@ Schema instructions:
    - "business_area_code": integer
    - "business_sub_area_code": integer
    - "document_group_id": string
+${snippetSection}`;
+}
 
-Document Excerpt:
-"""
-${textSnippet.substring(0, 4000)}
-"""`;
+export interface BinaryAttachment {
+  type: 'image' | 'document';
+  format: 'png' | 'jpeg' | 'gif' | 'webp' | 'pdf';
+  bytes: Uint8Array;
 }
 
 export async function enrichMetadataWithBedrock(
   textSnippet: string,
   clientMetadata: Record<string, any>,
   documentClass: string,
-  modelId = DEFAULT_BEDROCK_MODEL_ID
+  modelId = DEFAULT_BEDROCK_MODEL_ID,
+  binaryAttachment?: BinaryAttachment
 ): Promise<EnrichmentResult> {
   const startTime = Date.now();
   const prompt = buildEnrichmentPrompt(textSnippet, documentClass);
+
+  const contentBlocks: any[] = [{ text: prompt }];
+  if (binaryAttachment) {
+    if (binaryAttachment.type === 'image') {
+      contentBlocks.push({
+        image: {
+          format: binaryAttachment.format,
+          source: { bytes: binaryAttachment.bytes },
+        },
+      });
+    } else if (binaryAttachment.type === 'document') {
+      contentBlocks.push({
+        document: {
+          format: binaryAttachment.format,
+          name: 'input_document',
+          source: { bytes: binaryAttachment.bytes },
+        },
+      });
+    }
+  }
 
   const command = new ConverseCommand({
     modelId,
     messages: [
       {
         role: 'user',
-        content: [{ text: prompt }],
+        content: contentBlocks,
       },
     ],
     inferenceConfig: {

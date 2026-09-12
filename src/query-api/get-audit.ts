@@ -100,6 +100,12 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     // 5. Build chronological system events timeline
+    // Note: listVersions returns newest first; sort ascending for chronological timeline
+    const chronologicalVersions = [...versions].sort(
+      (a, b) => a.application_version - b.application_version
+    );
+    const initialVersion = chronologicalVersions[0];
+
     const systemEvents: Array<{
       event_type: string;
       timestamp: string;
@@ -113,8 +119,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         actor: meta.created_by || 'system',
         description: `Document initialized with class ${doc.document_class} and application version 1`,
         details: {
-          s3_version_id: versions[0]?.s3_version_id || doc.current_s3_version_id,
-          checksum: versions[0]?.content_checksum || meta.content_checksum,
+          s3_version_id: initialVersion?.s3_version_id || doc.current_s3_version_id,
+          checksum: initialVersion?.content_checksum || meta.content_checksum,
         },
       },
     ];
@@ -136,10 +142,10 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       });
     }
 
-    // Additional versions if present
-    if (versions.length > 1) {
-      for (let i = 1; i < versions.length; i++) {
-        const v = versions[i];
+    // Additional versions if present, in chronological order
+    if (chronologicalVersions.length > 1) {
+      for (let i = 1; i < chronologicalVersions.length; i++) {
+        const v = chronologicalVersions[i];
         systemEvents.push({
           event_type: 'VERSION_CREATED',
           timestamp: doc.updated_at,

@@ -1,13 +1,87 @@
 import { SQSEvent, SQSBatchResponse, SQSBatchItemFailure } from 'aws-lambda';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import * as mammoth from 'mammoth';
+import * as zlib from 'zlib';
 import { S3Manager } from '../shared/s3';
 import { DynamoManager } from '../shared/dynamo';
 import { validateMetadataSchema } from '../shared/validator';
-import { enrichMetadataWithBedrock } from '../shared/enricher';
+import { enrichMetadataWithBedrock, BinaryAttachment } from '../shared/enricher';
+import { isDocxContentType } from '../shared/docx-converter';
 import { Logger } from '../shared/logger';
 
 const s3Client = new S3Client({ region: process.env.AWS_REGION || 'us-east-1' });
 const AUDIT_BUCKET_NAME = process.env.AUDIT_BUCKET_NAME || 'doc-platform-mvp-audit';
+
+/**
+ * Extracts plain text from digital PDF buffers using Node built-in zlib stream decompression.
+ */
+export function extractTextFromPdfBuffer(pdfBuf: Buffer): string {
+  if (!pdfBuf || pdfBuf.length === 0) return '';
+  let extractedText = '';
+
+  const streamMarker = Buffer.from('stream');
+  const endStreamMarker = Buffer.from('endstream');
+
+  let idx = 0;
+  while ((idx = pdfBuf.indexOf(streamMarker, idx)) !== -1) {
+    let start = idx + streamMarker.length;
+    if (pdfBuf[start] === 0x0d && pdfBuf[start + 1] === 0x0a) start += 2;
+    else if (pdfBuf[start] === 0x0a || pdfBuf[start] === 0x0d) start += 1;
+
+    const end = pdfBuf.indexOf(endStreamMarker, start);
+    if (end === -1) break;
+
+    let streamEnd = end;
+    if (pdfBuf[streamEnd - 1] === 0x0a) streamEnd--;
+    if (pdfBuf[streamEnd - 1] === 0x0d) streamEnd--;
+
+    const slice = pdfBuf.subarray(start, streamEnd);
+    let streamText = '';
+    try {
+      streamText = zlib.inflateSync(slice).toString('utf-8');
+    } catch {
+      streamText = slice.toString('latin1');
+    }
+
+    // 1. Hex text: <4C6F616E...> Tj
+    const hexTj = /<([0-9a-fA-F\s]+)>\s*Tj/g;
+    let m: RegExpExecArray | null;
+    while ((m = hexTj.exec(streamText)) !== null) {
+      const hex = m[1].replace(/\s+/g, '');
+      if (hex.length % 2 === 0) {
+        extractedText += Buffer.from(hex, 'hex').toString('utf-8') + ' ';
+      }
+    }
+
+    // 2. Literal parenthesized text: (Hello World) Tj
+    const literalTj = /\(([^)\\]*(?:\\.[^)\\]*)*)\)\s*Tj/g;
+    while ((m = literalTj.exec(streamText)) !== null) {
+      extractedText += m[1].replace(/\\([()\\])/g, '$1') + ' ';
+    }
+
+    // 3. Array TJ: [(Hello) 10 (World)] TJ or [<48656C6C6F> 10 <576F726C64>] TJ
+    const arrayTj = /\[(.*?)\]\s*TJ/g;
+    while ((m = arrayTj.exec(streamText)) !== null) {
+      const arrContent = m[1];
+      const innerHex = /<([0-9a-fA-F\s]+)>/g;
+      let im: RegExpExecArray | null;
+      while ((im = innerHex.exec(arrContent)) !== null) {
+        const hex = im[1].replace(/\s+/g, '');
+        if (hex.length % 2 === 0) {
+          extractedText += Buffer.from(hex, 'hex').toString('utf-8') + ' ';
+        }
+      }
+      const innerLiteral = /\(([^)\\]*(?:\\.[^)\\]*)*)\)/g;
+      while ((im = innerLiteral.exec(arrContent)) !== null) {
+        extractedText += im[1].replace(/\\([()\\])/g, '$1') + ' ';
+      }
+    }
+
+    idx = end + endStreamMarker.length;
+  }
+
+  return extractedText.trim();
+}
 
 export async function handler(event: SQSEvent): Promise<SQSBatchResponse> {
   const batchItemFailures: SQSBatchItemFailure[] = [];
@@ -51,16 +125,103 @@ export async function handler(event: SQSEvent): Promise<SQSBatchResponse> {
         continue;
       }
 
-      // 3. Fetch document content from S3 to construct text snippet
+      // 3. Process document content and extract text or prepare multimodal binary
       const s3Key = S3Manager.getDocumentKey(document_class, document_id);
       const { body } = await S3Manager.getObjectBuffer(s3Key, s3_version_id);
-      const textSnippet = body.toString('utf-8');
+
+      const contentType = (currentMetadata.content_type || '').toLowerCase();
+      const format = (currentMetadata.format || '').toLowerCase();
+      const filename = (currentMetadata.filename || '').toLowerCase();
+
+      let textSnippet = '';
+      let binaryAttachment: BinaryAttachment | undefined = undefined;
+
+      const isDocx =
+        isDocxContentType(contentType) ||
+        format === 'docx' ||
+        filename.endsWith('.docx');
+
+      const isPdf =
+        contentType === 'application/pdf' ||
+        format === 'pdf' ||
+        filename.endsWith('.pdf') ||
+        (body.length >= 4 && body.subarray(0, 4).toString('ascii') === '%PDF');
+
+      const isJpeg =
+        contentType === 'image/jpeg' ||
+        contentType === 'image/jpg' ||
+        format === 'jpeg' ||
+        format === 'jpg' ||
+        filename.endsWith('.jpg') ||
+        filename.endsWith('.jpeg');
+
+      const isPng =
+        contentType === 'image/png' ||
+        format === 'png' ||
+        filename.endsWith('.png');
+
+      if (isDocx) {
+        try {
+          const docxResult = await (mammoth as any).extractRawText({ buffer: body });
+          textSnippet = (docxResult.value || '').trim();
+          Logger.info('Extracted text from DOCX using mammoth', { document_id, length: textSnippet.length });
+        } catch (docxErr) {
+          Logger.warn('Failed to extract text from DOCX with mammoth', { document_id, error: docxErr });
+        }
+      } else if (isPdf) {
+        textSnippet = extractTextFromPdfBuffer(body);
+        if (textSnippet) {
+          Logger.info('Extracted text from PDF streams', { document_id, length: textSnippet.length });
+        } else {
+          // If no text was extracted (e.g. scanned PDF), pass as document attachment if under 4.5MB
+          if (body.length < 4.5 * 1024 * 1024) {
+            binaryAttachment = {
+              type: 'document',
+              format: 'pdf',
+              bytes: new Uint8Array(body),
+            };
+          }
+        }
+      } else if (isJpeg || isPng) {
+        if (body.length < 4.5 * 1024 * 1024) {
+          binaryAttachment = {
+            type: 'image',
+            format: isPng ? 'png' : 'jpeg',
+            bytes: new Uint8Array(body),
+          };
+        }
+      } else if (
+        contentType.startsWith('text/') ||
+        contentType === 'application/json' ||
+        format === 'txt' ||
+        filename.endsWith('.txt')
+      ) {
+        textSnippet = body.toString('utf-8');
+      } else {
+        // Fallback: check if buffer contains readable text (e.g. mock buffers in tests) or binary bytecode
+        const isBinary = body.includes(0x00) || (body.length >= 4 && body.subarray(0, 4).toString('ascii') === '%PDF');
+        if (!isBinary) {
+          textSnippet = body.toString('utf-8');
+        }
+      }
+
+      // Guard: If neither text nor a supported binary attachment is available, safely skip Bedrock invocation
+      if (!textSnippet.trim() && !binaryAttachment) {
+        Logger.info('Enrichment skipped: no text or supported multimodal attachment available for format', {
+          document_id,
+          contentType,
+          format,
+        });
+        continue;
+      }
 
       // 4. Invoke Bedrock LLM extraction (Amazon Nova 2 Lite)
       const { enrichedMetadata, auditDetails } = await enrichMetadataWithBedrock(
         textSnippet,
         currentMetadata,
-        document_class
+        document_class,
+        undefined,
+        binaryAttachment
       );
 
       // 5. Bump metadata revision for OCC commit

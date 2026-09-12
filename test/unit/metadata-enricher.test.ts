@@ -1,4 +1,6 @@
 import { SQSEvent, SQSRecord } from 'aws-lambda';
+import * as mammoth from 'mammoth';
+import { PDFDocument } from 'pdf-lib';
 import { handler } from '../../src/background-worker/metadata-enricher';
 import { S3Manager } from '../../src/shared/s3';
 import { DynamoManager } from '../../src/shared/dynamo';
@@ -6,6 +8,10 @@ import {
   enrichMetadataWithBedrock,
   extractJsonFromLlmResponse,
 } from '../../src/shared/enricher';
+
+jest.mock('mammoth', () => ({
+  extractRawText: jest.fn(),
+}));
 
 // Mock S3Client send
 const mockS3Send = jest.fn().mockResolvedValue({});
@@ -373,6 +379,213 @@ describe('LLM Metadata Enricher Unit Tests', () => {
 
       // Should complete without throwing so message is acknowledged and not retried
       await expect(handler(event)).resolves.not.toThrow();
+    });
+
+    it('should extract text from digital PDF using Node zlib stream decompression', async () => {
+      const pdfDoc = await PDFDocument.create();
+      const page = pdfDoc.addPage();
+      page.drawText('Loan Reference: LN-2026-PDF-12345');
+      const pdfBytes = await pdfDoc.save();
+      const pdfBuffer = Buffer.from(pdfBytes);
+
+      (S3Manager.getAnnotation as jest.Mock).mockResolvedValueOnce({
+        metadata: {
+          ...mockBaseMetadata,
+          content_type: 'application/pdf',
+          format: 'pdf',
+        },
+        eTag: 'anno-etag-1',
+      });
+
+      (S3Manager.getDocumentKey as jest.Mock).mockReturnValue('documents/loan_agreement/11111111-2222-3333-4444-555555555555');
+      (S3Manager.getObjectBuffer as jest.Mock).mockResolvedValueOnce({
+        body: pdfBuffer,
+        contentType: 'application/pdf',
+      });
+
+      mockBedrockSend.mockResolvedValueOnce({
+        output: {
+          message: {
+            content: [{ text: JSON.stringify({ loan_number: 'LN-2026-PDF-12345' }) }],
+          },
+        },
+        usage: { inputTokens: 40, outputTokens: 15 },
+      });
+
+      (S3Manager.putAnnotation as jest.Mock).mockResolvedValueOnce({ eTag: 'anno-etag-2' });
+      (DynamoManager.updateMetadataRevision as jest.Mock).mockResolvedValueOnce({ current_metadata_revision: 2 });
+
+      const event = createSqsEvent({
+        document_id: '11111111-2222-3333-4444-555555555555',
+        document_class: 'loan_agreement',
+        s3_version_id: 'v1-s3-id',
+        expected_metadata_revision: 1,
+      });
+
+      await handler(event);
+
+      expect(mockBedrockSend).toHaveBeenCalledWith(
+        expect.objectContaining({
+          messages: expect.arrayContaining([
+            expect.objectContaining({
+              content: expect.arrayContaining([
+                expect.objectContaining({
+                  text: expect.stringContaining('LN-2026-PDF-12345'),
+                }),
+              ]),
+            }),
+          ]),
+        })
+      );
+    });
+
+    it('should extract text from DOCX using mammoth', async () => {
+      (mammoth.extractRawText as jest.Mock).mockResolvedValueOnce({
+        value: 'Loan Reference: LN-2026-DOCX-98765 extracted by mammoth',
+      });
+
+      (S3Manager.getAnnotation as jest.Mock).mockResolvedValueOnce({
+        metadata: {
+          ...mockBaseMetadata,
+          content_type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          format: 'docx',
+          filename: 'contract.docx',
+        },
+        eTag: 'anno-etag-1',
+      });
+
+      (S3Manager.getDocumentKey as jest.Mock).mockReturnValue('documents/loan_agreement/11111111-2222-3333-4444-555555555555');
+      (S3Manager.getObjectBuffer as jest.Mock).mockResolvedValueOnce({
+        body: Buffer.from('mock-docx-zip-bytes'),
+        contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      });
+
+      mockBedrockSend.mockResolvedValueOnce({
+        output: {
+          message: {
+            content: [{ text: JSON.stringify({ loan_number: 'LN-2026-DOCX-98765' }) }],
+          },
+        },
+        usage: { inputTokens: 45, outputTokens: 15 },
+      });
+
+      (S3Manager.putAnnotation as jest.Mock).mockResolvedValueOnce({ eTag: 'anno-etag-2' });
+      (DynamoManager.updateMetadataRevision as jest.Mock).mockResolvedValueOnce({ current_metadata_revision: 2 });
+
+      const event = createSqsEvent({
+        document_id: '11111111-2222-3333-4444-555555555555',
+        document_class: 'loan_agreement',
+        s3_version_id: 'v1-s3-id',
+        expected_metadata_revision: 1,
+      });
+
+      await handler(event);
+
+      expect(mammoth.extractRawText).toHaveBeenCalled();
+      expect(mockBedrockSend).toHaveBeenCalledWith(
+        expect.objectContaining({
+          messages: expect.arrayContaining([
+            expect.objectContaining({
+              content: expect.arrayContaining([
+                expect.objectContaining({
+                  text: expect.stringContaining('LN-2026-DOCX-98765'),
+                }),
+              ]),
+            }),
+          ]),
+        })
+      );
+    });
+
+    it('should attach multimodal image block when processing JPEG or PNG image', async () => {
+      const imageBytes = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46]);
+
+      (S3Manager.getAnnotation as jest.Mock).mockResolvedValueOnce({
+        metadata: {
+          ...mockBaseMetadata,
+          content_type: 'image/jpeg',
+          format: 'jpeg',
+          filename: 'scan.jpg',
+        },
+        eTag: 'anno-etag-1',
+      });
+
+      (S3Manager.getDocumentKey as jest.Mock).mockReturnValue('documents/loan_agreement/11111111-2222-3333-4444-555555555555');
+      (S3Manager.getObjectBuffer as jest.Mock).mockResolvedValueOnce({
+        body: imageBytes,
+        contentType: 'image/jpeg',
+      });
+
+      mockBedrockSend.mockResolvedValueOnce({
+        output: {
+          message: {
+            content: [{ text: JSON.stringify({ loan_number: 'LN-2026-IMAGE-777' }) }],
+          },
+        },
+        usage: { inputTokens: 50, outputTokens: 20 },
+      });
+
+      (S3Manager.putAnnotation as jest.Mock).mockResolvedValueOnce({ eTag: 'anno-etag-2' });
+      (DynamoManager.updateMetadataRevision as jest.Mock).mockResolvedValueOnce({ current_metadata_revision: 2 });
+
+      const event = createSqsEvent({
+        document_id: '11111111-2222-3333-4444-555555555555',
+        document_class: 'loan_agreement',
+        s3_version_id: 'v1-s3-id',
+        expected_metadata_revision: 1,
+      });
+
+      await handler(event);
+
+      expect(mockBedrockSend).toHaveBeenCalledWith(
+        expect.objectContaining({
+          messages: expect.arrayContaining([
+            expect.objectContaining({
+              content: expect.arrayContaining([
+                expect.objectContaining({
+                  image: expect.objectContaining({
+                    format: 'jpeg',
+                  }),
+                }),
+              ]),
+            }),
+          ]),
+        })
+      );
+    });
+
+    it('should guard against sending unextractable binary garbage to Bedrock', async () => {
+      // Raw binary with null bytes and no text extractor, exceeding attachment size or unsupported format
+      const binaryGarbage = Buffer.alloc(5 * 1024 * 1024, 0x00);
+
+      (S3Manager.getAnnotation as jest.Mock).mockResolvedValueOnce({
+        metadata: {
+          ...mockBaseMetadata,
+          content_type: 'image/tiff',
+          format: 'tiff',
+          filename: 'raw.tiff',
+        },
+        eTag: 'anno-etag-1',
+      });
+
+      (S3Manager.getDocumentKey as jest.Mock).mockReturnValue('documents/loan_agreement/11111111-2222-3333-4444-555555555555');
+      (S3Manager.getObjectBuffer as jest.Mock).mockResolvedValueOnce({
+        body: binaryGarbage,
+        contentType: 'image/tiff',
+      });
+
+      const event = createSqsEvent({
+        document_id: '11111111-2222-3333-4444-555555555555',
+        document_class: 'loan_agreement',
+        s3_version_id: 'v1-s3-id',
+        expected_metadata_revision: 1,
+      });
+
+      await handler(event);
+
+      // Bedrock is never called with garbled bytecode
+      expect(mockBedrockSend).not.toHaveBeenCalled();
+      expect(S3Manager.putAnnotation).not.toHaveBeenCalled();
     });
   });
 });

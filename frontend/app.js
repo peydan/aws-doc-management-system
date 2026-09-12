@@ -28,6 +28,17 @@ const state = {
   },
 };
 
+// Centralized HTML sanitization utility to prevent XSS across all dynamic DOM interpolations
+function escapeHtml(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 // ==========================================
 // 1. INITIALIZATION & CONFIG
 // ==========================================
@@ -114,7 +125,7 @@ function showToast(message, type = 'info') {
   const toast = document.createElement('div');
   toast.className = `toast alert-${type}`;
   const icon = type === 'success' ? '✅' : type === 'danger' ? '❌' : type === 'warning' ? '⚠️' : 'ℹ️';
-  toast.innerHTML = `<span>${icon}</span> <span>${message}</span>`;
+  toast.innerHTML = `<span>${icon}</span> <span>${escapeHtml(message)}</span>`;
   container.appendChild(toast);
 
   setTimeout(() => {
@@ -460,17 +471,17 @@ function renderAuditLogs() {
       <div class="card" style="margin-bottom: 0.75rem; padding: 1rem;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
           <div style="display: flex; align-items: center; gap: 8px;">
-            <span class="badge ${badgeClass}">${log.status}</span>
-            <strong style="color: #ffffff;">${log.method}</strong>
-            <span style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--text-muted);">${log.url}</span>
+            <span class="badge ${badgeClass}">${escapeHtml(String(log.status))}</span>
+            <strong style="color: #ffffff;">${escapeHtml(log.method)}</strong>
+            <span style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--text-muted);">${escapeHtml(log.url)}</span>
           </div>
           <div style="font-size: 0.75rem; color: var(--text-dim);">
-            ${log.timestamp} • ${log.durationMs}ms
+            ${escapeHtml(String(log.timestamp))} • ${Number(log.durationMs)}ms
           </div>
         </div>
         <details>
           <summary style="cursor: pointer; font-size: 0.8rem; color: var(--aws-orange);">View cURL & Response Payload</summary>
-          <div class="code-box" style="margin-top: 8px;">${log.curl}\n\n# Response [${log.status}]:\n${JSON.stringify(log.response, null, 2)}</div>
+          <div class="code-box" style="margin-top: 8px;">${escapeHtml(log.curl)}\n\n# Response [${escapeHtml(String(log.status))}]:\n${escapeHtml(JSON.stringify(log.response, null, 2))}</div>
         </details>
       </div>`;
     })
@@ -599,7 +610,7 @@ async function fetchDocumentAudit(docId) {
     if (piiCatsEl) {
       const cats = llm.pii_categories || [];
       if (Array.isArray(cats) && cats.length > 0) {
-        piiCatsEl.innerHTML = cats.map(c => `<span class="badge badge-warning" style="font-size: 0.75rem;">${c}</span>`).join(' ');
+        piiCatsEl.innerHTML = cats.map(c => `<span class="badge badge-warning" style="font-size: 0.75rem;">${escapeHtml(c)}</span>`).join(' ');
       } else {
         piiCatsEl.innerHTML = '<span style="font-size: 0.8rem; color: var(--text-dim);">No PII categories identified</span>';
       }
@@ -626,10 +637,10 @@ async function fetchDocumentAudit(docId) {
         versionsTbody.innerHTML = versions
           .map(
             (v) => `<tr>
-              <td><span class="badge badge-info">v${v.application_version}</span></td>
-              <td style="font-family: var(--font-mono); font-size: 0.8rem;">${v.s3_version_id || '-'}</td>
-              <td style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-muted);">${v.content_checksum || '-'}</td>
-              <td><span class="badge ${v.state === 'ACTIVE' ? 'badge-success' : 'badge-danger'}">${v.state || 'ACTIVE'}</span></td>
+              <td><span class="badge badge-info">v${escapeHtml(String(v.application_version))}</span></td>
+              <td style="font-family: var(--font-mono); font-size: 0.8rem;">${escapeHtml(v.s3_version_id || '-')}</td>
+              <td style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-muted);">${escapeHtml(v.content_checksum || '-')}</td>
+              <td><span class="badge ${v.state === 'ACTIVE' ? 'badge-success' : 'badge-danger'}">${escapeHtml(v.state || 'ACTIVE')}</span></td>
             </tr>`
           )
           .join('');
@@ -646,12 +657,12 @@ async function fetchDocumentAudit(docId) {
           .map(
             (evt) => `<div class="audit-timeline-item">
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px;">
-                <strong style="color: #ffffff; font-size: 0.85rem;">${evt.description || evt.event_type}</strong>
-                <span style="font-size: 0.75rem; color: var(--text-dim);">${evt.timestamp ? new Date(evt.timestamp).toLocaleString() : '-'}</span>
+                <strong style="color: #ffffff; font-size: 0.85rem;">${escapeHtml(evt.description || evt.event_type || '')}</strong>
+                <span style="font-size: 0.75rem; color: var(--text-dim);">${evt.timestamp ? escapeHtml(new Date(evt.timestamp).toLocaleString()) : '-'}</span>
               </div>
               <div style="font-size: 0.75rem; color: var(--text-muted);">
-                Actor: <span class="badge badge-role" style="font-size: 0.65rem; padding: 1px 6px;">${evt.actor || 'system'}</span>
-                ${evt.details ? `• <span style="font-family: var(--font-mono);">${JSON.stringify(evt.details)}</span>` : ''}
+                Actor: <span class="badge badge-role" style="font-size: 0.65rem; padding: 1px 6px;">${escapeHtml(evt.actor || 'system')}</span>
+                ${evt.details ? `• <span style="font-family: var(--font-mono);">${escapeHtml(JSON.stringify(evt.details))}</span>` : ''}
               </div>
             </div>`
           )
@@ -748,7 +759,7 @@ function handleDirectFileSelect(input) {
   if (input.files && input.files[0]) {
     selectedDirectFile = input.files[0];
     const info = document.getElementById('direct-file-info');
-    info.innerHTML = `<span style="color: var(--color-success);">Selected: <strong>${selectedDirectFile.name}</strong> (${(selectedDirectFile.size / 1024).toFixed(1)} KB)</span>`;
+    info.innerHTML = `<span style="color: var(--color-success);">Selected: <strong>${escapeHtml(selectedDirectFile.name)}</strong> (${(selectedDirectFile.size / 1024).toFixed(1)} KB)</span>`;
   }
 }
 
@@ -1151,7 +1162,7 @@ function updateEnrichmentAdvisor(mode = 'direct') {
       triggerHtml += `
         <div style="display: flex; align-items: center; gap: 6px;">
           <span style="color: #38bdf8;">ℹ️</span>
-          <span><strong>Pre-flight Token Optimization:</strong> <code>loan_number</code> ("${meta.loan_number}") is provided. Attribute extraction skipped to save tokens; only PII scan will run.</span>
+          <span><strong>Pre-flight Token Optimization:</strong> <code>loan_number</code> ("${escapeHtml(String(meta.loan_number))}") is provided. Attribute extraction skipped to save tokens; only PII scan will run.</span>
         </div>
       `;
     } else {
@@ -1168,7 +1179,7 @@ function updateEnrichmentAdvisor(mode = 'direct') {
       triggerHtml += `
         <div style="display: flex; align-items: center; gap: 6px;">
           <span style="color: #38bdf8;">ℹ️</span>
-          <span><strong>Pre-flight Token Optimization:</strong> Retention schedule code ("${meta.retention_schedule_code}") is provided. Attribute extraction skipped; only PII scan will run.</span>
+          <span><strong>Pre-flight Token Optimization:</strong> Retention schedule code ("${escapeHtml(String(meta.retention_schedule_code))}") is provided. Attribute extraction skipped; only PII scan will run.</span>
         </div>
       `;
     } else {
@@ -1550,7 +1561,7 @@ async function fetchDocumentDetails(docId = null) {
         if (catContainer) {
           const cats = doc.metadata?.pii_categories || [];
           if (Array.isArray(cats) && cats.length > 0) {
-            catContainer.innerHTML = cats.map(c => `<span class="badge badge-warning" style="font-size: 0.75rem;">${c}</span>`).join(' ');
+            catContainer.innerHTML = cats.map(c => `<span class="badge badge-warning" style="font-size: 0.75rem;">${escapeHtml(c)}</span>`).join(' ');
           } else {
             catContainer.innerHTML = '<span style="font-size: 0.75rem; color: var(--text-dim);">None identified</span>';
           }
@@ -1598,7 +1609,7 @@ async function fetchDocumentDetails(docId = null) {
         if (aiDiagnosis) {
           aiDiagnosis.innerHTML = `
             <div style="display: flex; align-items: center; gap: 6px; color: #38bdf8;">
-              <span>🔵</span> <strong>Binary Page Addition (Version Mutation):</strong> Document is at Content Version ${doc.current_application_version}.
+              <span>🔵</span> <strong>Binary Page Addition (Version Mutation):</strong> Document is at Content Version ${escapeHtml(String(doc.current_application_version))}.
             </div>
             <div style="color: var(--text-dim); margin-top: 2px;">
               LLM enrichment only triggers on initial document creation (Version 1, Revision 1). Content mutations preserve authoritative annotations and do not re-run enrichment.
@@ -1802,12 +1813,12 @@ async function fetchVersionHistory(docId = null) {
         .map(
           (v) => `
         <tr>
-          <td><strong>v${v.application_version}</strong></td>
-          <td style="font-family: var(--font-mono); font-size: 0.75rem; color: #38bdf8;">${v.s3_version_id || 'latest'}</td>
-          <td style="font-family: var(--font-mono); font-size: 0.75rem;">${(v.checksum || '').substring(0, 16)}...</td>
+          <td><strong>v${escapeHtml(String(v.application_version))}</strong></td>
+          <td style="font-family: var(--font-mono); font-size: 0.75rem; color: #38bdf8;">${escapeHtml(v.s3_version_id || 'latest')}</td>
+          <td style="font-family: var(--font-mono); font-size: 0.75rem;">${escapeHtml((v.checksum || '').substring(0, 16))}...</td>
           <td>
-            <button class="btn btn-secondary btn-sm" onclick="downloadSpecificVersion('${targetId}', ${v.application_version})">⬇️ View</button>
-            <button class="btn btn-primary btn-sm" style="margin-left: 4px;" onclick="downloadSpecificVersionPdf('${targetId}', ${v.application_version})">⬇️ PDF</button>
+            <button class="btn btn-secondary btn-sm" onclick="downloadSpecificVersion('${escapeHtml(targetId)}', ${Number(v.application_version)})">⬇️ View</button>
+            <button class="btn btn-primary btn-sm" style="margin-left: 4px;" onclick="downloadSpecificVersionPdf('${escapeHtml(targetId)}', ${Number(v.application_version)})">⬇️ PDF</button>
           </td>
         </tr>
       `
@@ -1817,7 +1828,7 @@ async function fetchVersionHistory(docId = null) {
       tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;">No previous versions</td></tr>`;
     }
   } catch (err) {
-    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color: var(--color-danger);">Failed to load versions: ${err.message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color: var(--color-danger);">Failed to load versions: ${escapeHtml(err.message)}</td></tr>`;
   }
 }
 
@@ -1858,7 +1869,7 @@ function handleAddPagesFileSelect(input) {
     selectedAddPagesFile = input.files[0];
     const info = document.getElementById('add-pages-file-info');
     if (info) {
-      info.innerHTML = `<span style="color: var(--color-success);">Selected: <strong>${selectedAddPagesFile.name}</strong> (${(selectedAddPagesFile.size / 1024).toFixed(1)} KB, ${selectedAddPagesFile.type || 'application/pdf'})</span>`;
+      info.innerHTML = `<span style="color: var(--color-success);">Selected: <strong>${escapeHtml(selectedAddPagesFile.name)}</strong> (${(selectedAddPagesFile.size / 1024).toFixed(1)} KB, ${escapeHtml(selectedAddPagesFile.type || 'application/pdf')})</span>`;
     }
   }
 }
@@ -2088,30 +2099,31 @@ async function executeSearch() {
     if (res.items && res.items.length > 0) {
       tbody.innerHTML = res.items
         .map((doc) => {
-          const descriptor = doc.customer_id ? `Cust: ${doc.customer_id}` : (doc.document_type || doc.filename || 'N/A');
+          const rawDescriptor = doc.customer_id ? `Cust: ${doc.customer_id}` : (doc.document_type || doc.filename || 'N/A');
+          const descriptor = escapeHtml(rawDescriptor);
           const formatBadge = doc.format
-            ? `<span class="badge badge-secondary" style="font-size:0.75rem; text-transform: uppercase; margin-left: 4px;">${doc.format}${doc.page_count ? ` (${doc.page_count}p)` : ''}</span>`
+            ? `<span class="badge badge-secondary" style="font-size:0.75rem; text-transform: uppercase; margin-left: 4px;">${escapeHtml(doc.format)}${doc.page_count ? ` (${escapeHtml(String(doc.page_count))}p)` : ''}</span>`
             : '';
           const dateStr = doc.created_at ? new Date(doc.created_at).toLocaleDateString() : 'N/A';
           const statusBadge = doc.status === 'ACTIVE' ? 'badge-success' : 'badge-danger';
           const showPdf = isConvertibleImage(doc);
           const isSelected = selectedSearchDocIds.has(doc.document_id);
           const pdfButtonHtml = showPdf
-            ? `<button class="btn btn-primary btn-sm" style="margin-left: 4px;" onclick="downloadPdfDirect('${doc.document_id}')">⬇️ PDF</button>`
+            ? `<button class="btn btn-primary btn-sm" style="margin-left: 4px;" onclick="downloadPdfDirect('${escapeHtml(doc.document_id)}')">⬇️ PDF</button>`
             : '';
           return `
             <tr>
               <td style="text-align: center;">
-                <input type="checkbox" class="search-doc-checkbox" data-doc-id="${doc.document_id}" onchange="toggleDocSelection('${doc.document_id}', this.checked)" ${isSelected ? 'checked' : ''} />
+                <input type="checkbox" class="search-doc-checkbox" data-doc-id="${escapeHtml(doc.document_id)}" onchange="toggleDocSelection('${escapeHtml(doc.document_id)}', this.checked)" ${isSelected ? 'checked' : ''} />
               </td>
-              <td><code style="color: #38bdf8; font-size: 0.8rem;">${doc.document_id}</code></td>
-              <td><span class="badge badge-info">${doc.document_class || 'loan_agreement'}</span></td>
+              <td><code style="color: #38bdf8; font-size: 0.8rem;">${escapeHtml(doc.document_id)}</code></td>
+              <td><span class="badge badge-info">${escapeHtml(doc.document_class || 'loan_agreement')}</span></td>
               <td><span style="font-size: 0.82rem; color: #f8fafc;">${descriptor}</span>${formatBadge}</td>
-              <td><span class="badge ${statusBadge}">${doc.status || 'ACTIVE'}</span></td>
-              <td>v${doc.application_version || 1}</td>
-              <td style="font-size: 0.8rem; color: var(--text-dim);">${dateStr}</td>
+              <td><span class="badge ${statusBadge}">${escapeHtml(doc.status || 'ACTIVE')}</span></td>
+              <td>v${escapeHtml(String(doc.application_version || 1))}</td>
+              <td style="font-size: 0.8rem; color: var(--text-dim);">${escapeHtml(dateStr)}</td>
               <td>
-                <button class="btn btn-secondary btn-sm" onclick="loadSearchedDoc('${doc.document_id}')">📂 Inspect</button>
+                <button class="btn btn-secondary btn-sm" onclick="loadSearchedDoc('${escapeHtml(doc.document_id)}')">📂 Inspect</button>
                 ${pdfButtonHtml}
               </td>
             </tr>
@@ -2129,7 +2141,7 @@ async function executeSearch() {
       diagContent.innerText = `SEARCH ERROR [HTTP ${err.status || 500}]:\n${err.message}\nResponse: ${JSON.stringify(err.response || {}, null, 2)}`;
     }
     if (tbody) {
-      tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--color-danger); padding: 1.5rem;">Search failed: ${err.message}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--color-danger); padding: 1.5rem;">Search failed: ${escapeHtml(err.message)}</td></tr>`;
     }
     showToast(`Search error: ${err.message}`, 'danger');
   }
@@ -2771,15 +2783,15 @@ function addToolBadge(container, toolName, input) {
     <div class="tool-badge-header" onclick="const det = this.nextElementSibling; det.style.display = det.style.display === 'none' ? 'block' : 'none';">
       <div class="tool-badge-left">
         <span>${toolIcon}</span>
-        <span class="tool-badge-name">${toolName}</span>
-        <span style="font-size: 0.72rem; color: #94a3b8;">${summary}</span>
+        <span class="tool-badge-name">${escapeHtml(toolName)}</span>
+        <span style="font-size: 0.72rem; color: #94a3b8;">${escapeHtml(summary)}</span>
       </div>
       <div class="tool-badge-status running">
         <span class="spin-icon">⏳</span> <span>Executing...</span>
       </div>
     </div>
     <div class="tool-badge-details" style="display: none;">
-      <strong>Input:</strong> ${JSON.stringify(input || {}, null, 2)}
+      <strong>Input:</strong> ${escapeHtml(JSON.stringify(input || {}, null, 2))}
     </div>
   `;
   container.appendChild(badge);
@@ -2801,7 +2813,7 @@ function updateToolBadge(container, toolName, output) {
   }
   if (detailsEl) {
     const existing = detailsEl.innerHTML;
-    detailsEl.innerHTML = `${existing}\n\n<strong>Result:</strong> ${JSON.stringify(output || {}, null, 2)}`;
+    detailsEl.innerHTML = `${existing}\n\n<strong>Result:</strong> ${escapeHtml(JSON.stringify(output || {}, null, 2))}`;
   }
 }
 
@@ -2820,12 +2832,12 @@ function renderCitationCard(container, cit) {
 
   card.innerHTML = `
     <div class="citation-card-header">
-      <span class="citation-filename">📄 ${cit.filename || 'Document'}</span>
-      <span class="badge" style="background: rgba(255,255,255,0.08); font-size: 0.68rem; color: #f8fafc;">v${cit.application_version || 1}</span>
+      <span class="citation-filename">📄 ${escapeHtml(cit.filename || 'Document')}</span>
+      <span class="badge" style="background: rgba(255,255,255,0.08); font-size: 0.68rem; color: #f8fafc;">v${escapeHtml(String(cit.application_version || 1))}</span>
     </div>
     <div class="citation-meta-row">
-      <span style="color: ${classBadgeColor}; font-weight: 600;">${cit.document_class || 'document'}</span>
-      <span class="citation-doc-id">DOC#${(cit.document_id || '').substring(0, 12)}...</span>
+      <span style="color: ${classBadgeColor}; font-weight: 600;">${escapeHtml(cit.document_class || 'document')}</span>
+      <span class="citation-doc-id">DOC#${escapeHtml((cit.document_id || '').substring(0, 12))}...</span>
     </div>
   `;
   container.appendChild(card);
@@ -3079,7 +3091,7 @@ async function submitAiMessage() {
               </div>`;
             setAiStatus('Session Expired', '#f87171');
           } else {
-            textContentDiv.innerHTML += `<div class="alert alert-danger" style="margin-top: 8px;"><strong>Error:</strong> ${fallbackErr.message}</div>`;
+            textContentDiv.innerHTML += `<div class="alert alert-danger" style="margin-top: 8px;"><strong>Error:</strong> ${escapeHtml(fallbackErr.message)}</div>`;
             setAiStatus('Error', '#f87171');
           }
         }
@@ -3092,7 +3104,7 @@ async function submitAiMessage() {
             </div>`;
           setAiStatus('Session Expired', '#f87171');
         } else {
-          textContentDiv.innerHTML += `<div class="alert alert-danger" style="margin-top: 8px;"><strong>Error:</strong> ${err.message}</div>`;
+          textContentDiv.innerHTML += `<div class="alert alert-danger" style="margin-top: 8px;"><strong>Error:</strong> ${escapeHtml(err.message)}</div>`;
           setAiStatus('Error', '#f87171');
         }
       }

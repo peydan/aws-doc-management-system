@@ -120,4 +120,68 @@ describe('Document Audit & LLM Inspection Query API', () => {
     expect(body.llm_enrichment_audit.status).toBe('SKIPPED');
     expect(body.llm_enrichment_audit.is_enriched).toBe(false);
   });
+
+  it('should maintain chronological event timeline attributing v1 to DOCUMENT_INGESTED and v2 to VERSION_CREATED', async () => {
+    const multiVersionDocId = 'doc-audit-multi-003';
+
+    // 1. Commit Version 1 creation
+    await DynamoManager.commitDocumentCreation({
+      documentId: multiVersionDocId,
+      documentClass: documentClass,
+      s3Key: `documents/${documentClass}/${multiVersionDocId}`,
+      s3VersionId: 's3-ver-baseline-v1',
+      annotationEtag: 'etag-multi-1',
+      checksum: 'sha256:v1checksum1111',
+    });
+
+    await S3Manager.putAnnotation(documentClass, multiVersionDocId, 's3-ver-baseline-v1', {
+      annotation_schema: 'bank.document-metadata/1',
+      document_id: multiVersionDocId,
+      document_class: documentClass,
+      content_type: 'application/pdf',
+      content_checksum: 'sha256:v1checksum1111',
+      application_version: 1,
+      metadata_revision: 1,
+      skip_enrichment: true,
+    });
+
+    // 2. Commit Version 2 creation
+    await DynamoManager.commitNewVersion({
+      documentId: multiVersionDocId,
+      nextAppVersion: 2,
+      expectedAppVersion: 1,
+      s3Key: `documents/${documentClass}/${multiVersionDocId}`,
+      s3VersionId: 's3-ver-mutation-v2',
+      annotationEtag: 'etag-multi-2',
+      checksum: 'sha256:v2checksum2222',
+    });
+
+    await S3Manager.putAnnotation(documentClass, multiVersionDocId, 's3-ver-mutation-v2', {
+      annotation_schema: 'bank.document-metadata/1',
+      document_id: multiVersionDocId,
+      document_class: documentClass,
+      content_type: 'application/pdf',
+      content_checksum: 'sha256:v2checksum2222',
+      application_version: 2,
+      metadata_revision: 1,
+      skip_enrichment: true,
+    });
+
+    const res = await getAuditHandler(createMockEvent(multiVersionDocId));
+    expect(res.statusCode).toBe(200);
+
+    const body = JSON.parse(res.body);
+    const systemEvents = body.lifecycle_audit.system_events;
+
+    // DOCUMENT_INGESTED must baseline to version 1, NOT version 2
+    expect(systemEvents[0].event_type).toBe('DOCUMENT_INGESTED');
+    expect(systemEvents[0].details.s3_version_id).toBe('s3-ver-baseline-v1');
+    expect(systemEvents[0].details.checksum).toBe('sha256:v1checksum1111');
+
+    // Subsequent event is VERSION_CREATED for version 2
+    expect(systemEvents[1].event_type).toBe('VERSION_CREATED');
+    expect(systemEvents[1].details.application_version).toBe(2);
+    expect(systemEvents[1].details.s3_version_id).toBe('s3-ver-mutation-v2');
+    expect(systemEvents[1].details.checksum).toBe('sha256:v2checksum2222');
+  });
 });
