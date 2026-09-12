@@ -5,83 +5,14 @@ import * as zlib from 'zlib';
 import { S3Manager } from '../shared/s3';
 import { DynamoManager } from '../shared/dynamo';
 import { validateMetadataSchema } from '../shared/validator';
-import { enrichMetadataWithBedrock, BinaryAttachment } from '../shared/enricher';
+import { enrichMetadataWithBedrock, BinaryAttachment, extractTextFromPdfBuffer } from '../shared/enricher';
 import { isDocxContentType } from '../shared/docx-converter';
 import { Logger } from '../shared/logger';
 
 const s3Client = new S3Client({ region: process.env.AWS_REGION || 'us-east-1' });
 const AUDIT_BUCKET_NAME = process.env.AUDIT_BUCKET_NAME || 'doc-platform-mvp-audit';
 
-/**
- * Extracts plain text from digital PDF buffers using Node built-in zlib stream decompression.
- */
-export function extractTextFromPdfBuffer(pdfBuf: Buffer): string {
-  if (!pdfBuf || pdfBuf.length === 0) return '';
-  let extractedText = '';
-
-  const streamMarker = Buffer.from('stream');
-  const endStreamMarker = Buffer.from('endstream');
-
-  let idx = 0;
-  while ((idx = pdfBuf.indexOf(streamMarker, idx)) !== -1) {
-    let start = idx + streamMarker.length;
-    if (pdfBuf[start] === 0x0d && pdfBuf[start + 1] === 0x0a) start += 2;
-    else if (pdfBuf[start] === 0x0a || pdfBuf[start] === 0x0d) start += 1;
-
-    const end = pdfBuf.indexOf(endStreamMarker, start);
-    if (end === -1) break;
-
-    let streamEnd = end;
-    if (pdfBuf[streamEnd - 1] === 0x0a) streamEnd--;
-    if (pdfBuf[streamEnd - 1] === 0x0d) streamEnd--;
-
-    const slice = pdfBuf.subarray(start, streamEnd);
-    let streamText = '';
-    try {
-      streamText = zlib.inflateSync(slice).toString('utf-8');
-    } catch {
-      streamText = slice.toString('latin1');
-    }
-
-    // 1. Hex text: <4C6F616E...> Tj
-    const hexTj = /<([0-9a-fA-F\s]+)>\s*Tj/g;
-    let m: RegExpExecArray | null;
-    while ((m = hexTj.exec(streamText)) !== null) {
-      const hex = m[1].replace(/\s+/g, '');
-      if (hex.length % 2 === 0) {
-        extractedText += Buffer.from(hex, 'hex').toString('utf-8') + ' ';
-      }
-    }
-
-    // 2. Literal parenthesized text: (Hello World) Tj
-    const literalTj = /\(([^)\\]*(?:\\.[^)\\]*)*)\)\s*Tj/g;
-    while ((m = literalTj.exec(streamText)) !== null) {
-      extractedText += m[1].replace(/\\([()\\])/g, '$1') + ' ';
-    }
-
-    // 3. Array TJ: [(Hello) 10 (World)] TJ or [<48656C6C6F> 10 <576F726C64>] TJ
-    const arrayTj = /\[(.*?)\]\s*TJ/g;
-    while ((m = arrayTj.exec(streamText)) !== null) {
-      const arrContent = m[1];
-      const innerHex = /<([0-9a-fA-F\s]+)>/g;
-      let im: RegExpExecArray | null;
-      while ((im = innerHex.exec(arrContent)) !== null) {
-        const hex = im[1].replace(/\s+/g, '');
-        if (hex.length % 2 === 0) {
-          extractedText += Buffer.from(hex, 'hex').toString('utf-8') + ' ';
-        }
-      }
-      const innerLiteral = /\(([^)\\]*(?:\\.[^)\\]*)*)\)/g;
-      while ((im = innerLiteral.exec(arrContent)) !== null) {
-        extractedText += im[1].replace(/\\([()\\])/g, '$1') + ' ';
-      }
-    }
-
-    idx = end + endStreamMarker.length;
-  }
-
-  return extractedText.trim();
-}
+export { extractTextFromPdfBuffer };
 
 export async function handler(event: SQSEvent): Promise<SQSBatchResponse> {
   const batchItemFailures: SQSBatchItemFailure[] = [];

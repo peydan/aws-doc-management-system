@@ -44,6 +44,7 @@ function escapeHtml(str) {
 // ==========================================
 async function initApp() {
   setupTabs();
+  initDropzones();
   
   // Try loading runtime config.json injected by CDK / S3
   try {
@@ -755,17 +756,119 @@ async function checkHealth() {
 let selectedDirectFile = null;
 let selectedInlineFile = null;
 
+/**
+ * Robust, authoritative updater for Document Class select dropdowns across Direct and Inline modes.
+ * Ensures DOM value, option selected attributes, visual badges, schema templates, and event dispatches are unified.
+ */
+function applyDocumentClass(mode, newClass, reason = '') {
+  if (!newClass || !CLASS_SPECIFIC_TEMPLATES[newClass]) return false;
+  const prefix = mode === 'direct' ? 'direct' : 'inline';
+  const classSelect = document.getElementById(`${prefix}-doc-class`);
+  if (!classSelect) return false;
+
+  const previousValue = classSelect.value;
+  classSelect.value = newClass;
+
+  // 1. Explicitly update selected property and attribute on all <option> elements
+  let matchIndex = -1;
+  for (let i = 0; i < classSelect.options.length; i++) {
+    const opt = classSelect.options[i];
+    const isMatch = (opt.value === newClass);
+    opt.selected = isMatch;
+    if (isMatch) {
+      opt.setAttribute('selected', 'selected');
+      matchIndex = i;
+    } else {
+      opt.removeAttribute('selected');
+    }
+  }
+  if (matchIndex >= 0) {
+    classSelect.selectedIndex = matchIndex;
+  }
+
+  // 2. Synchronize visual class badge
+  const badge = document.getElementById(`${prefix}-class-badge`);
+  if (badge) {
+    badge.innerText = newClass;
+  }
+
+  // 3. Update textarea template with class-specific business attributes & refresh advisor
+  if (mode === 'direct') {
+    onDirectClassChange(newClass);
+  } else {
+    onInlineClassChange(newClass);
+  }
+
+  // 4. Dispatch standard DOM change & input events to ensure all listeners trigger
+  try {
+    classSelect.dispatchEvent(new Event('change', { bubbles: true }));
+    classSelect.dispatchEvent(new Event('input', { bubbles: true }));
+  } catch (e) {
+    console.debug('Event dispatch warning:', e);
+  }
+
+  // 5. Visual pulsing highlight on dropdown
+  flashDropdownHighlight(classSelect);
+
+  console.log(`[DocumentClass] Dropdown updated on #${prefix}-doc-class: "${previousValue}" ➔ "${newClass}" (${reason})`);
+  return true;
+}
+
 function handleDirectFileSelect(input) {
   if (input.files && input.files[0]) {
     selectedDirectFile = input.files[0];
     const info = document.getElementById('direct-file-info');
-    info.innerHTML = `<span style="color: var(--color-success);">Selected: <strong>${escapeHtml(selectedDirectFile.name)}</strong> (${(selectedDirectFile.size / 1024).toFixed(1)} KB)</span>`;
+    if (info) {
+      info.innerHTML = `<span style="color: var(--color-success);">Selected: <strong>${escapeHtml(selectedDirectFile.name)}</strong> (${(selectedDirectFile.size / 1024).toFixed(1)} KB)</span>`;
+    }
   }
 }
 
 function handleInlineFileSelect(input) {
   if (input.files && input.files[0]) {
     selectedInlineFile = input.files[0];
+  }
+}
+
+function initDropzones() {
+  const directDropzone = document.getElementById('direct-dropzone');
+
+  if (directDropzone) {
+    ['dragenter', 'dragover'].forEach(eventName => {
+      directDropzone.addEventListener(eventName, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        directDropzone.classList.add('dragover');
+      }, false);
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+      directDropzone.addEventListener(eventName, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        directDropzone.classList.remove('dragover');
+      }, false);
+    });
+
+    directDropzone.addEventListener('drop', (e) => {
+      const dt = e.dataTransfer;
+      if (dt && dt.files && dt.files.length > 0) {
+        selectedDirectFile = dt.files[0];
+        const info = document.getElementById('direct-file-info');
+        if (info) {
+          info.innerHTML = `<span style="color: var(--color-success);">Selected: <strong>${escapeHtml(selectedDirectFile.name)}</strong> (${(selectedDirectFile.size / 1024).toFixed(1)} KB)</span>`;
+        }
+      }
+    }, false);
+  }
+
+  const inlineInput = document.getElementById('inline-file-input');
+  if (inlineInput) {
+    inlineInput.addEventListener('change', () => {
+      if (inlineInput.files && inlineInput.files[0]) {
+        selectedInlineFile = inlineInput.files[0];
+      }
+    });
   }
 }
 
@@ -931,16 +1034,153 @@ async function submitAiSnippet() {
   await executeAiAutoFill(activeSnippetTargetMode, text);
 }
 
+/**
+ * Pure client-side PDF stream text extractor using modern browser DecompressionStream.
+ * Extracts literal (text) Tj, hex <hex> Tj, and array TJ text tokens from PDF streams.
+ */
+async function extractTextFromPdfClient(file) {
+  try {
+    const arrayBuffer = await file.slice(0, 512 * 1024).arrayBuffer();
+    const bytes = new Uint8Array(arrayBuffer);
+
+    // Search for 'stream' and 'endstream' markers in PDF binary
+    const streamMarker = [115, 116, 114, 101, 97, 109]; // 'stream'
+    const endstreamMarker = [101, 110, 100, 115, 116, 114, 101, 97, 109]; // 'endstream'
+
+    function findSeq(arr, seq, startIdx = 0) {
+      const max = arr.length - seq.length;
+      for (let i = startIdx; i <= max; i++) {
+        let match = true;
+        for (let j = 0; j < seq.length; j++) {
+          if (arr[i + j] !== seq[j]) { match = false; break; }
+        }
+        if (match) return i;
+      }
+      return -1;
+    }
+
+    let extractedText = '';
+    let idx = 0;
+    let streamsChecked = 0;
+
+    while (streamsChecked < 8) {
+      const sIdx = findSeq(bytes, streamMarker, idx);
+      if (sIdx === -1) break;
+
+      let start = sIdx + streamMarker.length;
+      if (bytes[start] === 13 && bytes[start + 1] === 10) start += 2;
+      else if (bytes[start] === 10 || bytes[start] === 13) start += 1;
+
+      const eIdx = findSeq(bytes, endstreamMarker, start);
+      if (eIdx === -1) break;
+
+      let streamEnd = eIdx;
+      if (bytes[streamEnd - 1] === 10) streamEnd--;
+      if (bytes[streamEnd - 1] === 13) streamEnd--;
+
+      const streamBytes = bytes.subarray(start, streamEnd);
+      streamsChecked++;
+
+      let streamText = '';
+      if (typeof DecompressionStream !== 'undefined') {
+        try {
+          const ds = new DecompressionStream('deflate');
+          const blob = new Blob([streamBytes]);
+          const decompressedStream = blob.stream().pipeThrough(ds);
+          const decompBuf = await new Response(decompressedStream).arrayBuffer();
+          streamText = new TextDecoder('utf-8', { fatal: false }).decode(decompBuf);
+        } catch {
+          streamText = new TextDecoder('latin1').decode(streamBytes);
+        }
+      } else {
+        streamText = new TextDecoder('latin1').decode(streamBytes);
+      }
+
+      // Hex Tj tokens: <4C6F616E...> Tj
+      const hexTj = /<([0-9a-fA-F\s]+)>\s*Tj/g;
+      let m;
+      while ((m = hexTj.exec(streamText)) !== null) {
+        const hex = m[1].replace(/\s+/g, '');
+        if (hex.length % 2 === 0) {
+          let str = '';
+          for (let k = 0; k < hex.length; k += 2) {
+            str += String.fromCharCode(parseInt(hex.substr(k, 2), 16));
+          }
+          extractedText += str + ' ';
+        }
+      }
+
+      // Literal Tj tokens: (Hello) Tj
+      const litTj = /\(([^)\\]*(?:\\.[^)\\]*)*)\)\s*Tj/g;
+      while ((m = litTj.exec(streamText)) !== null) {
+        extractedText += m[1].replace(/\\([()\\])/g, '$1') + ' ';
+      }
+
+      // Array TJ tokens: [(Hello) 10 (World)] TJ or [<48656C6C6F> 10 <576F726C64>] TJ
+      const arrayTj = /\[(.*?)\]\s*TJ/g;
+      while ((m = arrayTj.exec(streamText)) !== null) {
+        const arrContent = m[1];
+        const innerHex = /<([0-9a-fA-F\s]+)>/g;
+        let im;
+        while ((im = innerHex.exec(arrContent)) !== null) {
+          const hex = im[1].replace(/\s+/g, '');
+          if (hex.length % 2 === 0) {
+            let str = '';
+            for (let k = 0; k < hex.length; k += 2) {
+              str += String.fromCharCode(parseInt(hex.substr(k, 2), 16));
+            }
+            extractedText += str + ' ';
+          }
+        }
+        const innerLit = /\(([^)\\]*(?:\\.[^)\\]*)*)\)/g;
+        while ((im = innerLit.exec(arrContent)) !== null) {
+          extractedText += im[1].replace(/\\([()\\])/g, '$1') + ' ';
+        }
+      }
+
+      idx = eIdx + endstreamMarker.length;
+    }
+
+    return extractedText.trim();
+  } catch (err) {
+    console.debug('extractTextFromPdfClient error:', err);
+    return '';
+  }
+}
+
 async function extractTextFromFile(file) {
   if (!file) return '';
 
   const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+
+  // Attempt 1: Fast, zero-dependency client PDF stream parser
+  if (isPdf) {
+    try {
+      const clientText = await extractTextFromPdfClient(file);
+      if (clientText && clientText.length > 20) {
+        return clientText.substring(0, 8000);
+      }
+    } catch (streamErr) {
+      console.debug('Client stream extraction fallback:', streamErr);
+    }
+  }
+
+  // Attempt 2: PDF.js if present in global scope
   if (isPdf && window.pdfjsLib) {
     try {
-      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      if (typeof pdfjsLib.GlobalWorkerOptions === 'object') {
+        pdfjsLib.GlobalWorkerOptions.workerSrc =
+          'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      }
       const arrayBuffer = await file.arrayBuffer();
-      const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
-      const pdf = await loadingTask.promise;
+      const loadingTask = pdfjsLib.getDocument({
+        data: arrayBuffer,
+        isEvalSupported: false,
+      });
+      const pdf = await Promise.race([
+        loadingTask.promise,
+        new Promise((_, reject) => setTimeout(() => reject(new Error('pdf.js timeout')), 3000)),
+      ]);
       let text = '';
       const maxPages = Math.min(pdf.numPages, 5);
       for (let i = 1; i <= maxPages; i++) {
@@ -949,26 +1189,29 @@ async function extractTextFromFile(file) {
         const pageText = content.items.map((it) => it.str).join(' ');
         text += `\n--- Page ${i} ---\n` + pageText;
       }
-      if (text.trim().length > 20) {
-        return text.trim();
+      if (text.trim().length > 10) {
+        return text.trim().substring(0, 8000);
       }
     } catch (pdfErr) {
-      console.warn('pdf.js extraction failed, falling back to chunk read:', pdfErr);
+      console.warn('pdf.js extraction failed or timed out:', pdfErr);
     }
   }
 
-  // If text/json/csv/md or plain readable:
-  try {
-    const slice = file.slice(0, 128 * 1024);
-    const text = await slice.text();
-    if (text && !text.includes('\0')) {
-      return text.substring(0, 8000);
+  // Attempt 3: Plain text/JSON/MD file slice (never on binary PDFs!)
+  if (!isPdf) {
+    try {
+      const slice = file.slice(0, 128 * 1024);
+      const text = await slice.text();
+      const cleanText = text.replace(/\0/g, ' ');
+      if (cleanText.trim().length > 20) {
+        return cleanText.substring(0, 8000);
+      }
+    } catch (textErr) {
+      console.warn('Text slice read failed:', textErr);
     }
-  } catch (textErr) {
-    console.warn('Text slice read failed:', textErr);
   }
 
-  // Fallback: convert first 64KB chunk to base64
+  // Fallback: convert first 64KB chunk to base64 so server-side Bedrock / PDF parser can process
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result);
@@ -986,6 +1229,88 @@ async function aiAutoFillMetadata(mode = 'direct') {
   await executeAiAutoFill(mode, null, file);
 }
 
+function classifyDocumentContent(text = '') {
+  if (!text || typeof text !== 'string') return null;
+  const normalized = text.toLowerCase().replace(/[_\W]+/g, ' ');
+  if (!normalized.trim()) return null;
+
+  // Direct exact class mentions in document text
+  if (normalized.includes('compliance retention')) return 'compliance_retention';
+  if (normalized.includes('security classification')) return 'security_classification';
+  if (normalized.includes('loan agreement')) return 'loan_agreement';
+
+  let loanScore = 0;
+  let complianceScore = 0;
+  let securityScore = 0;
+
+  // Loan Agreement patterns
+  if (/\b(loan|mortgage|promissory|lender|borrower|debtor|creditor|amortization|collateral|credit facility)\b/i.test(normalized)) loanScore += 3;
+  if (/ln [0-9]{4} [0-9]+/i.test(normalized) || /ln-[0-9]{4}-[0-9]+/i.test(text)) loanScore += 6;
+  if (/\b(loan number|loan amount|signed date|branch code|loan type)\b/i.test(normalized)) loanScore += 5;
+  if (/\b(signed agreement|promissory note|disclosure|application)\b/i.test(normalized)) loanScore += 4;
+  if (/\b(interest rate|principal amount|repayment schedule|monthly installment)\b/i.test(normalized)) loanScore += 4;
+
+  // Compliance Retention patterns
+  if (/\b(compliance|retention|statutory|regulatory|sox|gdpr|basel|hipaa|ledger|tax record|audit trail|legal hold)\b/i.test(normalized)) complianceScore += 3;
+  if (/ret [a-z0-9-]+/i.test(normalized) || /ret-[a-z0-9-]+/i.test(text)) complianceScore += 6;
+  if (/\b(retention schedule|retention period|regulatory framework|disposal action|compliance officer)\b/i.test(normalized)) complianceScore += 5;
+  if (/\b(financial ledger|statutory record|audit evidence|contract archive|communication log)\b/i.test(normalized)) complianceScore += 4;
+  if (/\b(permanent delete|archive glacier|review required)\b/i.test(normalized)) complianceScore += 4;
+
+  // Security Classification patterns
+  if (/\b(confidential|restricted|clearance|security classification|board resolution|system credential|internal memo)\b/i.test(normalized)) securityScore += 3;
+  if (/\b(confidentiality tier|minimum clearance|classification owner|export restricted|encryption requirement)\b/i.test(normalized)) securityScore += 5;
+  if (/\b(highly confidential|restricted|internal|public)\b/i.test(normalized)) securityScore += 2;
+  if (/\b(customer record|internal memo|board resolution|financial forecast|security assessment)\b/i.test(normalized)) securityScore += 4;
+  if (/\b(sse s3|sse kms default|sse kms customer managed)\b/i.test(normalized)) securityScore += 4;
+
+  const maxScore = Math.max(loanScore, complianceScore, securityScore);
+  if (maxScore < 3) return null;
+
+  if (loanScore === maxScore && loanScore > complianceScore && loanScore > securityScore) return 'loan_agreement';
+  if (complianceScore === maxScore && complianceScore > loanScore && complianceScore > securityScore) return 'compliance_retention';
+  if (securityScore === maxScore && securityScore > loanScore && securityScore > complianceScore) return 'security_classification';
+
+  return null;
+}
+
+function detectClassFromExtractedMetadata(classMetadata) {
+  if (!classMetadata || typeof classMetadata !== 'object') return null;
+
+  const target = (classMetadata.domain_attributes && typeof classMetadata.domain_attributes === 'object')
+    ? { ...classMetadata, ...classMetadata.domain_attributes }
+    : classMetadata;
+
+  const complianceKeys = ['retention_schedule_code', 'regulatory_framework', 'retention_period_years', 'retention_start_date', 'retention_expiry_date', 'legal_hold_active', 'disposal_action', 'compliance_officer_id'];
+  const securityKeys = ['confidentiality_tier', 'minimum_clearance_role', 'encryption_requirement', 'export_restricted', 'classification_owner'];
+  const loanKeys = ['loan_number', 'loan_amount_minor_units', 'loan_type', 'branch_code', 'signed_date'];
+
+  const cHits = complianceKeys.filter(k => target[k] !== undefined && target[k] !== null && target[k] !== '').length;
+  const sHits = securityKeys.filter(k => target[k] !== undefined && target[k] !== null && target[k] !== '').length;
+  const lHits = loanKeys.filter(k => target[k] !== undefined && target[k] !== null && target[k] !== '').length;
+
+  if (cHits > 0 && cHits > sHits && cHits > lHits) return 'compliance_retention';
+  if (sHits > 0 && sHits > cHits && sHits > lHits) return 'security_classification';
+  if (lHits > 0 && lHits > cHits && lHits > sHits) return 'loan_agreement';
+
+  return null;
+}
+
+function flashDropdownHighlight(element) {
+  if (!element) return;
+  element.style.transition = 'box-shadow 0.3s ease, border-color 0.3s ease, transform 0.2s ease';
+  element.style.borderColor = 'var(--aws-orange, #ff9900)';
+  element.style.boxShadow = '0 0 0 4px rgba(255, 153, 0, 0.45)';
+  element.style.transform = 'scale(1.01)';
+  setTimeout(() => {
+    if (element) {
+      element.style.transform = '';
+      element.style.borderColor = '';
+      element.style.boxShadow = '';
+    }
+  }, 2500);
+}
+
 async function executeAiAutoFill(mode = 'direct', explicitSnippet = null, file = null) {
   const prefix = mode === 'direct' ? 'direct' : 'inline';
   const btn = document.getElementById(`btn-${prefix}-ai-fill`);
@@ -997,14 +1322,19 @@ async function executeAiAutoFill(mode = 'direct', explicitSnippet = null, file =
 
   try {
     const classSelect = document.getElementById(`${prefix}-doc-class`);
-    const docClass = classSelect ? classSelect.value : 'loan_agreement';
+    let docClass = classSelect ? classSelect.value : 'loan_agreement';
+
+    let targetFile = file;
+    if (!targetFile && !explicitSnippet) {
+      targetFile = mode === 'direct' ? selectedDirectFile : selectedInlineFile;
+    }
 
     let textSnippet = explicitSnippet;
     let fileBase64 = null;
 
-    if (!textSnippet && file) {
-      showToast(`Extracting content from ${file.name}...`, 'info');
-      const extracted = await extractTextFromFile(file);
+    if (!textSnippet && targetFile) {
+      showToast(`Extracting content from ${targetFile.name}...`, 'info');
+      const extracted = await extractTextFromFile(targetFile);
       if (typeof extracted === 'string' && extracted.startsWith('data:')) {
         fileBase64 = extracted;
       } else if (typeof extracted === 'string') {
@@ -1015,6 +1345,14 @@ async function executeAiAutoFill(mode = 'direct', explicitSnippet = null, file =
     if (!textSnippet && !fileBase64) {
       showToast('Could not extract text content from the selected file. Please use "📋 Paste Text".', 'warning');
       return;
+    }
+
+    // Step 1: Pre-flight heuristic detection from document content
+    const preDetectedClass = classifyDocumentContent(textSnippet);
+    if (preDetectedClass && CLASS_SPECIFIC_TEMPLATES[preDetectedClass]) {
+      console.log(`[AI Extraction] Pre-detected document class: ${preDetectedClass}`);
+      applyDocumentClass(mode, preDetectedClass, 'Pre-flight content classification');
+      docClass = preDetectedClass;
     }
 
     // Read any existing metadata to preserve
@@ -1033,17 +1371,61 @@ async function executeAiAutoFill(mode = 'direct', explicitSnippet = null, file =
     };
 
     showToast('🤖 Amazon Bedrock analyzing document content...', 'info');
-    const response = await apiCall('POST', '/metadata/suggest', payload);
+    let response;
+    try {
+      response = await apiCall('POST', '/metadata/suggest', payload);
+    } catch (apiErr) {
+      console.warn('Bedrock API suggest call failed, checking fallback:', apiErr);
+      if (preDetectedClass && CLASS_SPECIFIC_TEMPLATES[preDetectedClass]) {
+        applyDocumentClass(mode, preDetectedClass, 'Local heuristic analysis');
+        showToast(`Document class set to "${preDetectedClass}" via local analysis (${apiErr.message || 'Offline'})`, 'info');
+        return;
+      }
+      throw apiErr;
+    }
 
     if (response && response.status === 'SUCCESS') {
       const sharedEl = document.getElementById(`${prefix}-shared-metadata`);
       const classEl = document.getElementById(`${prefix}-class-metadata`);
 
-      const baseShared = SHARED_BASE_TEMPLATE || {};
-      const baseClass = (CLASS_SPECIFIC_TEMPLATES && CLASS_SPECIFIC_TEMPLATES[docClass]) || {};
+      // Step 2: Post-response class detection
+      // Check extracted attributes first (e.g. retention_schedule_code vs loan_number vs confidentiality_tier)
+      const metaDetectedClass = detectClassFromExtractedMetadata(response.class_metadata);
+      const respClass = (response.document_class && CLASS_SPECIFIC_TEMPLATES[response.document_class]) ? response.document_class : null;
+      const textClass = classifyDocumentContent(textSnippet);
 
-      const newShared = { ...baseShared, ...response.shared_metadata };
-      const newClass = { ...baseClass, ...response.class_metadata };
+      const finalClass = metaDetectedClass || respClass || textClass || preDetectedClass || docClass;
+      if (finalClass && CLASS_SPECIFIC_TEMPLATES[finalClass]) {
+        applyDocumentClass(mode, finalClass, 'Bedrock AI suggestion');
+      }
+
+      const activeClass = (classSelect ? classSelect.value : finalClass) || finalClass;
+      const baseShared = SHARED_BASE_TEMPLATE || {};
+      const baseClass = (CLASS_SPECIFIC_TEMPLATES && CLASS_SPECIFIC_TEMPLATES[activeClass]) || {};
+
+      // Defensive unnesting in case of nested structures from backend or direct LLM
+      let sharedAttrs = { ...(response.shared_metadata || {}) };
+      let classAttrs = { ...(response.class_metadata || {}) };
+
+      if (classAttrs.shared_banking_attributes && typeof classAttrs.shared_banking_attributes === 'object') {
+        Object.assign(sharedAttrs, classAttrs.shared_banking_attributes);
+        delete classAttrs.shared_banking_attributes;
+      }
+      if (classAttrs.domain_attributes && typeof classAttrs.domain_attributes === 'object') {
+        Object.assign(classAttrs, classAttrs.domain_attributes);
+        delete classAttrs.domain_attributes;
+      }
+      if (classAttrs.shared_metadata && typeof classAttrs.shared_metadata === 'object') {
+        Object.assign(sharedAttrs, classAttrs.shared_metadata);
+        delete classAttrs.shared_metadata;
+      }
+      if (classAttrs.class_metadata && typeof classAttrs.class_metadata === 'object') {
+        Object.assign(classAttrs, classAttrs.class_metadata);
+        delete classAttrs.class_metadata;
+      }
+
+      const newShared = { ...baseShared, ...sharedAttrs };
+      const newClass = { ...baseClass, ...classAttrs };
 
       delete newClass.skip_enrichment;
 
@@ -1060,6 +1442,7 @@ async function executeAiAutoFill(mode = 'direct', explicitSnippet = null, file =
       const custId = newShared.customer_id || '';
       const piiFlag = response.pii_detected?.contains_pii ? 'PII detected' : 'No PII';
       const detailParts = [];
+      detailParts.push(`Class: ${activeClass}`);
       if (loanNum) detailParts.push(`Loan: ${loanNum}`);
       if (custId) detailParts.push(`Customer: ${custId}`);
       detailParts.push(piiFlag);

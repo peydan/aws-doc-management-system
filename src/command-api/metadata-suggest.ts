@@ -1,7 +1,7 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { authenticateRequest, authorizeRoles } from '../shared/auth';
 import { parseJsonBody } from '../shared/validator';
-import { suggestMetadataWithBedrock } from '../shared/enricher';
+import { suggestMetadataWithBedrock, extractTextFromPdfBuffer } from '../shared/enricher';
 import { Logger } from '../shared/logger';
 import { PlatformError, ValidationError, isPlatformError } from '../shared/errors';
 import { CORS_HEADERS } from '../shared/headers';
@@ -36,7 +36,12 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           ? payload.file_base64.split(',')[1]
           : payload.file_base64;
         const buf = Buffer.from(rawBase64, 'base64');
-        textSnippet = buf.toString('utf-8');
+        if (buf.subarray(0, 5).toString('latin1') === '%PDF-') {
+          const pdfExtracted = extractTextFromPdfBuffer(buf);
+          textSnippet = pdfExtracted || buf.toString('latin1').substring(0, 4000);
+        } else {
+          textSnippet = buf.toString('utf-8');
+        }
       } catch (decodeErr: any) {
         throw new ValidationError(`Failed to decode file_base64: ${decodeErr.message}`);
       }
@@ -64,7 +69,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       headers: CORS_HEADERS,
       body: JSON.stringify({
         status: 'SUCCESS',
-        document_class: documentClass,
+        document_class: result.document_class || documentClass,
         shared_metadata: result.shared_metadata,
         class_metadata: result.class_metadata,
         pii_detected: result.pii_detected,

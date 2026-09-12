@@ -1,3 +1,5 @@
+import * as fs from 'fs';
+import * as path from 'path';
 import { handler as metadataSuggestHandler } from '../../src/command-api/metadata-suggest';
 import {
   partitionExtractedMetadata,
@@ -79,6 +81,45 @@ describe('AI-Assisted Metadata Pre-Fill Unit Tests', () => {
       expect(partitioned.shared_metadata.document_id).toBeUndefined();
       expect(partitioned.shared_metadata.created_at).toBeUndefined();
       expect(partitioned.class_metadata.schema_version).toBeUndefined();
+    });
+
+    it('should unwrap nested shared_banking_attributes and domain_attributes when partitioning', () => {
+      const nestedInput = {
+        shared_banking_attributes: {
+          customer_id: 1094827,
+          complete_customer_id_code: { id_number: '123456789', id_type: 1 },
+          account_id: { bank_id: 10, branch_id: 802, account_number: 123456 },
+          transaction_id: 'TX-2026-99482',
+        },
+        domain_attributes: {
+          document_type: 'FINANCIAL_LEDGER',
+          retention_schedule_code: 'RET-FIN-001',
+          retention_period_years: 7,
+          regulatory_framework: 'SOX',
+        },
+        contains_pii: true,
+        pii_categories: ['NATIONAL_ID', 'FINANCIAL_ACCOUNT'],
+      };
+
+      const partitioned = partitionExtractedMetadata(nestedInput, 'compliance_retention');
+
+      expect(partitioned.shared_metadata).toEqual({
+        customer_id: 1094827,
+        complete_customer_id_code: { id_number: '123456789', id_type: 1 },
+        account_id: { bank_id: 10, branch_id: 802, account_number: 123456 },
+        transaction_id: 'TX-2026-99482',
+      });
+
+      expect(partitioned.class_metadata).toEqual({
+        document_type: 'FINANCIAL_LEDGER',
+        retention_schedule_code: 'RET-FIN-001',
+        retention_period_years: 7,
+        regulatory_framework: 'SOX',
+        contains_pii: true,
+        pii_categories: ['NATIONAL_ID', 'FINANCIAL_ACCOUNT'],
+      });
+      expect((partitioned.class_metadata as any).shared_banking_attributes).toBeUndefined();
+      expect((partitioned.class_metadata as any).domain_attributes).toBeUndefined();
     });
   });
 
@@ -213,6 +254,102 @@ describe('AI-Assisted Metadata Pre-Fill Unit Tests', () => {
       expect(body.class_metadata.retention_period_years).toBe(7);
       expect(body.shared_metadata.customer_id).toBe(112233);
       expect(body.pii_detected.contains_pii).toBe(false);
+    });
+
+    it('should dynamically detect document_class when content indicates a different class from requested hint', async () => {
+      mockBedrockSend.mockResolvedValueOnce({
+        output: {
+          message: {
+            content: [
+              {
+                text: JSON.stringify({
+                  document_class: 'compliance_retention',
+                  document_type: 'STATUTORY_RECORD',
+                  retention_schedule_code: 'RET-TAX-2026',
+                  retention_period_years: 10,
+                  regulatory_framework: 'GDPR',
+                  customer_id: 445566,
+                  contains_pii: true,
+                  pii_categories: ['CONTACT_INFO'],
+                }),
+              },
+            ],
+          },
+        },
+        usage: { inputTokens: 190, outputTokens: 65 },
+      });
+
+      const event = {
+        headers: { Authorization: 'Bearer mock-token' },
+        body: JSON.stringify({
+          document_class: 'loan_agreement', // Caller sent loan_agreement
+          text_snippet: 'GDPR STATUTORY RECORD RET-TAX-2026 10-YEAR RETENTION',
+        }),
+        requestContext: { requestId: 'req-suggest-dyn-class' },
+      } as any;
+
+      const res = await metadataSuggestHandler(event);
+      expect(res.statusCode).toBe(200);
+
+      const body = JSON.parse(res.body);
+      expect(body.status).toBe('SUCCESS');
+      // Must dynamically reflect the detected class 'compliance_retention' instead of requested 'loan_agreement'
+      expect(body.document_class).toBe('compliance_retention');
+      expect(body.class_metadata.retention_schedule_code).toBe('RET-TAX-2026');
+      expect(body.class_metadata.regulatory_framework).toBe('GDPR');
+      expect(body.shared_metadata.customer_id).toBe(445566);
+      expect(body.pii_detected.contains_pii).toBe(true);
+    });
+
+    it('should extract text from digital PDF binary base64 and return suggested metadata', async () => {
+      const pdfPath = path.join(__dirname, '..', '..', 'sample_pdfs', 'compliance_retention-sample.pdf');
+      const pdfBuf = fs.readFileSync(pdfPath);
+      const pdfBase64 = pdfBuf.toString('base64');
+
+      mockBedrockSend.mockResolvedValueOnce({
+        output: {
+          message: {
+            content: [
+              {
+                text: JSON.stringify({
+                  document_class: 'compliance_retention',
+                  document_type: 'FINANCIAL_LEDGER',
+                  retention_schedule_code: 'RET-FIN-001',
+                  retention_period_years: 7,
+                  regulatory_framework: 'SOX',
+                  customer_id: 1094827,
+                  contains_pii: false,
+                  pii_categories: ['NONE'],
+                }),
+              },
+            ],
+          },
+        },
+        usage: { inputTokens: 400, outputTokens: 85 },
+      });
+
+      const event = {
+        headers: { Authorization: 'Bearer mock-token' },
+        body: JSON.stringify({
+          document_class: 'loan_agreement', // initial hint
+          file_base64: `data:application/pdf;base64,${pdfBase64}`,
+        }),
+        requestContext: { requestId: 'req-suggest-pdf-binary' },
+      } as any;
+
+      const res = await metadataSuggestHandler(event);
+      expect(res.statusCode).toBe(200);
+
+      const body = JSON.parse(res.body);
+      expect(body.status).toBe('SUCCESS');
+      expect(body.document_class).toBe('compliance_retention');
+      expect(body.class_metadata.retention_schedule_code).toBe('RET-FIN-001');
+      expect(body.shared_metadata.customer_id).toBe(1094827);
+
+      // Verify that Bedrock was invoked with the decoded text from the PDF streams, not binary garbage
+      const calledMessage = mockBedrockSend.mock.calls[0][0].messages[0].content[0].text;
+      expect(calledMessage).toContain('RET-FIN-001');
+      expect(calledMessage).toContain('compliance_retention');
     });
 
     it('should reject requests with missing document_class', async () => {

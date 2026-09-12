@@ -192,6 +192,24 @@ window.METADATA_TEMPLATES = ${JSON.stringify(metadataTemplates, null, 2)};
   }
 }
 
+function syncFrontendDist() {
+  const frontendDir = path.resolve(__dirname, '../frontend');
+  const distDir = path.resolve(__dirname, '../frontend/dist');
+  if (!fs.existsSync(distDir)) {
+    fs.mkdirSync(distDir, { recursive: true });
+  }
+
+  const filesToCopy = ['app.js', 'index.html', 'styles.css', 'cost_calculator.html', 'config.json'];
+  for (const file of filesToCopy) {
+    const src = path.join(frontendDir, file);
+    const dest = path.join(distDir, file);
+    if (fs.existsSync(src)) {
+      fs.copyFileSync(src, dest);
+      console.log(`Synced ${file} -> frontend/dist/${file}`);
+    }
+  }
+}
+
 function main() {
   console.log('Generating OpenSearch mappings...');
   const osMappings = generateOpenSearchMappings();
@@ -200,6 +218,9 @@ function main() {
 
   console.log('Generating Frontend metadata templates...');
   generateFrontendTemplates();
+
+  console.log('Syncing frontend/dist assets...');
+  syncFrontendDist();
 
   console.log('Artifact generation complete!');
 }
