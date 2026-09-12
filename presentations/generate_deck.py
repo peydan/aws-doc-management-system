@@ -105,6 +105,18 @@ def add_card(slide, left, top, width, height, bg_color=CARD_BG, border_color=CAR
     shape.line.width = Pt(1)
     return shape
 
+def add_diagram_picture(slide, path, left, top=Inches(1.65), max_w=Inches(5.7), max_h=Inches(3.8)):
+    """Embeds a sequence diagram image preserving native aspect ratio, centered in its display area."""
+    if not os.path.exists(path):
+        return None
+    pic = slide.shapes.add_picture(path, left, top, width=max_w)
+    if pic.height > max_h:
+        ratio = max_h / pic.height
+        pic.height = max_h
+        pic.width = int(pic.width * ratio)
+    pic.top = top + (max_h - pic.height) // 2
+    return pic
+
 def add_footer(slide, current_slide, total_slides):
     """Adds a sleek footer line and pagination."""
     line = slide.shapes.add_shape(
@@ -145,7 +157,7 @@ def build_presentation(output_path="AWS_Document_Management_Platform_Architectur
     prs.slide_height = Inches(7.5)
     blank_layout = prs.slide_layouts[6]
 
-    TOTAL_SLIDES = 23
+    TOTAL_SLIDES = 26
 
     # =========================================================================
     # SLIDE 1: Title Slide (Executive Dark)
@@ -875,7 +887,7 @@ def build_presentation(output_path="AWS_Document_Management_Platform_Architectur
     slide10 = prs.slides.add_slide(blank_layout)
     set_slide_background(slide10)
     add_header(slide10, "Exposed REST APIs: Complete Operations Catalog",
-               "15 Production Endpoints Partitioned Across Ingestion, Lifecycle, Metadata, Download & Search",
+               "20 Production Endpoints Partitioned Across Ingestion, Lifecycle, Metadata, Download, Search, Audit & AI",
                "API Surface & Contracts")
 
     api_catalog = [
@@ -895,7 +907,11 @@ def build_presentation(output_path="AWS_Document_Management_Platform_Architectur
         ("POST /v1/documents/{id}/soft-delete", "Soft Delete Document", "Lambda, DynamoDB, CDC De-index", "Document.Admin (Exclusive)", "Sync"),
         ("POST /v1/documents/{id}/restore", "Restore Document", "Lambda, DynamoDB, CDC Re-index", "Document.Admin (Exclusive)", "Sync"),
         ("POST /v1/search", "Search Documents", "Lambda, OpenSearch Serverless", "Document.Reader / All", "Sync"),
-        ("POST /v1/documents/batch-download", "Batch ZIP Export", "Lambda, JSZip, S3 Presign", "Document.Reader / All", "Sync")
+        ("POST /v1/documents/batch-download", "Batch ZIP Export", "Lambda, JSZip, S3 Presign", "Document.Reader / All", "Sync"),
+        ("POST /v1/documents/{id}/pages", "Add PDF Pages", "Lambda, S3, DynamoDB OCC, pdf-lib", "Document.Writer / Admin", "Sync"),
+        ("POST /v1/agent/chat", "Bedrock AI Assistant", "Bedrock Nova 2 Lite, Agent Tools", "Document.Reader / All", "Sync"),
+        ("POST /v1/metadata/suggest", "Predictive Metadata", "Bedrock Multimodal / Vision", "Document.Writer / Admin", "Sync"),
+        ("GET /v1/documents/{id}/audit", "Audit Trail Query", "Lambda, S3 Audit Bucket", "Document.Admin / All", "Sync")
     ]
 
     api_table_shape = slide10.shapes.add_table(len(api_catalog), 5, Inches(0.8), Inches(1.65), Inches(11.733), Inches(5.1))
@@ -930,7 +946,7 @@ def build_presentation(output_path="AWS_Document_Management_Platform_Architectur
                 p.font.bold = True
                 p.font.color.rgb = AWS_ORANGE if c_idx == 0 else ACCENT_BLUE
             else:
-                p.font.size = Pt(8.5)
+                p.font.size = Pt(7.5)
                 if c_idx == 0:
                     p.font.name = "Consolas"
                     if "POST" in val:
@@ -1413,20 +1429,128 @@ def build_presentation(output_path="AWS_Document_Management_Platform_Architectur
     add_footer(slide19, 19, TOTAL_SLIDES)
 
     # =========================================================================
-    # SLIDE 20: UI & Backend Integration Architecture
+    # SLIDE 20: Sequence Deep Dive - Multi-Document Batch Exports & PDF Splicing
     # =========================================================================
     slide20 = prs.slides.add_slide(blank_layout)
     set_slide_background(slide20)
-    add_header(slide20, "Serverless Web Portal & Client Integration Architecture",
+    add_header(slide20, "Sequence Deep Dive: Multi-Document Batch Exports & PDF Splicing",
+               "API Sequences 17 & 18: POST /v1/documents/batch-download & POST /v1/documents/{id}/pages",
+               "API Execution Sequence")
+
+    img_17 = os.path.join(script_dir, "diagrams/api_sequence_diagrams/17_post_documents_batch_download.jpg")
+    img_18 = os.path.join(script_dir, "diagrams/api_sequence_diagrams/18_post_documents_pages.jpg")
+
+    add_diagram_picture(slide20, img_17, Inches(0.8))
+    add_diagram_picture(slide20, img_18, Inches(6.8))
+
+    add_card(slide20, Inches(0.8), Inches(5.6), Inches(11.733), Inches(1.2), CARD_BG, CARD_BORDER)
+    b20 = slide20.shapes.add_textbox(Inches(1.0), Inches(5.68), Inches(11.333), Inches(1.0))
+    tf20 = b20.text_frame
+    tf20.word_wrap = True
+
+    p = tf20.paragraphs[0]
+    p.text = "Batch Packaging & Authoritative Page Mutation Highlights:"
+    p.font.name = FONT_FAMILY
+    p.font.size = Pt(11)
+    p.font.bold = True
+    p.font.color.rgb = AWS_ORANGE
+
+    p_sub = tf20.add_paragraph()
+    p_sub.text = "• Batch ZIP Export (17): Streams requested binaries concurrently from S3, bundles them in memory with audit manifest.json via JSZip, writes transient archive to S3 (14-day lifecycle), and returns 15-min presigned URL with zero canonical state mutation.\n• PDF Page Splicing (18): Merges incoming PDF/image pages in memory via pdf-lib on ARM64 Graviton, uploads result producing a new S3 VersionId, and atomically increments application_version and page_count via DynamoDB OCC."
+    p_sub.font.name = FONT_FAMILY
+    p_sub.font.size = Pt(9)
+    p_sub.font.color.rgb = TEXT_WHITE
+    p_sub.space_before = Pt(2)
+
+    add_footer(slide20, 20, TOTAL_SLIDES)
+
+    # =========================================================================
+    # SLIDE 21: Sequence Deep Dive - AI Assistant & Multimodal Suggestion
+    # =========================================================================
+    slide21 = prs.slides.add_slide(blank_layout)
+    set_slide_background(slide21)
+    add_header(slide21, "Sequence Deep Dive: Conversational AI Assistant & Form Pre-Fill",
+               "API Sequences 19 & 20: POST /v1/agent/chat & POST /v1/metadata/suggest (Amazon Bedrock Nova 2 Lite)",
+               "AI & Bedrock Agent Execution")
+
+    img_19 = os.path.join(script_dir, "diagrams/api_sequence_diagrams/19_post_agent_chat.jpg")
+    img_20 = os.path.join(script_dir, "diagrams/api_sequence_diagrams/20_post_metadata_suggest.jpg")
+
+    add_diagram_picture(slide21, img_19, Inches(0.8))
+    add_diagram_picture(slide21, img_20, Inches(6.8))
+
+    add_card(slide21, Inches(0.8), Inches(5.6), Inches(11.733), Inches(1.2), CARD_BG, CARD_BORDER)
+    b21 = slide21.shapes.add_textbox(Inches(1.0), Inches(5.68), Inches(11.333), Inches(1.0))
+    tf21 = b21.text_frame
+    tf21.word_wrap = True
+
+    p = tf21.paragraphs[0]
+    p.text = "Amazon Bedrock Nova 2 Lite Integration Highlights:"
+    p.font.name = FONT_FAMILY
+    p.font.size = Pt(11)
+    p.font.bold = True
+    p.font.color.rgb = ACCENT_BLUE
+
+    p_sub = tf21.add_paragraph()
+    p_sub.text = "• Conversational Document Assistant (19): Operates via Bedrock AgentCore harness with MCP tools (Search, Metadata, Download). Enforces caller RBAC context, formats monetary units accurately, mandates exact document/version citations, and preserves ephemeral session isolation.\n• Multimodal Metadata Suggestion (20): Analyzes uploaded PDF/image binaries with Bedrock Nova 2 Lite vision, extracting banking entities matching Ajv schemas with confidence scores to accelerate ingestion forms."
+    p_sub.font.name = FONT_FAMILY
+    p_sub.font.size = Pt(9)
+    p_sub.font.color.rgb = TEXT_WHITE
+    p_sub.space_before = Pt(2)
+
+    add_footer(slide21, 21, TOTAL_SLIDES)
+
+    # =========================================================================
+    # SLIDE 22: Sequence Deep Dive - Unified Audit & Async LLM/PII Enrichment
+    # =========================================================================
+    slide22 = prs.slides.add_slide(blank_layout)
+    set_slide_background(slide22)
+    add_header(slide22, "Sequence Deep Dive: Unified Audit Inspection & Async LLM/PII Enrichment",
+               "API Sequences 21 & 22: GET /v1/documents/{id}/audit & Event-Driven Background LLM Ratchet",
+               "Governance, Audit & AI Enrichment")
+
+    img_21 = os.path.join(script_dir, "diagrams/api_sequence_diagrams/21_get_documents_audit.jpg")
+    img_22 = os.path.join(script_dir, "diagrams/api_sequence_diagrams/22_async_llm_metadata_enrichment.jpg")
+
+    add_diagram_picture(slide22, img_21, Inches(0.8))
+    add_diagram_picture(slide22, img_22, Inches(6.8))
+
+    add_card(slide22, Inches(0.8), Inches(5.6), Inches(11.733), Inches(1.2), CARD_BG, CARD_BORDER)
+    b22 = slide22.shapes.add_textbox(Inches(1.0), Inches(5.68), Inches(11.333), Inches(1.0))
+    tf22 = b22.text_frame
+    tf22.word_wrap = True
+
+    p = tf22.paragraphs[0]
+    p.text = "Audit Traceability & Non-Downgrade Security Ratchet Highlights:"
+    p.font.name = FONT_FAMILY
+    p.font.size = Pt(11)
+    p.font.bold = True
+    p.font.color.rgb = ACCENT_GREEN
+
+    p_sub = tf22.add_paragraph()
+    p_sub.text = "• Unified Audit Query (21): Directly aggregates WORM audit JSON logs from S3 Audit Bucket (`audit/{doc_id}/...`) with cursor pagination, delivering cryptographically verifiable chronological mutation history for compliance regulators.\n• Event-Driven LLM & PII Enrichment (22): SQS-buffered background worker invokes Bedrock Nova 2 Lite for automated entity tagging and PII discovery, updates S3 annotations via DynamoDB OCC, and ratchets security classifications strictly without downgrades."
+    p_sub.font.name = FONT_FAMILY
+    p_sub.font.size = Pt(9)
+    p_sub.font.color.rgb = TEXT_WHITE
+    p_sub.space_before = Pt(2)
+
+    add_footer(slide22, 22, TOTAL_SLIDES)
+
+    # =========================================================================
+    # SLIDE 23: UI & Backend Integration Architecture
+    # =========================================================================
+    slide23 = prs.slides.add_slide(blank_layout)
+    set_slide_background(slide23)
+    add_header(slide23, "Serverless Web Portal & Client Integration Architecture",
                "CloudFront + S3 SPA, Cognito JWT Authentication & Client-Side SHA256 Checksums",
                "Client Integration Architecture")
 
     ui_img = os.path.join(script_dir, "diagrams/ui_backend_integration_architecture.png")
     if os.path.exists(ui_img):
-        slide20.shapes.add_picture(ui_img, Inches(0.8), Inches(1.65), Inches(8.0), Inches(5.15))
+        slide23.shapes.add_picture(ui_img, Inches(0.8), Inches(1.65), Inches(8.0), Inches(5.15))
 
-    add_card(slide20, Inches(9.0), Inches(1.65), Inches(3.533), Inches(5.15), CARD_BG, CARD_BORDER)
-    sb20 = slide20.shapes.add_textbox(Inches(9.2), Inches(1.85), Inches(3.133), Inches(4.75))
+    add_card(slide23, Inches(9.0), Inches(1.65), Inches(3.533), Inches(5.15), CARD_BG, CARD_BORDER)
+    sb20 = slide23.shapes.add_textbox(Inches(9.2), Inches(1.85), Inches(3.133), Inches(4.75))
     tf = sb20.text_frame
     tf.word_wrap = True
 
@@ -1459,18 +1583,18 @@ def build_presentation(output_path="AWS_Document_Management_Platform_Architectur
         run.font.size = Pt(8.5)
         run.font.color.rgb = TEXT_MUTED
 
-    add_footer(slide20, 20, TOTAL_SLIDES)
+    add_footer(slide23, 23, TOTAL_SLIDES)
 
     # =========================================================================
-    # SLIDE 21: Enterprise Security, KMS Cryptography & Fine-Grained RBAC
+    # SLIDE 24: Enterprise Security, KMS Cryptography & Fine-Grained RBAC
     # =========================================================================
-    slide21 = prs.slides.add_slide(blank_layout)
-    set_slide_background(slide21)
-    add_header(slide21, "Enterprise Security, KMS Cryptography & Fine-Grained RBAC",
+    slide24 = prs.slides.add_slide(blank_layout)
+    set_slide_background(slide24)
+    add_header(slide24, "Enterprise Security, KMS Cryptography & Fine-Grained RBAC",
                "Cognito JWT Scopes, Customer Managed KMS Keys (CMK) & WORM Immutability",
                "Security & Governance")
 
-    left_b = slide21.shapes.add_textbox(Inches(1.0), Inches(1.85), Inches(5.6), Inches(4.8))
+    left_b = slide24.shapes.add_textbox(Inches(1.0), Inches(1.85), Inches(5.6), Inches(4.8))
     tf = left_b.text_frame
     tf.word_wrap = True
 
@@ -1487,13 +1611,18 @@ def build_presentation(output_path="AWS_Document_Management_Platform_Architectur
         ("GET /v1/documents/{id}", "✅", "✅", "✅", "✅"),
         ("GET /v1/download", "✅", "✅", "✅", "✅"),
         ("POST /versions", "❌", "✅", "❌", "✅"),
+        ("POST /pages (PDF Splice)", "❌", "✅", "❌", "✅"),
         ("PATCH /metadata", "❌", "✅", "✅", "✅"),
         ("POST /soft-delete", "❌", "❌", "❌", "✅"),
         ("POST /restore", "❌", "❌", "❌", "✅"),
-        ("POST /search", "✅", "✅", "✅", "✅")
+        ("POST /search", "✅", "✅", "✅", "✅"),
+        ("POST /batch-download", "✅", "✅", "✅", "✅"),
+        ("POST /agent/chat", "✅", "✅", "✅", "✅"),
+        ("POST /metadata/suggest", "❌", "✅", "❌", "✅"),
+        ("GET /audit", "❌", "❌", "❌", "✅")
     ]
 
-    rbac_table_shape = slide21.shapes.add_table(len(rbac_rows), 5, Inches(1.0), Inches(2.25), Inches(5.6), Inches(4.3))
+    rbac_table_shape = slide24.shapes.add_table(len(rbac_rows), 5, Inches(1.0), Inches(2.25), Inches(5.6), Inches(4.3))
     rbac_table = rbac_table_shape.table
     rbac_table.columns[0].width = Inches(2.4)
     rbac_table.columns[1].width = Inches(0.8)
@@ -1531,8 +1660,8 @@ def build_presentation(output_path="AWS_Document_Management_Platform_Architectur
                 else:
                     p.font.color.rgb = ACCENT_GREEN if "✅" in val else ACCENT_ROSE
 
-    add_card(slide21, Inches(7.0), Inches(1.7), Inches(5.533), Inches(5.1), CARD_BG, CARD_BORDER)
-    right_b = slide21.shapes.add_textbox(Inches(7.25), Inches(1.9), Inches(5.033), Inches(4.7))
+    add_card(slide24, Inches(7.0), Inches(1.7), Inches(5.533), Inches(5.1), CARD_BG, CARD_BORDER)
+    right_b = slide24.shapes.add_textbox(Inches(7.25), Inches(1.9), Inches(5.033), Inches(4.7))
     tf_r = right_b.text_frame
     tf_r.word_wrap = True
 
@@ -1565,14 +1694,14 @@ def build_presentation(output_path="AWS_Document_Management_Platform_Architectur
         p2.font.color.rgb = TEXT_MUTED
         p2.space_before = Pt(1)
 
-    add_footer(slide21, 21, TOTAL_SLIDES)
+    add_footer(slide24, 24, TOTAL_SLIDES)
 
     # =========================================================================
-    # SLIDE 22: Infrastructure as Code (AWS CDK) & Stack Architecture
+    # SLIDE 25: Infrastructure as Code (AWS CDK) & Stack Architecture
     # =========================================================================
-    slide22 = prs.slides.add_slide(blank_layout)
-    set_slide_background(slide22)
-    add_header(slide22, "Infrastructure as Code: AWS CDK v2 Modular Stacks",
+    slide25 = prs.slides.add_slide(blank_layout)
+    set_slide_background(slide25)
+    add_header(slide25, "Infrastructure as Code: AWS CDK v2 Modular Stacks",
                "Deterministic TypeScript CloudFormation Topologies with Zero Circular Dependencies",
                "Deployment Architecture")
 
@@ -1580,17 +1709,19 @@ def build_presentation(output_path="AWS_Document_Management_Platform_Architectur
         ("1. SecurityStack", "Cognito User Pool, App Client & KMS CMK Key", "Provisions identity directory, RBAC groups & central encryption key.", ACCENT_BLUE),
         ("2. StorageStack", "S3 Primary Document Bucket & S3 Audit Bucket", "Configures versioning, encryption, CORS & WORM protection policies.", ACCENT_GREEN),
         ("3. SearchStack", "OpenSearch Serverless Collection (documents-v1)", "Sets up vector/search collection, encryption & network security policies.", ACCENT_PURPLE),
-        ("4. MessagingStack", "Amazon SQS Indexing Queue & Dead-Letter Queue", "Buffers CDC events with 3x retry limit and CloudWatch alarm triggers.", AWS_ORANGE),
+        ("4. MessagingStack", "Amazon SQS Queues (Search Indexer + LLM Enrichment)", "Buffers CDC events with 3x retry limits and CloudWatch alarm triggers.", AWS_ORANGE),
         ("5. ControlPlaneStack", "DynamoDB Table (doc-platform-mvp-control)", "Provisions single-table design with PITR and DynamoDB Streams enabled.", ACCENT_AMBER),
-        ("6. ComputeStack", "21 Graviton ARM64 AWS Lambda Functions", "Deploys Command, Query, Search, Stream & Indexer microservices.", ACCENT_BLUE),
-        ("7. ApiStack", "Amazon API Gateway REST API & Cognito Authorizer", "Wires routes, authorizer, throttling limits, and CORS configuration.", ACCENT_GREEN),
-        ("8. ObservabilityStack", "CloudWatch Alarms, Dashboards & Global Tagging", "Provisions DLQ/5xx alarms, operational dashboards, and global resource tags.", ACCENT_ROSE)
+        ("6. ComputeStack", "21 Graviton ARM64 AWS Lambda Functions", "Deploys Command, Query, Search, Stream, Indexer & Enricher services.", ACCENT_BLUE),
+        ("7. AgentStack", "Amazon Bedrock Nova 2 Lite Assistant & Gateway", "Provisions AgentCore harness, MCP tools, and session execution.", ACCENT_PURPLE),
+        ("8. ApiStack", "Amazon API Gateway REST API & Cognito Authorizer", "Wires 20 routes, authorizer, throttling limits, and CORS configuration.", ACCENT_GREEN),
+        ("9. ServerlessFrontendStack", "CloudFront CDN (OAC) & S3 Single Page App Bucket", "Distributes high-speed static portal assets globally with TLS 1.3.", ACCENT_AMBER),
+        ("10. ObservabilityStack", "CloudWatch Alarms, Dashboards & Global Tagging", "Provisions DLQ/5xx alarms, operational dashboards, and global resource tags.", ACCENT_ROSE)
     ]
 
     st_w = Inches(5.7)
-    st_h = Inches(1.15)
+    st_h = Inches(0.92)
     st_gap_x = Inches(0.333)
-    st_gap_y = Inches(0.12)
+    st_gap_y = Inches(0.10)
     st_x1 = Inches(0.8)
     st_x2 = Inches(6.833)
     st_y_start = Inches(1.7)
@@ -1601,9 +1732,9 @@ def build_presentation(output_path="AWS_Document_Management_Platform_Architectur
         sx = st_x1 if col_idx == 0 else st_x2
         sy = st_y_start + row_idx * (st_h + st_gap_y)
 
-        add_card(slide22, sx, sy, st_w, st_h, CARD_BG, CARD_BORDER)
+        add_card(slide25, sx, sy, st_w, st_h, CARD_BG, CARD_BORDER)
 
-        tb = slide22.shapes.add_textbox(sx + Inches(0.15), sy + Inches(0.1), st_w - Inches(0.3), Inches(0.95))
+        tb = slide25.shapes.add_textbox(sx + Inches(0.15), sy + Inches(0.1), st_w - Inches(0.3), Inches(0.95))
         tf = tb.text_frame
         tf.word_wrap = True
 
@@ -1626,14 +1757,14 @@ def build_presentation(output_path="AWS_Document_Management_Platform_Architectur
         p_d.font.size = Pt(8)
         p_d.font.color.rgb = TEXT_MUTED
 
-    add_footer(slide22, 22, TOTAL_SLIDES)
+    add_footer(slide25, 25, TOTAL_SLIDES)
 
     # =========================================================================
-    # SLIDE 23: Strategic Architecture Summary & Architectural Decision Records
+    # SLIDE 26: Strategic Architecture Summary & Architectural Decision Records
     # =========================================================================
-    slide23 = prs.slides.add_slide(blank_layout)
-    set_slide_background(slide23)
-    add_header(slide23, "Strategic Architecture Summary & Decision Records",
+    slide26 = prs.slides.add_slide(blank_layout)
+    set_slide_background(slide26)
+    add_header(slide26, "Strategic Architecture Summary & Decision Records",
                "Why This Cloud-Native Blueprint Delivers Unrivaled Durability, Cost-Efficiency & Compliance",
                "Executive Summary & Value")
 
@@ -1650,9 +1781,9 @@ def build_presentation(output_path="AWS_Document_Management_Platform_Architectur
 
     for i, (title, desc, col) in enumerate(pillars):
         px = px_start + i * (pw + pgap)
-        add_card(slide23, px, py, pw, ph, CARD_BG, CARD_BORDER)
+        add_card(slide26, px, py, pw, ph, CARD_BG, CARD_BORDER)
 
-        tb = slide23.shapes.add_textbox(px + Inches(0.15), py + Inches(0.15), pw - Inches(0.3), Inches(0.35))
+        tb = slide26.shapes.add_textbox(px + Inches(0.15), py + Inches(0.15), pw - Inches(0.3), Inches(0.35))
         tf = tb.text_frame
         tf.word_wrap = True
         p = tf.paragraphs[0]
@@ -1662,7 +1793,7 @@ def build_presentation(output_path="AWS_Document_Management_Platform_Architectur
         p.font.bold = True
         p.font.color.rgb = col
 
-        db = slide23.shapes.add_textbox(px + Inches(0.15), py + Inches(0.55), pw - Inches(0.3), Inches(1.05))
+        db = slide26.shapes.add_textbox(px + Inches(0.15), py + Inches(0.55), pw - Inches(0.3), Inches(1.05))
         tf_d = db.text_frame
         tf_d.word_wrap = True
         p_d = tf_d.paragraphs[0]
@@ -1681,7 +1812,7 @@ def build_presentation(output_path="AWS_Document_Management_Platform_Architectur
         ("Metadata Schema Validation", "Build-Time GitOps (Ajv)", "Database Schema Lookups on Cold Start", "Zero cold start latency overhead (<1ms validation), strict PR reviews and Git audit trail.")
     ]
 
-    adr_table_shape = slide23.shapes.add_table(len(adr_rows), 4, Inches(0.8), adr_y, Inches(11.733), Inches(3.25))
+    adr_table_shape = slide26.shapes.add_table(len(adr_rows), 4, Inches(0.8), adr_y, Inches(11.733), Inches(3.25))
     adr_table = adr_table_shape.table
     adr_table.columns[0].width = Inches(2.5)
     adr_table.columns[1].width = Inches(2.8)
@@ -1723,7 +1854,7 @@ def build_presentation(output_path="AWS_Document_Management_Platform_Architectur
                 else:
                     p.font.color.rgb = TEXT_MUTED
 
-    add_footer(slide23, 23, TOTAL_SLIDES)
+    add_footer(slide26, 26, TOTAL_SLIDES)
 
     # -------------------------------------------------------------------------
     # Save Presentation

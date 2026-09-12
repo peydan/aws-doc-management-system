@@ -1,0 +1,188 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mxfile host="Electron" agent="Antigravity" version="24.7.5">
+  <diagram id="seq-19-agent-chat" name="19. POST /agent/chat">
+    <mxGraphModel dx="1450" dy="940" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1350" pageHeight="840" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="banner" value="&lt;table style=&quot;width:100%; border-collapse:collapse; font-family:Helvetica,Arial,sans-serif;&quot;&gt;&lt;tr&gt;&lt;td style=&quot;width:100px; vertical-align:middle;&quot;&gt;&lt;div style=&quot;background-color:#7B1FA2; color:#FFFFFF; font-weight:bold; font-size:13px; text-align:center; padding:4px 8px; border-radius:4px;&quot;&gt;POST&lt;/div&gt;&lt;/td&gt;&lt;td style=&quot;padding-left:14px; vertical-align:middle;&quot;&gt;&lt;div style=&quot;font-size:16px; font-weight:bold; color:#232F3E;&quot;&gt;/agent/chat&lt;/div&gt;&lt;div style=&quot;font-size:11px; color:#5A6B7C; margin-top:2px;&quot;&gt;Conversational AI Document Assistant via Amazon Bedrock Nova 2 Lite &amp;amp; MCP Tools &amp;nbsp;|&amp;nbsp; &lt;b style=&quot;color:#232F3E;&quot;&gt;Operation:&lt;/b&gt; &lt;code&gt;chatWithAgent&lt;/code&gt;&lt;/div&gt;&lt;/td&gt;&lt;td style=&quot;text-align:right; vertical-align:middle; width:340px;&quot;&gt;&lt;div style=&quot;background-color:#FFF8E1; border:1px solid #F39C12; border-radius:4px; padding:4px 8px; display:inline-block; font-size:10.5px; color:#7D6608;&quot;&gt;&lt;b&gt;RBAC:&lt;/b&gt; Document.Reader, Document.Writer, Document.MetadataEditor, Document.Admin&lt;/div&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#D5DBDB;strokeWidth=1.5;align=left;spacingLeft=15;spacingRight=15;verticalAlign=middle;" parent="1" vertex="1">
+          <mxGeometry x="30" y="16" width="1290" height="56" as="geometry"/>
+        </mxCell>
+        <mxCell id="part_client" value="&lt;b style=&quot;font-size:12px; color:#37474F;&quot;&gt;Client / User&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:10px; color:#555555;&quot;&gt;Web Portal / Chat Widget&lt;/span&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ECEFF1;strokeColor=#37474F;strokeWidth=1.5;align=center;verticalAlign=middle;" parent="1" vertex="1">
+          <mxGeometry x="50" y="112" width="140" height="48" as="geometry"/>
+        </mxCell>
+        <mxCell id="icon_client" value="" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#0277BD;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.user;" parent="1" vertex="1">
+          <mxGeometry x="104" y="86" width="32" height="32" as="geometry"/>
+        </mxCell>
+        <mxCell id="line_client" value="" style="edgeStyle=none;dashed=1;html=1;strokeColor=#37474F;strokeWidth=1.2;strokeOpacity=80;endArrow=none;rounded=0;" parent="1" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="120" y="160" as="sourcePoint"/>
+            <mxPoint x="120" y="730" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="part_cognito" value="&lt;b style=&quot;font-size:12px; color:#C0392B;&quot;&gt;Cognito Authorizer&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:10px; color:#555555;&quot;&gt;AWS User Pool&lt;/span&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFEBEE;strokeColor=#C0392B;strokeWidth=1.5;align=center;verticalAlign=middle;" parent="1" vertex="1">
+          <mxGeometry x="270" y="112" width="140" height="48" as="geometry"/>
+        </mxCell>
+        <mxCell id="icon_cognito" value="" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#DD3522;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.cognito;" parent="1" vertex="1">
+          <mxGeometry x="324" y="86" width="32" height="32" as="geometry"/>
+        </mxCell>
+        <mxCell id="line_cognito" value="" style="edgeStyle=none;dashed=1;html=1;strokeColor=#C0392B;strokeWidth=1.2;strokeOpacity=80;endArrow=none;rounded=0;" parent="1" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="340" y="160" as="sourcePoint"/>
+            <mxPoint x="340" y="730" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="part_apigw" value="&lt;b style=&quot;font-size:12px; color:#7B1FA2;&quot;&gt;Amazon API Gateway&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:10px; color:#555555;&quot;&gt;REST API v1 / SSE URL&lt;/span&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F3E5F5;strokeColor=#7B1FA2;strokeWidth=1.5;align=center;verticalAlign=middle;" parent="1" vertex="1">
+          <mxGeometry x="490" y="112" width="140" height="48" as="geometry"/>
+        </mxCell>
+        <mxCell id="icon_apigw" value="" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#8C4FFF;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.api_gateway;" parent="1" vertex="1">
+          <mxGeometry x="544" y="86" width="32" height="32" as="geometry"/>
+        </mxCell>
+        <mxCell id="line_apigw" value="" style="edgeStyle=none;dashed=1;html=1;strokeColor=#7B1FA2;strokeWidth=1.2;strokeOpacity=80;endArrow=none;rounded=0;" parent="1" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="560" y="160" as="sourcePoint"/>
+            <mxPoint x="560" y="730" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="part_agent" value="&lt;b style=&quot;font-size:12px; color:#D35400;&quot;&gt;AgentChatFunction&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:10px; color:#555555;&quot;&gt;src/agent/chat-handler.ts&lt;/span&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF3E0;strokeColor=#D35400;strokeWidth=1.5;align=center;verticalAlign=middle;" parent="1" vertex="1">
+          <mxGeometry x="710" y="112" width="140" height="48" as="geometry"/>
+        </mxCell>
+        <mxCell id="icon_agent" value="" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#ED7100;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.lambda;" parent="1" vertex="1">
+          <mxGeometry x="764" y="86" width="32" height="32" as="geometry"/>
+        </mxCell>
+        <mxCell id="line_agent" value="" style="edgeStyle=none;dashed=1;html=1;strokeColor=#D35400;strokeWidth=1.2;strokeOpacity=80;endArrow=none;rounded=0;" parent="1" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="780" y="160" as="sourcePoint"/>
+            <mxPoint x="780" y="730" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="part_bedrock" value="&lt;b style=&quot;font-size:12px; color:#7B1FA2;&quot;&gt;Amazon Bedrock&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:10px; color:#555555;&quot;&gt;Amazon Nova 2 Lite&lt;/span&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F3E5F5;strokeColor=#7B1FA2;strokeWidth=1.5;align=center;verticalAlign=middle;" parent="1" vertex="1">
+          <mxGeometry x="930" y="112" width="140" height="48" as="geometry"/>
+        </mxCell>
+        <mxCell id="icon_bedrock" value="" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#702F8A;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.general;" parent="1" vertex="1">
+          <mxGeometry x="984" y="86" width="32" height="32" as="geometry"/>
+        </mxCell>
+        <mxCell id="line_bedrock" value="" style="edgeStyle=none;dashed=1;html=1;strokeColor=#7B1FA2;strokeWidth=1.2;strokeOpacity=80;endArrow=none;rounded=0;" parent="1" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1000" y="160" as="sourcePoint"/>
+            <mxPoint x="1000" y="730" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="part_tools" value="&lt;b style=&quot;font-size:12px; color:#2E7D32;&quot;&gt;Agent Tools &amp;amp; Data&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:10px; color:#555555;&quot;&gt;AOSS, DDB, S3 Annotations&lt;/span&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#2E7D32;strokeWidth=1.5;align=center;verticalAlign=middle;" parent="1" vertex="1">
+          <mxGeometry x="1160" y="112" width="140" height="48" as="geometry"/>
+        </mxCell>
+        <mxCell id="icon_tools" value="" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#2E7D32;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.lambda;" parent="1" vertex="1">
+          <mxGeometry x="1214" y="86" width="32" height="32" as="geometry"/>
+        </mxCell>
+        <mxCell id="line_tools" value="" style="edgeStyle=none;dashed=1;html=1;strokeColor=#2E7D32;strokeWidth=1.2;strokeOpacity=80;endArrow=none;rounded=0;" parent="1" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1230" y="160" as="sourcePoint"/>
+            <mxPoint x="1230" y="730" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="act_client" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#555555;strokeWidth=1;" parent="1" vertex="1">
+          <mxGeometry x="114" y="180" width="12" height="520" as="geometry"/>
+        </mxCell>
+        <mxCell id="act_apigw" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#555555;strokeWidth=1;" parent="1" vertex="1">
+          <mxGeometry x="554" y="200" width="12" height="480" as="geometry"/>
+        </mxCell>
+        <mxCell id="act_agent" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#555555;strokeWidth=1;" parent="1" vertex="1">
+          <mxGeometry x="774" y="280" width="12" height="390" as="geometry"/>
+        </mxCell>
+        <mxCell id="m1" value="&lt;b style=&quot;font-size:11px;&quot;&gt;1. POST /agent/chat&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:9.5px; color:#555555;&quot;&gt;Payload: { message: 'Find loan contracts over 500k ILS in TLV', session_id }&lt;/span&gt;" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;strokeColor=#232F3E;strokeWidth=1.5;fontSize=11;labelBackgroundColor=#FFFFFF;labelBorderColor=none;" parent="1" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="120" y="195" as="sourcePoint"/>
+            <mxPoint x="560" y="195" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m2" value="&lt;b style=&quot;font-size:11px;&quot;&gt;2. Validate JWT Bearer&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:9.5px; color:#555555;&quot;&gt;Verify read permissions and user persona&lt;/span&gt;" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;strokeColor=#232F3E;strokeWidth=1.5;fontSize=11;labelBackgroundColor=#FFFFFF;labelBorderColor=none;" parent="1" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="560" y="220" as="sourcePoint"/>
+            <mxPoint x="340" y="220" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m3" value="&lt;b style=&quot;font-size:11px;&quot;&gt;3. Authorized&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:9.5px; color:#555555;&quot;&gt;Claims &amp;amp; groups verified&lt;/span&gt;" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=7;rounded=0;strokeColor=#2E7D32;strokeWidth=1.3;fontSize=11;labelBackgroundColor=#FFFFFF;" parent="1" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="340" y="250" as="sourcePoint"/>
+            <mxPoint x="560" y="250" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m4" value="&lt;b style=&quot;font-size:11px;&quot;&gt;4. Invoke AgentCore Harness&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:9.5px; color:#555555;&quot;&gt;Initialize chat history &amp;amp; MCP tool schema definitions&lt;/span&gt;" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;strokeColor=#232F3E;strokeWidth=1.5;fontSize=11;labelBackgroundColor=#FFFFFF;labelBorderColor=none;" parent="1" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="560" y="280" as="sourcePoint"/>
+            <mxPoint x="780" y="280" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m5" value="&lt;b style=&quot;font-size:11px;&quot;&gt;5. InvokeModelWithResponseStream&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:9.5px; color:#555555;&quot;&gt;System prompt, message history &amp;amp; tools: search_documents, fetch_document&lt;/span&gt;" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;strokeColor=#232F3E;strokeWidth=1.5;fontSize=11;labelBackgroundColor=#FFFFFF;labelBorderColor=none;" parent="1" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="780" y="310" as="sourcePoint"/>
+            <mxPoint x="1000" y="310" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m6" value="&lt;b style=&quot;font-size:11px;&quot;&gt;6. Model Emits Tool Call&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:9.5px; color:#555555;&quot;&gt;ToolUse: search_documents(filters={loan_amount_min:50000000, branch:'TLV'})&lt;/span&gt;" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=7;rounded=0;strokeColor=#2E7D32;strokeWidth=1.3;fontSize=11;labelBackgroundColor=#FFFFFF;" parent="1" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1000" y="345" as="sourcePoint"/>
+            <mxPoint x="780" y="345" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m7" value="&lt;b style=&quot;font-size:11px;&quot;&gt;7. Execute Tool: search_documents&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:9.5px; color:#555555;&quot;&gt;OpenSearch Serverless SigV4 Boolean DSL query execution&lt;/span&gt;" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;strokeColor=#232F3E;strokeWidth=1.5;fontSize=11;labelBackgroundColor=#FFFFFF;labelBorderColor=none;" parent="1" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="780" y="380" as="sourcePoint"/>
+            <mxPoint x="1230" y="380" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m8" value="&lt;b style=&quot;font-size:11px;&quot;&gt;8. Tool Output Returned&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:9.5px; color:#555555;&quot;&gt;Found candidate documents: [{doc_id: '550e8400...', loan_number: 'LN-2026'}]&lt;/span&gt;" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=7;rounded=0;strokeColor=#2E7D32;strokeWidth=1.3;fontSize=11;labelBackgroundColor=#FFFFFF;" parent="1" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1230" y="415" as="sourcePoint"/>
+            <mxPoint x="780" y="415" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m9" value="&lt;b style=&quot;font-size:11px;&quot;&gt;9. Tool Result Provided to Model&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:9.5px; color:#555555;&quot;&gt;ToolResult passed back into Nova 2 Lite reasoning stream&lt;/span&gt;" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;strokeColor=#232F3E;strokeWidth=1.5;fontSize=11;labelBackgroundColor=#FFFFFF;labelBorderColor=none;" parent="1" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="780" y="450" as="sourcePoint"/>
+            <mxPoint x="1000" y="450" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m10" value="&lt;b style=&quot;font-size:11px;&quot;&gt;10. Model Emits Tool Call: fetch_document&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:9.5px; color:#555555;&quot;&gt;ToolUse: fetch_document(document_id='550e8400...') for authoritative check&lt;/span&gt;" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=7;rounded=0;strokeColor=#2E7D32;strokeWidth=1.3;fontSize=11;labelBackgroundColor=#FFFFFF;" parent="1" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1000" y="485" as="sourcePoint"/>
+            <mxPoint x="780" y="485" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m11" value="&lt;b style=&quot;font-size:11px;&quot;&gt;11. Fetch Authoritative Annotation&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:9.5px; color:#555555;&quot;&gt;Reads DynamoDB pointer &amp;amp; S3 document-metadata annotation&lt;/span&gt;" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;strokeColor=#232F3E;strokeWidth=1.5;fontSize=11;labelBackgroundColor=#FFFFFF;labelBorderColor=none;" parent="1" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="780" y="520" as="sourcePoint"/>
+            <mxPoint x="1230" y="520" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m12" value="&lt;b style=&quot;font-size:11px;&quot;&gt;12. Authoritative JSON Returned&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:9.5px; color:#555555;&quot;&gt;Complete structured banking traits + WORM version lineage&lt;/span&gt;" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=7;rounded=0;strokeColor=#2E7D32;strokeWidth=1.3;fontSize=11;labelBackgroundColor=#FFFFFF;" parent="1" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1230" y="550" as="sourcePoint"/>
+            <mxPoint x="780" y="550" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m13" value="&lt;b style=&quot;font-size:11px;&quot;&gt;13. Model Generates Final Synthesis&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:9.5px; color:#555555;&quot;&gt;Converts minor units to major currency; cites exact document_id &amp;amp; version&lt;/span&gt;" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=7;rounded=0;strokeColor=#2E7D32;strokeWidth=1.3;fontSize=11;labelBackgroundColor=#FFFFFF;" parent="1" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1000" y="585" as="sourcePoint"/>
+            <mxPoint x="780" y="585" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m14" value="&lt;b style=&quot;font-size:11px;&quot;&gt;14. SSE Real-Time Streaming&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:9.5px; color:#555555;&quot;&gt;Tokens &amp;amp; citations streamed back via Server-Sent Events&lt;/span&gt;" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=7;rounded=0;strokeColor=#2E7D32;strokeWidth=1.3;fontSize=11;labelBackgroundColor=#FFFFFF;" parent="1" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="780" y="620" as="sourcePoint"/>
+            <mxPoint x="560" y="620" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m15" value="&lt;b style=&quot;font-size:11px;&quot;&gt;15. Streamed Response Rendered&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:9.5px; color:#555555;&quot;&gt;Client renders markdown response, document citations, and action chips&lt;/span&gt;" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=7;rounded=0;strokeColor=#2E7D32;strokeWidth=1.3;fontSize=11;labelBackgroundColor=#FFFFFF;" parent="1" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="560" y="655" as="sourcePoint"/>
+            <mxPoint x="120" y="655" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="legend" value="&lt;table style=&quot;width:100%; border-collapse:collapse; font-family:Helvetica,Arial,sans-serif;&quot;&gt;&lt;tr&gt;&lt;td style=&quot;padding:3px 12px; vertical-align:top;&quot;&gt;&lt;b style=&quot;color:#702F8A; font-size:11px;&quot;&gt;Amazon Nova 2 Lite:&lt;/b&gt; &lt;span style=&quot;font-size:10px; color:#444444;&quot;&gt;Standardized on us.amazon.nova-2-lite-v1:0 for high-accuracy reasoning &amp; tool calling&lt;/span&gt;&lt;/td&gt;&lt;td style=&quot;padding:3px 12px; vertical-align:top;&quot;&gt;&lt;b style=&quot;color:#0277BD; font-size:11px;&quot;&gt;Authoritative Citations:&lt;/b&gt; &lt;span style=&quot;font-size:10px; color:#444444;&quot;&gt;Agent strictly cites canonical document_id and application_version from S3 annotations&lt;/span&gt;&lt;/td&gt;&lt;td style=&quot;padding:3px 12px; vertical-align:top;&quot;&gt;&lt;b style=&quot;color:#2E7D32; font-size:11px;&quot;&gt;Zero Financial Float:&lt;/b&gt; &lt;span style=&quot;font-size:10px; color:#444444;&quot;&gt;Converts minor currency units without floating-point inaccuracies&lt;/span&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F8F9FA;strokeColor=#D5DBDB;strokeWidth=1;align=left;spacingLeft=10;verticalAlign=middle;" parent="1" vertex="1">
+          <mxGeometry x="30" y="750" width="1290" height="52" as="geometry"/>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

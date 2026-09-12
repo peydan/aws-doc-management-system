@@ -1271,7 +1271,171 @@ All APIs (except `/health`) require an `Authorization: Bearer <Cognito-JWT-Token
 
 ---
 
+### 4.17 `POST /v1/documents/{document_id}/pages` (PDF Page Splicing & Insertion)
+- **Purpose:** Appends, prepends, or inserts donor PDF pages into an existing document; extracts updated page count, recalculates SHA-256 checksum, produces a brand-new immutable S3 WORM binary version, and atomically increments `application_version` via DynamoDB OCC.
+- **Required Role:** `Document.Writer` or `Document.Admin`.
+- **Required Headers:**
+  - `Content-Type`: `application/pdf`.
+  - `X-Position`: `append`, `prepend`, or `insert:<page_number>` (defaults to `append`).
+  - `Idempotency-Key`: UUID string.
+- **Request Body:** Raw binary bytes of the donor PDF payload.
+- **Response Payload (201 Created):**
+  ```json
+  {
+    "document_id": "550e8400-e29b-41d4-a716-446655440000",
+    "application_version": 2,
+    "s3_version_id": "4/M5cqwKldpYsoEUEmK+snTqYe4eJbxk",
+    "page_count": 5,
+    "content_length": 624120,
+    "content_checksum": "sha256:d8e8fca2dc0f896fd7cb4cb0031ba249...",
+    "created_at": "2026-09-12T14:40:00.000Z"
+  }
+  ```
+- **Execution Flow:**
+  ```mermaid
+  sequenceDiagram
+    autonumber
+    Client->>API Gateway: POST /v1/documents/{id}/pages (Donor PDF bytes)
+    API Gateway->>AddPages Lambda: Invoke
+    AddPages Lambda->>DynamoDB: GetItem DOC#{id} (Verify ACTIVE, resolve current version)
+    AddPages Lambda->>S3: GetObject documents/{class}/{id} (Fetch canonical binary)
+    AddPages Lambda->>AddPages Lambda: Splice pages in-memory via pdf-lib, extract new page_count & SHA-256
+    AddPages Lambda->>S3: PutObject (Upload spliced binary producing new S3 VersionId)
+    AddPages Lambda->>S3: PutObjectAnnotation (Update page_count & checksum in document-metadata)
+    AddPages Lambda->>DynamoDB: TransactWriteItems (Advance application_version to 2 & create VER#2)
+    AddPages Lambda-->>API Gateway: 201 Created
+    API Gateway-->>Client: 201 Created
+  ```
+
+---
+
+### 4.18 `POST /v1/agent/chat` (Conversational AI Document Assistant)
+- **Purpose:** Executes conversational reasoning and document retrieval via Amazon Bedrock AgentCore Harness powered by Amazon Nova 2 Lite (`us.amazon.nova-2-lite-v1:0`). Dynamically invokes MCP tools (`search_documents` against OpenSearch and `fetch_document` against DynamoDB/S3), cites canonical versions, formats monetary units, and streams tokens via Server-Sent Events (SSE).
+- **Required Role:** `Document.Reader`, `Document.Writer`, `Document.MetadataEditor`, or `Document.Admin`.
+- **Request Body:**
+  ```json
+  {
+    "message": "Summarize all active loan agreements in TLV with loan amount over 500,000 ILS.",
+    "session_id": "sess-a1b2c3d4-e5f6"
+  }
+  ```
+- **Execution Flow:**
+  ```mermaid
+  sequenceDiagram
+    autonumber
+    Client->>API Gateway: POST /v1/agent/chat { message, session_id }
+    API Gateway->>AgentChat Lambda: Invoke
+    AgentChat Lambda->>Bedrock: InvokeModelWithResponseStream (Nova 2 Lite with Tool Specs)
+    Bedrock-->>AgentChat Lambda: ToolUse: search_documents(filters={loan_amount_min:50000000, branch:'TLV'})
+    AgentChat Lambda->>OpenSearch: Execute SigV4 Boolean DSL query
+    OpenSearch-->>AgentChat Lambda: Candidate document records
+    AgentChat Lambda->>Bedrock: ToolResult: Pass OpenSearch hits back to reasoning loop
+    Bedrock-->>AgentChat Lambda: ToolUse: fetch_document(document_id)
+    AgentChat Lambda->>S3: GetObjectAnnotation (Authoritative document-metadata)
+    S3-->>AgentChat Lambda: Authoritative JSON traits
+    AgentChat Lambda->>Bedrock: ToolResult: Pass authoritative traits
+    Bedrock-->>AgentChat Lambda: Stream synthesized answer with authoritative citations
+    AgentChat Lambda-->>Client: 200 OK (SSE Stream tokens + document citations)
+  ```
+
+---
+
+### 4.19 `POST /v1/metadata/suggest` (AI-Assisted Metadata Pre-Fill)
+- **Purpose:** Stateless pre-upload AI metadata extraction from document excerpt text or file bytes via Amazon Bedrock Nova 2 Lite. Partitions extracted attributes into shared banking traits and class-specific attributes, validating against target JSON schema constraints before auto-populating web portal form inputs.
+- **Required Role:** `Document.Reader`, `Document.Writer`, `Document.MetadataEditor`, or `Document.Admin`.
+- **Request Body:**
+  ```json
+  {
+    "document_class": "loan_agreement",
+    "text_excerpt": "Mortgage agreement #LN-2026-88821 for customer IL-4492817. Total loan principal: 950,000.00 ILS signed at TLV-05 on 2026-07-15."
+  }
+  ```
+- **Response Payload (200 OK):**
+  ```json
+  {
+    "suggested_metadata": {
+      "loan_number": "LN-2026-88821",
+      "customer_id": 4492817,
+      "loan_amount_minor_units": 95000000,
+      "currency": "ILS",
+      "branch_code": "TLV-05",
+      "signed_date": "2026-07-15",
+      "loan_type": "MORTGAGE"
+    },
+    "confidence_scores": {
+      "loan_number": 0.98,
+      "loan_amount_minor_units": 0.99
+    }
+  }
+  ```
+- **Execution Flow:**
+  ```mermaid
+  sequenceDiagram
+    autonumber
+    Client->>API Gateway: POST /v1/metadata/suggest { document_class, text_excerpt }
+    API Gateway->>MetadataSuggest Lambda: Invoke
+    MetadataSuggest Lambda->>Ajv Registry: Load target JSON schema definition
+    MetadataSuggest Lambda->>Bedrock: InvokeModel (Nova 2 Lite with schema prompt)
+    Bedrock-->>MetadataSuggest Lambda: Extracted JSON key-values
+    MetadataSuggest Lambda->>MetadataSuggest Lambda: Normalize minor currency units & validate constraints
+    MetadataSuggest Lambda-->>API Gateway: 200 OK (suggested_metadata + confidence)
+    API Gateway-->>Client: 200 OK (Auto-populates UI form inputs)
+  ```
+
+---
+
+### 4.20 `GET /v1/documents/{document_id}/audit` (Document Audit Trail & LLM Inspection)
+- **Purpose:** Unified document-specific audit trail combining Amazon Bedrock LLM enrichment telemetry (model ID, prompt/completion tokens, latency, PII safety ratchets, S3 compliance URI) with server-side lifecycle mutations from DynamoDB version lineage and the KMS-encrypted S3 Audit Bucket.
+- **Required Role:** `Document.Reader`, `Document.Writer`, `Document.MetadataEditor`, or `Document.Admin`.
+- **Response Payload (200 OK):**
+  ```json
+  {
+    "document_id": "550e8400-e29b-41d4-a716-446655440000",
+    "versions_count": 2,
+    "active_version": 2,
+    "current_status": "ACTIVE",
+    "events": [
+      {
+        "event_id": "evt-001",
+        "event_type": "DOCUMENT_CREATED",
+        "application_version": 1,
+        "timestamp": "2026-09-12T10:00:00.000Z",
+        "actor": "writer-user",
+        "s3_version_id": "ver-001"
+      },
+      {
+        "event_id": "evt-002",
+        "event_type": "AI_METADATA_ENRICHMENT",
+        "application_version": 1,
+        "timestamp": "2026-09-12T10:00:05.000Z",
+        "model_id": "us.amazon.nova-2-lite-v1:0",
+        "tokens_prompt": 450,
+        "tokens_completion": 120,
+        "latency_ms": 620,
+        "pii_detected": true,
+        "pii_categories": ["NATIONAL_ID"]
+      }
+    ]
+  }
+  ```
+- **Execution Flow:**
+  ```mermaid
+  sequenceDiagram
+    autonumber
+    Client->>API Gateway: GET /v1/documents/{id}/audit
+    API Gateway->>GetAudit Lambda: Invoke
+    GetAudit Lambda->>DynamoDB: Query DOC#{id} & VER#* (Lineage snapshots)
+    GetAudit Lambda->>S3 Audit Bucket: ListObjectsV2 & GetObject audit/{date}/{id}_*
+    GetAudit Lambda->>GetAudit Lambda: Correlate control plane events, WORM logs & LLM telemetry
+    GetAudit Lambda-->>API Gateway: 200 OK (Unified audit timeline)
+    API Gateway-->>Client: 200 OK
+  ```
+
+---
+
 ## 5. Asynchronous Indexing, Event Streaming & Self-Healing Architecture
+
+### 5.1 Real-Time Search Indexing Pipeline
 
 When document mutations occur, search index projection and audit logging run completely asynchronously to guarantee sub-second API latencies and isolate storage from search infrastructure interruptions.
 
@@ -1310,6 +1474,40 @@ sequenceDiagram
     DLQ->>CloudWatch: Trigger DLQ Message Count Alarm
   end
 ```
+
+### 5.2 Asynchronous LLM Metadata & PII Enrichment Pipeline
+
+Automated background extraction scans binary documents upon ingestion using Amazon Bedrock Nova 2 Lite (`us.amazon.nova-2-lite-v1:0`). Newly discovered PII categories are merged through the non-downgrade safety ratchet, authoritative annotations are updated via DynamoDB OCC revision locks, and telemetry is persisted to the S3 Audit Bucket:
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant DynamoDB as DynamoDB Table
+  participant Stream as DynamoDB Streams
+  participant Worker as Stream Processor Lambda
+  participant EnrichSQS as SQS Enrichment Queue
+  participant EnrichDLQ as SQS Enrichment DLQ
+  participant Enricher as Metadata Enricher Lambda
+  participant Bedrock as Amazon Bedrock (Nova 2 Lite)
+  participant S3 as S3 Bucket (Annotations & Audit)
+
+  DynamoDB->>Stream: Emit Version Lineage Event (VER# created)
+  Stream->>Worker: StreamProcessor filters for new binary version
+  Worker->>EnrichSQS: Enqueue task { document_id, document_class, application_version, s3_key }
+  EnrichSQS->>Enricher: Batch consume messages (batch: 5)
+  Enricher->>S3: GetObject excerpt & GetObjectAnnotation (current metadata)
+  Enricher->>Bedrock: InvokeModel (Nova 2 Lite with entity & PII extraction prompt)
+  Bedrock-->>Enricher: Extracted domain traits + detected pii_categories
+  Enricher->>Enricher: Evaluate PII Non-Downgrade Ratchet (never clear contains_pii: true)
+  Enricher->>S3: PutObjectAnnotation (Write enriched traits & bump metadata_revision)
+  Enricher->>DynamoDB: UpdateItem DOC#{id} (current_metadata_revision = :expected + 1)
+  Enricher->>S3: PutObject audit/{date}/{doc_id}_enrichment.json (tokens, model, latency)
+  alt Processing Failure (3 retries exceeded)
+    EnrichSQS->>EnrichDLQ: Redrive poison pill message
+    EnrichDLQ->>CloudWatch: Trigger Enrichment DLQ Alarm
+  end
+```
+
 
 ---
 
@@ -1363,42 +1561,49 @@ The solution implements a rigorous **Defense-in-Depth** and **Zero Trust** secur
 | `GET /v1/documents/{id}/metadata` | [x] | [x] | [x] | [x] |
 | `PATCH /v1/documents/{id}/metadata` | [ ] | [x] | [x] | [x] |
 | `GET /v1/documents/{id}/download` | [x] | [x] | [x] | [x] |
+| `POST /v1/documents/{id}/pages` (PDF Splicing) | [ ] | [x] | [ ] | [x] |
 | `POST /v1/documents/batch-download` (Batch ZIP) | [x] | [x] | [x] | [x] |
 | `POST /v1/documents/{id}/soft-delete` | [ ] | [ ] | [ ] | [x] |
 | `POST /v1/documents/{id}/restore` | [ ] | [ ] | [ ] | [x] |
 | `POST /v1/search` | [x] | [x] | [x] | [x] |
+| `POST /v1/metadata/suggest` (AI Pre-Fill) | [x] | [x] | [x] | [x] |
+| `POST /v1/agent/chat` (AI Assistant) | [x] | [x] | [x] | [x] |
+| `GET /v1/documents/{id}/audit` (Audit Inspector) | [x] | [x] | [x] | [x] |
 
 ---
 
 ## 7. Deployment & Infrastructure as Code (AWS CDK)
 
-The entire infrastructure is defined in TypeScript using **AWS CDK v2** and divided into 8 decoupled stacks:
+The entire infrastructure is defined in TypeScript using **AWS CDK v2** and divided into 10 decoupled stacks:
 
 ```text
 doc-platform-mvp/
  ├── bin/
- │    └── app.ts                      <-- CDK App entrypoint & stack orchestration
+ │    └── app.ts                      <-- CDK App entrypoint & 10-stack orchestration
  ├── lib/
  │    ├── security-stack.ts          <-- Stack 1: KMS CMK, Cognito User Pool, Groups & Test Users
  │    ├── storage-stack.ts           <-- Stack 2: S3 Document Bucket (Versioned + Deny Delete), Audit Bucket
  │    ├── control-plane-stack.ts     <-- Stack 3: DynamoDB Single-Table with Streams & PITR
- │    ├── messaging-stack.ts         <-- Stack 4: SQS Index Queue & SQS DLQ with KMS
+ │    ├── messaging-stack.ts         <-- Stack 4: SQS Index Queue, SQS Enrichment Queue & DLQs
  │    ├── search-stack.ts            <-- Stack 5: OpenSearch Serverless Collection & Security Policies
- │    ├── compute-stack.ts           <-- Stack 6: Background Stream Processor & Indexer Lambdas
- │    ├── api-stack.ts               <-- Stack 7: API Gateway, Cognito Authorizer & 15 Route Handlers
- │    └── observability-stack.ts     <-- Stack 8: CloudWatch Alarms (DLQ, 5xx) & Platform Dashboard
- ├── src/                            <-- TypeScript Lambda source code (Command, Query, Search, Workers)
- ├── schemas/                        <-- JSON Schemas for Document Classes (loan_agreement-v1.json)
+ │    ├── compute-stack.ts           <-- Stack 6: Background Stream Processor, Indexer & AI Enricher Lambdas
+ │    ├── api-stack.ts               <-- Stack 7: API Gateway, Cognito Authorizer & 19 Route Handlers
+ │    ├── observability-stack.ts     <-- Stack 8: CloudWatch Alarms (Index DLQ, Stream DLQ, Enrich DLQ, 5xx)
+ │    ├── serverless-frontend-stack.ts<-- Stack 9: CloudFront CDN, Origin Access Control & S3 SPA Bucket
+ │    └── agent-stack.ts             <-- Stack 10: Bedrock AgentCore Chat Function & MCP Tool Lambdas
+ ├── src/                            <-- TypeScript Lambda source code (Command, Query, Search, Agent, Workers)
+ ├── schemas/                        <-- JSON Schemas for Document Classes (loan_agreement, compliance, security)
  └── scripts/                        <-- Seed dataset generator & E2E verification scenario runner
 ```
 
 ### 7.1 Stack Dependency Graph
 ```mermaid
 graph TD
-  SecurityStack[1. SecurityStack<br/>KMS & Cognito] --> StorageStack[2. StorageStack<br/>S3 Buckets]
-  SecurityStack --> ControlPlaneStack[3. ControlPlaneStack<br/>DynamoDB Table]
-  SecurityStack --> MessagingStack[4. MessagingStack<br/>SQS & DLQ]
-  SecurityStack --> SearchStack[5. SearchStack<br/>OpenSearch Serverless]
+  SecurityStack[1. SecurityStack<br/>KMS CMK & Cognito]
+  StorageStack[2. StorageStack<br/>S3 Buckets & Bucket Keys]
+  ControlPlaneStack[3. ControlPlaneStack<br/>DynamoDB Table]
+  MessagingStack[4. MessagingStack<br/>SQS & DLQ with Key Reuse]
+  SearchStack[5. SearchStack<br/>OpenSearch Serverless]
 
   StorageStack --> ComputeStack[6. ComputeStack<br/>Background Workers]
   ControlPlaneStack --> ComputeStack
@@ -1413,6 +1618,14 @@ graph TD
 
   MessagingStack --> ObservabilityStack[8. ObservabilityStack<br/>Alarms & Dashboard]
   ApiStack --> ObservabilityStack
+
+  ApiStack --> FrontendStack[9. ServerlessFrontendStack<br/>CloudFront CDN & S3 SPA]
+  SecurityStack --> FrontendStack
+
+  StorageStack --> AgentStack[10. AgentStack<br/>Bedrock AI Chat & Tools]
+  ControlPlaneStack --> AgentStack
+  SearchStack --> AgentStack
+  SecurityStack --> AgentStack
 ```
 
 ### 7.2 Step-by-Step Deployment Instructions

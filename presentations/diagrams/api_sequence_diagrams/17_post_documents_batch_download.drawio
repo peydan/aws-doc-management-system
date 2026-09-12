@@ -1,0 +1,185 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mxfile host="Electron" agent="Antigravity" version="24.7.5">
+  <diagram id="seq-17-batch-download" name="17. POST /documents/batch-download">
+    <mxGraphModel dx="1450" dy="940" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1350" pageHeight="840" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="banner" value="&lt;table style=&quot;width:100%; border-collapse:collapse; font-family:Helvetica,Arial,sans-serif;&quot;&gt;&lt;tr&gt;&lt;td style=&quot;width:100px; vertical-align:middle;&quot;&gt;&lt;div style=&quot;background-color:#1E88E5; color:#FFFFFF; font-weight:bold; font-size:13px; text-align:center; padding:4px 8px; border-radius:4px;&quot;&gt;POST&lt;/div&gt;&lt;/td&gt;&lt;td style=&quot;padding-left:14px; vertical-align:middle;&quot;&gt;&lt;div style=&quot;font-size:16px; font-weight:bold; color:#232F3E;&quot;&gt;/documents/batch-download&lt;/div&gt;&lt;div style=&quot;font-size:11px; color:#5A6B7C; margin-top:2px;&quot;&gt;Concurrent Multi-Document Fetch &amp;amp; ZIP Archive Export with Audit Manifest &amp;nbsp;|&amp;nbsp; &lt;b style=&quot;color:#232F3E;&quot;&gt;Operation:&lt;/b&gt; &lt;code&gt;batchDownloadDocuments&lt;/code&gt;&lt;/div&gt;&lt;/td&gt;&lt;td style=&quot;text-align:right; vertical-align:middle; width:340px;&quot;&gt;&lt;div style=&quot;background-color:#FFF8E1; border:1px solid #F39C12; border-radius:4px; padding:4px 8px; display:inline-block; font-size:10.5px; color:#7D6608;&quot;&gt;&lt;b&gt;RBAC:&lt;/b&gt; Document.Reader, Document.Writer, Document.MetadataEditor, Document.Admin&lt;/div&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#D5DBDB;strokeWidth=1.5;align=left;spacingLeft=15;spacingRight=15;verticalAlign=middle;" parent="1" vertex="1">
+          <mxGeometry x="30" y="16" width="1290" height="56" as="geometry"/>
+        </mxCell>
+        <mxCell id="part_client" value="&lt;b style=&quot;font-size:12px; color:#37474F;&quot;&gt;Client / Caller&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:10px; color:#555555;&quot;&gt;Web UI / Enterprise SDK&lt;/span&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ECEFF1;strokeColor=#37474F;strokeWidth=1.5;align=center;verticalAlign=middle;" parent="1" vertex="1">
+          <mxGeometry x="50" y="112" width="140" height="48" as="geometry"/>
+        </mxCell>
+        <mxCell id="icon_client" value="" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#0277BD;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.user;" parent="1" vertex="1">
+          <mxGeometry x="104" y="86" width="32" height="32" as="geometry"/>
+        </mxCell>
+        <mxCell id="line_client" value="" style="edgeStyle=none;dashed=1;html=1;strokeColor=#37474F;strokeWidth=1.2;strokeOpacity=80;endArrow=none;rounded=0;" parent="1" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="120" y="160" as="sourcePoint"/>
+            <mxPoint x="120" y="730" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="part_cognito" value="&lt;b style=&quot;font-size:12px; color:#C0392B;&quot;&gt;Cognito Authorizer&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:10px; color:#555555;&quot;&gt;AWS User Pool&lt;/span&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFEBEE;strokeColor=#C0392B;strokeWidth=1.5;align=center;verticalAlign=middle;" parent="1" vertex="1">
+          <mxGeometry x="280" y="112" width="140" height="48" as="geometry"/>
+        </mxCell>
+        <mxCell id="icon_cognito" value="" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#DD3522;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.cognito;" parent="1" vertex="1">
+          <mxGeometry x="334" y="86" width="32" height="32" as="geometry"/>
+        </mxCell>
+        <mxCell id="line_cognito" value="" style="edgeStyle=none;dashed=1;html=1;strokeColor=#C0392B;strokeWidth=1.2;strokeOpacity=80;endArrow=none;rounded=0;" parent="1" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="350" y="160" as="sourcePoint"/>
+            <mxPoint x="350" y="730" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="part_apigw" value="&lt;b style=&quot;font-size:12px; color:#7B1FA2;&quot;&gt;Amazon API Gateway&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:10px; color:#555555;&quot;&gt;REST API v1&lt;/span&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F3E5F5;strokeColor=#7B1FA2;strokeWidth=1.5;align=center;verticalAlign=middle;" parent="1" vertex="1">
+          <mxGeometry x="510" y="112" width="140" height="48" as="geometry"/>
+        </mxCell>
+        <mxCell id="icon_apigw" value="" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#8C4FFF;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.api_gateway;" parent="1" vertex="1">
+          <mxGeometry x="564" y="86" width="32" height="32" as="geometry"/>
+        </mxCell>
+        <mxCell id="line_apigw" value="" style="edgeStyle=none;dashed=1;html=1;strokeColor=#7B1FA2;strokeWidth=1.2;strokeOpacity=80;endArrow=none;rounded=0;" parent="1" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="580" y="160" as="sourcePoint"/>
+            <mxPoint x="580" y="730" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="part_lambda" value="&lt;b style=&quot;font-size:12px; color:#D35400;&quot;&gt;BatchDownloadLambda&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:10px; color:#555555;&quot;&gt;src/query-api/batch-download.ts&lt;/span&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF3E0;strokeColor=#D35400;strokeWidth=1.5;align=center;verticalAlign=middle;" parent="1" vertex="1">
+          <mxGeometry x="740" y="112" width="140" height="48" as="geometry"/>
+        </mxCell>
+        <mxCell id="icon_lambda" value="" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#ED7100;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.lambda;" parent="1" vertex="1">
+          <mxGeometry x="794" y="86" width="32" height="32" as="geometry"/>
+        </mxCell>
+        <mxCell id="line_lambda" value="" style="edgeStyle=none;dashed=1;html=1;strokeColor=#D35400;strokeWidth=1.2;strokeOpacity=80;endArrow=none;rounded=0;" parent="1" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="810" y="160" as="sourcePoint"/>
+            <mxPoint x="810" y="730" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="part_ddb" value="&lt;b style=&quot;font-size:12px; color:#0277BD;&quot;&gt;Amazon DynamoDB&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:10px; color:#555555;&quot;&gt;doc-platform-mvp-control&lt;/span&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1F5FE;strokeColor=#0277BD;strokeWidth=1.5;align=center;verticalAlign=middle;" parent="1" vertex="1">
+          <mxGeometry x="970" y="112" width="140" height="48" as="geometry"/>
+        </mxCell>
+        <mxCell id="icon_ddb" value="" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#0277BD;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.dynamodb;" parent="1" vertex="1">
+          <mxGeometry x="1024" y="86" width="32" height="32" as="geometry"/>
+        </mxCell>
+        <mxCell id="line_ddb" value="" style="edgeStyle=none;dashed=1;html=1;strokeColor=#0277BD;strokeWidth=1.2;strokeOpacity=80;endArrow=none;rounded=0;" parent="1" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1040" y="160" as="sourcePoint"/>
+            <mxPoint x="1040" y="730" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="part_s3" value="&lt;b style=&quot;font-size:12px; color:#2E7D32;&quot;&gt;Amazon S3 Bucket&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:10px; color:#555555;&quot;&gt;WORM Docs &amp;amp; Exports Store&lt;/span&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#2E7D32;strokeWidth=1.5;align=center;verticalAlign=middle;" parent="1" vertex="1">
+          <mxGeometry x="1180" y="112" width="140" height="48" as="geometry"/>
+        </mxCell>
+        <mxCell id="icon_s3" value="" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#2E7D32;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.s3;" parent="1" vertex="1">
+          <mxGeometry x="1234" y="86" width="32" height="32" as="geometry"/>
+        </mxCell>
+        <mxCell id="line_s3" value="" style="edgeStyle=none;dashed=1;html=1;strokeColor=#2E7D32;strokeWidth=1.2;strokeOpacity=80;endArrow=none;rounded=0;" parent="1" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1250" y="160" as="sourcePoint"/>
+            <mxPoint x="1250" y="730" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="act_client" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#555555;strokeWidth=1;" parent="1" vertex="1">
+          <mxGeometry x="114" y="180" width="12" height="520" as="geometry"/>
+        </mxCell>
+        <mxCell id="act_apigw" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#555555;strokeWidth=1;" parent="1" vertex="1">
+          <mxGeometry x="574" y="200" width="12" height="320" as="geometry"/>
+        </mxCell>
+        <mxCell id="act_lambda" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#555555;strokeWidth=1;" parent="1" vertex="1">
+          <mxGeometry x="804" y="280" width="12" height="220" as="geometry"/>
+        </mxCell>
+        <mxCell id="fr_zip" value="&lt;b style=&quot;font-size:10.5px;&quot;&gt;Direct High-Speed Export Streaming&lt;/b&gt; &lt;span style=&quot;font-size:9.5px; color:#555555;&quot;&gt;[Bypasses APIGW/Lambda payload limitations; 3-day S3 auto-purge lifecycle]&lt;/span&gt;" style="shape=umlFrame;whiteSpace=wrap;html=1;pointerEvents=0;recursiveResize=0;container=1;collapsible=0;width=140;height=22;fillColor=#F5F5F5;strokeColor=#9E9E9E;strokeWidth=1.2;strokeOpacity=70;fillOpacity=40;align=left;spacingLeft=8;" parent="1" vertex="1">
+          <mxGeometry x="40" y="560" width="1270" height="140" as="geometry"/>
+        </mxCell>
+        <mxCell id="m1" value="&lt;b style=&quot;font-size:11px;&quot;&gt;1. POST /documents/batch-download&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:9.5px; color:#555555;&quot;&gt;Payload: { document_ids: [...], format: 'original'|'pdf', include_metadata: true }&lt;/span&gt;" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;strokeColor=#232F3E;strokeWidth=1.5;fontSize=11;labelBackgroundColor=#FFFFFF;labelBorderColor=none;" parent="1" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="120" y="195" as="sourcePoint"/>
+            <mxPoint x="580" y="195" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m2" value="&lt;b style=&quot;font-size:11px;&quot;&gt;2. Validate JWT Token&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:9.5px; color:#555555;&quot;&gt;Verify Document.Reader clearance&lt;/span&gt;" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;strokeColor=#232F3E;strokeWidth=1.5;fontSize=11;labelBackgroundColor=#FFFFFF;labelBorderColor=none;" parent="1" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="580" y="220" as="sourcePoint"/>
+            <mxPoint x="350" y="220" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m3" value="&lt;b style=&quot;font-size:11px;&quot;&gt;3. Authorized&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:9.5px; color:#555555;&quot;&gt;Context verified&lt;/span&gt;" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=7;rounded=0;strokeColor=#2E7D32;strokeWidth=1.3;fontSize=11;labelBackgroundColor=#FFFFFF;" parent="1" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="350" y="250" as="sourcePoint"/>
+            <mxPoint x="580" y="250" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m4" value="&lt;b style=&quot;font-size:11px;&quot;&gt;4. Invoke Batch Handler&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:9.5px; color:#555555;&quot;&gt;Concurrently process document ID batch&lt;/span&gt;" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;strokeColor=#232F3E;strokeWidth=1.5;fontSize=11;labelBackgroundColor=#FFFFFF;labelBorderColor=none;" parent="1" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="580" y="280" as="sourcePoint"/>
+            <mxPoint x="810" y="280" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m5" value="&lt;b style=&quot;font-size:11px;&quot;&gt;5. Resolve Document Pointers&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:9.5px; color:#555555;&quot;&gt;BatchGetItem / GetItem DOC#{id} (verify status != SOFT_DELETED)&lt;/span&gt;" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;strokeColor=#232F3E;strokeWidth=1.5;fontSize=11;labelBackgroundColor=#FFFFFF;labelBorderColor=none;" parent="1" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="810" y="310" as="sourcePoint"/>
+            <mxPoint x="1040" y="310" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m6" value="&lt;b style=&quot;font-size:11px;&quot;&gt;6. Active Pointers Resolved&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:9.5px; color:#555555;&quot;&gt;s3_version_id, document_class, filename metadata&lt;/span&gt;" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=7;rounded=0;strokeColor=#2E7D32;strokeWidth=1.3;fontSize=11;labelBackgroundColor=#FFFFFF;" parent="1" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1040" y="345" as="sourcePoint"/>
+            <mxPoint x="810" y="345" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m7" value="&lt;b style=&quot;font-size:11px;&quot;&gt;7. Fetch Content &amp;amp; S3 Annotations&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:9.5px; color:#555555;&quot;&gt;GetObjectAnnotation + GetObject binary bytes; on-demand PDF conversion&lt;/span&gt;" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;strokeColor=#232F3E;strokeWidth=1.5;fontSize=11;labelBackgroundColor=#FFFFFF;labelBorderColor=none;" parent="1" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="810" y="380" as="sourcePoint"/>
+            <mxPoint x="1250" y="380" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m8" value="&lt;b style=&quot;font-size:11px;&quot;&gt;8. Binary Buffers &amp;amp; Metadata&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:9.5px; color:#555555;&quot;&gt;Raw binary bytes + JSON annotations retrieved&lt;/span&gt;" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=7;rounded=0;strokeColor=#2E7D32;strokeWidth=1.3;fontSize=11;labelBackgroundColor=#FFFFFF;" parent="1" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1250" y="415" as="sourcePoint"/>
+            <mxPoint x="810" y="415" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m9" value="&lt;b style=&quot;font-size:11px;&quot;&gt;9. Package ZIP &amp;amp; PutObject exports/{batch_id}.zip&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:9.5px; color:#555555;&quot;&gt;JSZip compression (Deflate) + manifest.json; generate 15-min presigned URL&lt;/span&gt;" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;strokeColor=#232F3E;strokeWidth=1.5;fontSize=11;labelBackgroundColor=#FFFFFF;labelBorderColor=none;" parent="1" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="810" y="450" as="sourcePoint"/>
+            <mxPoint x="1250" y="450" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m10" value="&lt;b style=&quot;font-size:11px;&quot;&gt;10. S3 Presigned URL Generated&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:9.5px; color:#555555;&quot;&gt;https://.../exports/batch-xxx.zip?AWSAccessKeyId=...&lt;/span&gt;" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=7;rounded=0;strokeColor=#2E7D32;strokeWidth=1.3;fontSize=11;labelBackgroundColor=#FFFFFF;" parent="1" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1250" y="485" as="sourcePoint"/>
+            <mxPoint x="810" y="485" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m11" value="&lt;b style=&quot;font-size:11px;&quot;&gt;11. 200 OK (Batch Download Envelope)&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:9.5px; color:#555555;&quot;&gt;{ batch_id, zip_filename, download_url, expires_at, file_count, documents }&lt;/span&gt;" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=7;rounded=0;strokeColor=#2E7D32;strokeWidth=1.3;fontSize=11;labelBackgroundColor=#FFFFFF;" parent="1" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="810" y="510" as="sourcePoint"/>
+            <mxPoint x="580" y="510" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m12" value="&lt;b style=&quot;font-size:11px;&quot;&gt;12. 200 OK Response&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:9.5px; color:#555555;&quot;&gt;Client receives signed URL for direct archive stream&lt;/span&gt;" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=7;rounded=0;strokeColor=#2E7D32;strokeWidth=1.3;fontSize=11;labelBackgroundColor=#FFFFFF;" parent="1" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="580" y="535" as="sourcePoint"/>
+            <mxPoint x="120" y="535" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m13" value="&lt;b style=&quot;font-size:11px;&quot;&gt;13. GET {download_url} (Direct S3 Export)&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:9.5px; color:#555555;&quot;&gt;Client streams compressed ZIP archive directly from S3&lt;/span&gt;" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;strokeColor=#232F3E;strokeWidth=1.5;fontSize=11;labelBackgroundColor=#FFFFFF;labelBorderColor=none;" parent="1" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="120" y="600" as="sourcePoint"/>
+            <mxPoint x="1250" y="600" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m14" value="&lt;b style=&quot;font-size:11px;&quot;&gt;14. 200 OK (application/zip)&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:9.5px; color:#555555;&quot;&gt;Multi-document bundle + audit manifest.json delivered&lt;/span&gt;" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=7;rounded=0;strokeColor=#2E7D32;strokeWidth=1.3;fontSize=11;labelBackgroundColor=#FFFFFF;" parent="1" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1250" y="660" as="sourcePoint"/>
+            <mxPoint x="120" y="660" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="legend" value="&lt;table style=&quot;width:100%; border-collapse:collapse; font-family:Helvetica,Arial,sans-serif;&quot;&gt;&lt;tr&gt;&lt;td style=&quot;padding:3px 12px; vertical-align:top;&quot;&gt;&lt;b style=&quot;color:#2E7D32; font-size:11px;&quot;&gt;Zero Egress Bottleneck:&lt;/b&gt; &lt;span style=&quot;font-size:10px; color:#444444;&quot;&gt;Client streams multi-gigabyte ZIP bundles directly from S3 presigned URLs&lt;/span&gt;&lt;/td&gt;&lt;td style=&quot;padding:3px 12px; vertical-align:top;&quot;&gt;&lt;b style=&quot;color:#0277BD; font-size:11px;&quot;&gt;Audit Manifest:&lt;/b&gt; &lt;span style=&quot;font-size:10px; color:#444444;&quot;&gt;Always bundles structured manifest.json auditing checksums and version lineage&lt;/span&gt;&lt;/td&gt;&lt;td style=&quot;padding:3px 12px; vertical-align:top;&quot;&gt;&lt;b style=&quot;color:#D35400; font-size:11px;&quot;&gt;Transient Lifecycle:&lt;/b&gt; &lt;span style=&quot;font-size:10px; color:#444444;&quot;&gt;exports/ prefix automatically purges archives after 3 days to eliminate cost&lt;/span&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F8F9FA;strokeColor=#D5DBDB;strokeWidth=1;align=left;spacingLeft=10;verticalAlign=middle;" parent="1" vertex="1">
+          <mxGeometry x="30" y="750" width="1290" height="52" as="geometry"/>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

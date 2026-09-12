@@ -1,16 +1,13 @@
 import * as cdk from 'aws-cdk-lib';
 import * as opensearchserverless from 'aws-cdk-lib/aws-opensearchserverless';
-import * as kms from 'aws-cdk-lib/aws-kms';
 import { Construct } from 'constructs';
 
-export interface SearchStackProps extends cdk.StackProps {
-  kmsKey?: kms.IKey;
-}
+export interface SearchStackProps extends cdk.StackProps {}
 
 export class SearchStack extends cdk.Stack {
   public readonly collection: opensearchserverless.CfnCollection;
 
-  constructor(scope: Construct, id: string, props: SearchStackProps) {
+  constructor(scope: Construct, id: string, props?: SearchStackProps) {
     super(scope, id, props);
 
     const collectionName = 'documents-v1';

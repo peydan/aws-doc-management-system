@@ -1,16 +1,13 @@
 import * as cdk from 'aws-cdk-lib';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
-import * as kms from 'aws-cdk-lib/aws-kms';
 import { Construct } from 'constructs';
 
-export interface ControlPlaneStackProps extends cdk.StackProps {
-  kmsKey: kms.IKey;
-}
+export interface ControlPlaneStackProps extends cdk.StackProps {}
 
 export class ControlPlaneStack extends cdk.Stack {
   public readonly table: dynamodb.Table;
 
-  constructor(scope: Construct, id: string, props: ControlPlaneStackProps) {
+  constructor(scope: Construct, id: string, props?: ControlPlaneStackProps) {
     super(scope, id, props);
 
     this.table = new dynamodb.Table(this, 'ControlTable', {
@@ -19,8 +16,7 @@ export class ControlPlaneStack extends cdk.Stack {
       sortKey: { name: 'sk', type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
       pointInTimeRecovery: true,
-      encryption: dynamodb.TableEncryption.CUSTOMER_MANAGED,
-      encryptionKey: props.kmsKey,
+      encryption: dynamodb.TableEncryption.AWS_MANAGED,
       stream: dynamodb.StreamViewType.NEW_AND_OLD_IMAGES,
       timeToLiveAttribute: 'ttl_expiry',
       removalPolicy: cdk.RemovalPolicy.RETAIN,

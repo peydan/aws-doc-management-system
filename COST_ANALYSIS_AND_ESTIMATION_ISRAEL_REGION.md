@@ -45,8 +45,7 @@ All estimates in this model are based on published pricing for AWS Region **`il-
 | **AWS Lambda** (Node.js 20) | Invocations | **$0.20 per 1,000,000 requests** | First 1M free tier per account. |
 | **AWS Lambda** (ARM64 Graviton) | Compute Duration | **$0.0000133334 per GB-second** | Average execution: 150ms @ 512MB = $0.0000010/exec. |
 | **Amazon API Gateway** | REST API Calls | **$3.80 per 1,000,000 requests** | First 333M calls/month tier. |
-| **Amazon SQS & DLQ** | Queue Requests | **$0.40 per 1,000,000 requests** | First 1M free tier per account. |
-| **AWS KMS** | Customer Managed Key (CMK) | **$1.00 per key-month** + $0.03 / 10k ops | Dedicated platform encryption key. |
+| **AWS KMS / Default Encryption** | AWS-Managed & Default Keys (SSE-S3, SSE-SQS) | **$0.00 / month** + $0.00 / ops | Zero-cost serverless encryption across S3, DynamoDB, SQS, and OpenSearch. |
 | **Amazon CloudWatch** | Logs Ingestion & Metrics | **$0.55 per GB ingested** + $0.30/metric | Structured JSON logs with 30-day retention. |
 | **AWS Cognito** | Active Users (MAU) | **Free up to 50,000 MAU**, then $0.0055/MAU | Identity & RBAC user pool tokens. |
 | **Amazon Bedrock (Amazon Nova 2 Lite)** | Input Tokens / Output Tokens | **$0.06 / $0.24 per 1,000,000 tokens** | Asynchronous metadata extraction, PII safety ratchet & AgentCore conversational assistant. |
@@ -67,10 +66,10 @@ When a document (avg. size $S_{\text{MB}} = 1\text{ MB}$) is uploaded:
 5. **S3 Annotation (`PutObjectAnnotation`):** 1 PUT request = $\$0.0000055$
 6. **DynamoDB Streams & SQS:** 1 stream event + 1 SQS SendMessage = $\$0.0000006$
 7. **Lambda (Stream Processor + Indexer):** 2 executions @ $100\text{ms}$ = $\$0.0000015$
-8. **KMS Encryption Operations:** 4 cryptographic calls = $\$0.0000120$
+8. **Encryption Operations:** AWS-Managed / SSE-S3 default = $\$0.0000000$
 9. **CloudWatch Logging:** ~4 KB log events = $\$0.0000022$
 
-$$\mathbf{Total\ Cost\ per\ Document\ Ingestion\ (Baseline)} \approx \mathbf{\$0.000035}\ \text{(approx. ₪0.00013)}$$
+$$\mathbf{Total\ Cost\ per\ Document\ Ingestion\ (Baseline)} \approx \mathbf{\$0.000023}\ \text{(approx. ₪0.000085)}$$
 *(Excluding persistent monthly S3 storage capacity and optional Bedrock AI enrichment).*
 
 ### 3.2 Metadata Patch (`PATCH /documents/{id}/metadata`)
@@ -138,9 +137,9 @@ $$\mathbf{Total\ Cost\ per\ AI\ Conversational\ Query} \approx \mathbf{\$0.00025
 | Amazon OpenSearch Serverless (AOSS) | 2.0 OCUs baseline + 1 GB index | $374.66 | ₪1,386.24 |
 | AWS Lambda | 150k invocations (75k GB-s) | $1.03 | ₪3.81 |
 | Amazon API Gateway | 100k requests | $0.38 | ₪1.41 |
-| Amazon SQS, KMS, CloudWatch | 1 CMK + 10 GB logs + 5 alarms | $7.50 | ₪27.75 |
+| Amazon SQS & CloudWatch | 0 CMK + 10 GB logs + 5 alarms | $6.50 | ₪24.05 |
 | Data Transfer Out | 50 GB downloads (within 100 GB free tier) | $0.00 | ₪0.00 |
-| **Total Monthly Cost** | | **$385.35** | **₪1,425.80** |
+| **Total Monthly Cost** | | **$384.35** | **₪1,422.10** |
 
 ---
 
@@ -157,9 +156,9 @@ $$\mathbf{Total\ Cost\ per\ AI\ Conversational\ Query} \approx \mathbf{\$0.00025
 | Amazon OpenSearch Serverless (AOSS) | 2.0 OCUs baseline + 25 GB index | $380.90 | ₪1,409.33 |
 | AWS Lambda | 3.5M invocations (1.75M GB-s) | $24.03 | ₪88.91 |
 | Amazon API Gateway | 2.5M requests | $9.50 | ₪35.15 |
-| Amazon SQS, KMS, CloudWatch | 1 CMK + 50 GB logs + 10 alarms | $32.00 | ₪118.40 |
+| Amazon SQS & CloudWatch | 0 CMK + 50 GB logs + 10 alarms | $31.00 | ₪114.70 |
 | Data Transfer Out | 250 GB external downloads | $13.50 | ₪49.95 |
-| **Total Monthly Cost** | | **$507.87** | **₪1,879.12** |
+| **Total Monthly Cost** | | **$506.87** | **₪1,875.42** |
 
 ---
 
@@ -176,9 +175,9 @@ $$\mathbf{Total\ Cost\ per\ AI\ Conversational\ Query} \approx \mathbf{\$0.00025
 | Amazon OpenSearch Serverless (AOSS) | 4.0 OCUs + 250 GB index | $813.80 | ₪3,011.06 |
 | AWS Lambda | 30M invocations (15M GB-s) | $206.00 | ₪762.20 |
 | Amazon API Gateway | 20M requests | $76.00 | ₪281.20 |
-| Amazon SQS, KMS, CloudWatch | 1 CMK + 250 GB logs + 20 alarms | $145.50 | ₪538.35 |
+| Amazon SQS & CloudWatch | 0 CMK + 250 GB logs + 20 alarms | $144.50 | ₪534.65 |
 | Data Transfer Out | 1 TB external downloads | $81.00 | ₪299.70 |
-| **Total Monthly Cost** | | **$1,789.05** | **₪6,619.49** |
+| **Total Monthly Cost** | | **$1,788.05** | **₪6,615.79** |
 
 ---
 
@@ -210,6 +209,11 @@ To maximize ROI and minimize ongoing AWS operational expense, implement the foll
 - Transforming raster images (JPEG/PNG) and MS Word documents (DOCX) to PDF on retrieval (`GET /v1/documents/{id}?format=pdf`) utilizes **pure in-memory conversion on Graviton (ARM64)** (~50–100ms duration per conversion).
 - Generated PDF derivatives are cached under the `derivatives/` S3 prefix and automatically expired after **14 days** via S3 Lifecycle rules.
 - **Cost Impact**: Temporary cached derivatives add less than **$0.02 – $0.15 / month** in storage per 100,000 requests, while avoiding continuous batch pre-conversion costs for images that are never retrieved as PDF.
+
+### 7. S3 Bucket Keys & SQS Data Key Reuse (Decoupled CMK & ~99% Request Reduction)
+- Enabling **S3 Bucket Keys** (`bucketKeyEnabled: true`) creates an intermediate bucket-level key, reducing S3-to-KMS cryptographic requests and API charges by **up to 99%**.
+- Setting SQS **Data Key Reuse** (`dataKeyReuse: 20 minutes`) caches KMS data keys for batch queue consumers and producers, minimizing recurring KMS handshake overhead.
+- Referencing the CMK via its alias (`alias/doc-platform-mvp`) decouples stack deployments from CloudFormation export locks (`Fn::ImportValue`), making the system independently deployable while retaining full FIPS 140-2 Level 3 banking compliance.
 
 ---
 

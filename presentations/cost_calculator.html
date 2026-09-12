@@ -1134,8 +1134,8 @@
       lambda_arm_gbs: 0.0000133334,
       apigw_req_1m: 3.80,
       sqs_req_1m: 0.40,
-      kms_cmk: 1.00,
-      kms_op_10k: 0.03,
+      kms_cmk: 0.00,
+      kms_op_10k: 0.00,
       cw_ingest_gb: 0.55,
       egress_gb: 0.090,
       bedrock_nova2lite_in_1m: 0.06,
@@ -1361,9 +1361,8 @@
       const totalApiRequests = ingest + downloads + searches + patches + aiQueries;
       const apigwTotalCost = (totalApiRequests / 1000000) * RATES.apigw_req_1m;
 
-      // KMS & SQS & CloudWatch
-      const kmsOps = (ingest * 4) + (downloads * 2) + (enrichedDocs * 2);
-      const kmsCost = RATES.kms_cmk + ((kmsOps / 10000) * RATES.kms_op_10k);
+      // SQS & CloudWatch Observability (AWS-managed & default encryption - $0 KMS fee)
+      const kmsCost = 0.00;
       const sqsCost = ((ingest + patches + enrichedDocs) / 1000000) * RATES.sqs_req_1m;
       const logsGB = Math.max(5, (totalApiRequests * 0.000004));
       const cwCost = (logsGB * RATES.cw_ingest_gb) + 5.0;
@@ -1477,9 +1476,9 @@
           usd: c.lambdaTotalCost
         },
         {
-          name: 'AWS KMS & CloudWatch Observability',
-          rate: '$1.00 / CMK + $0.55 / GB log',
-          vol: '1 CMK + ~' + Math.round(c.logsGB) + ' GB logs + Alarms',
+          name: 'CloudWatch Observability & SQS',
+          rate: '$0.55 / GB log + $0.40 / 1M SQS req',
+          vol: '~' + Math.round(c.logsGB) + ' GB logs + Alarms',
           usd: c.obsTotalCost
         },
         {
@@ -1527,7 +1526,7 @@
         { label: 'Amazon S3 & Annotations', cost: c.s3TotalCost, color: '#3b82f6' },
         { label: 'Amazon Bedrock AI', cost: c.bedrockTotalCost, color: '#8b5cf6' },
         { label: 'AWS Lambda Compute', cost: c.lambdaTotalCost, color: '#10b981' },
-        { label: 'KMS & CloudWatch', cost: c.obsTotalCost, color: '#6366f1' },
+        { label: 'SQS & CloudWatch', cost: c.obsTotalCost, color: '#6366f1' },
         { label: 'Data Transfer Egress', cost: c.egressTotalCost, color: '#06b6d4' },
         { label: 'Amazon API Gateway', cost: c.apigwTotalCost, color: '#f43f5e' },
         { label: 'Amazon DynamoDB', cost: c.ddbTotalCost, color: '#14b8a6' }

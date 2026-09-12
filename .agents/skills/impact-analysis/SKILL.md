@@ -96,15 +96,25 @@ When examining the impact of a change, evaluate each of the 6 architectural laye
   * Are domain trait hierarchies and key patterns updated?
 * [ ] **Architecture Specifications (`SOLUTION_ARCHITECTURE_SPECIFICATION.md`)**:
   * Are design chapters, payload examples, and table matrices kept in sync?
+  * Are all exposed endpoints documented with corresponding Mermaid sequence flows?
+  * Is the CDK stack dependency graph updated to reflect all active infrastructure stacks?
 * [ ] **Cost Analysis & Sizing Calculator (`COST_ANALYSIS_AND_ESTIMATION_ISRAEL_REGION.md`, `presentations/cost_calculator.html`)**:
   * Did any architectural component, service rate, compute runtime, or storage lifecycle change?
   * Are new services or pipelines (e.g., Amazon Bedrock AI enrichment/assistant, transient batch export archives, on-demand conversion derivatives, S3 audit logs) represented in the pricing catalog and interactive sizing models?
   * Are workload sizing presets (`poc`, `mid`, `enterprise`, `archive`) synchronized between specification documents and the interactive HTML calculator?
   * Is the interactive calculator free of syntax errors and executable in standard browser environments?
-* [ ] **Slide Presentations & Scripts**:
-  * `presentations/*.html`: Are interactive slides and code blocks updated?
-  * `presentations/generate_deck.py` / `generate_deck_hebrew.py`: Are PowerPoint generator tables updated and `.pptx` decks rebuilt?
-  * Sequence Diagrams (`presentations/diagrams/**/*.drawio`): Are payload annotations updated?
+* [ ] **Architecture & Integration Diagrams (`presentations/diagrams/*.drawio`)**:
+  * **High-Level Solution Architecture (`aws_document_management_architecture.drawio`)**: Are newly introduced services (Bedrock, SQS queues, Lambdas, S3 prefixes) and data-path flows reflected? Has the updated diagram been re-exported to `.png` via draw.io CLI?
+  * **UI & Backend Integration Architecture (`ui_backend_integration_architecture.drawio`)**: Are all active workspace tabs, REST route cards, client SDK flows, and compute Lambdas up to date? Have `.png` and `.svg` renders been rebuilt?
+* [ ] **API Sequence Diagrams (`presentations/diagrams/api_sequence_diagrams/`)**:
+  * Are all exposed REST API endpoints and background event workflows authored as standalone `.drawio` files?
+  * Are new sequence diagrams appended as individual tabs in the master workbook (`all_api_sequence_diagrams.drawio`)?
+  * Have high-resolution `.jpg` raster images been re-rendered via the draw.io CLI for all created/modified sequence diagrams?
+* [ ] **Slide Presentations & Deck Generators**:
+  * `presentations/*.html`: Are interactive slides, capabilities lists, and code blocks updated?
+  * `presentations/generate_deck.py` & `generate_deck_hebrew.py`: Are sequence diagram slide generators and breakdown cards updated to embed newly created `.jpg` assets?
+  * Have both `.pptx` decks (`AWS_Document_Management_Platform_Architecture.pptx` and Hebrew edition) been rebuilt and verified?
+
 
 ---
 

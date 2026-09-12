@@ -1,23 +1,13 @@
 import * as cdk from 'aws-cdk-lib';
-import * as kms from 'aws-cdk-lib/aws-kms';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
 import { Construct } from 'constructs';
 
 export class SecurityStack extends cdk.Stack {
-  public readonly kmsKey: kms.Key;
   public readonly userPool: cognito.UserPool;
   public readonly userPoolClient: cognito.UserPoolClient;
 
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
-
-    // Customer Managed KMS Key for encryption across S3, DynamoDB, SQS
-    this.kmsKey = new kms.Key(this, 'PlatformKey', {
-      alias: 'alias/doc-platform-mvp',
-      description: 'KMS Key for Document Management Platform MVP',
-      enableKeyRotation: true,
-      removalPolicy: cdk.RemovalPolicy.RETAIN,
-    });
 
     // AWS Cognito User Pool
     this.userPool = new cognito.UserPool(this, 'UserPool', {

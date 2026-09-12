@@ -22,22 +22,13 @@ const env = {
 const securityStack = new SecurityStack(app, 'DocPlatformSecurityStack', { env });
 
 // 2. Storage Stack
-const storageStack = new StorageStack(app, 'DocPlatformStorageStack', {
-  env,
-  kmsKey: securityStack.kmsKey,
-});
+const storageStack = new StorageStack(app, 'DocPlatformStorageStack', { env });
 
 // 3. Control Plane Stack
-const controlPlaneStack = new ControlPlaneStack(app, 'DocPlatformControlPlaneStack', {
-  env,
-  kmsKey: securityStack.kmsKey,
-});
+const controlPlaneStack = new ControlPlaneStack(app, 'DocPlatformControlPlaneStack', { env });
 
 // 4. Messaging Stack
-const messagingStack = new MessagingStack(app, 'DocPlatformMessagingStack', {
-  env,
-  kmsKey: securityStack.kmsKey,
-});
+const messagingStack = new MessagingStack(app, 'DocPlatformMessagingStack', { env });
 
 // 5. Search Stack
 const searchStack = new SearchStack(app, 'DocPlatformSearchStack', {

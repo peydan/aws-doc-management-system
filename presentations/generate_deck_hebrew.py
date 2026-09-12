@@ -91,6 +91,18 @@ def add_card(slide, left, top, width, height, bg_color=CARD_BG, border_color=CAR
     shape.line.width = Pt(1)
     return shape
 
+def add_diagram_picture(slide, path, left, top=Inches(1.65), max_w=Inches(5.7), max_h=Inches(3.8)):
+    """Embeds a sequence diagram image preserving native aspect ratio, centered in its display area."""
+    if not os.path.exists(path):
+        return None
+    pic = slide.shapes.add_picture(path, left, top, width=max_w)
+    if pic.height > max_h:
+        ratio = max_h / pic.height
+        pic.height = max_h
+        pic.width = int(pic.width * ratio)
+    pic.top = top + (max_h - pic.height) // 2
+    return pic
+
 def add_footer(slide, current_slide, total_slides):
     """הוספת קו תחתון ומספור שקפים."""
     line = slide.shapes.add_shape(
@@ -131,7 +143,7 @@ def build_hebrew_presentation(output_path="AWS_Document_Management_Platform_Arch
     prs.slide_height = Inches(7.5)
     blank_layout = prs.slide_layouts[6]
 
-    TOTAL_SLIDES = 23
+    TOTAL_SLIDES = 26
 
     # =========================================================================
     # SLIDE 1: Title Slide (Executive Dark)
@@ -918,7 +930,7 @@ def build_hebrew_presentation(output_path="AWS_Document_Management_Platform_Arch
                 p.font.bold = True
                 p.font.color.rgb = AWS_ORANGE if c_idx == 0 else ACCENT_BLUE
             else:
-                p.font.size = Pt(8.5)
+                p.font.size = Pt(7.5)
                 if c_idx == 0:
                     p.font.name = "Consolas"
                     if "POST" in val:
@@ -1401,20 +1413,128 @@ def build_hebrew_presentation(output_path="AWS_Document_Management_Platform_Arch
     add_footer(slide19, 19, TOTAL_SLIDES)
 
     # =========================================================================
-    # SLIDE 20: UI & Backend Integration Architecture
+    # SLIDE 20: Sequence Deep Dive - Batch ZIP Exports & PDF Splicing (Hebrew)
     # =========================================================================
     slide20 = prs.slides.add_slide(blank_layout)
     set_slide_background(slide20)
-    add_header(slide20, "פורטל אינטרנט Serverless וארכיטקטורת אינטגרציית לקוחות",
+    add_header(slide20, "פירוט תהליך רצף: ייצוא חבילות מסמכים ב-ZIP והוספת עמודים ל-PDF",
+               "תהליכי רצף 17 ו-18: POST /v1/documents/batch-download ו-POST /v1/documents/{id}/pages",
+               "רצפי הרצת ממשקים (API Sequences)")
+
+    img_17 = os.path.join(script_dir, "diagrams/api_sequence_diagrams/17_post_documents_batch_download.jpg")
+    img_18 = os.path.join(script_dir, "diagrams/api_sequence_diagrams/18_post_documents_pages.jpg")
+
+    add_diagram_picture(slide20, img_17, Inches(0.8))
+    add_diagram_picture(slide20, img_18, Inches(6.8))
+
+    add_card(slide20, Inches(0.8), Inches(5.6), Inches(11.733), Inches(1.2), CARD_BG, CARD_BORDER)
+    b20 = slide20.shapes.add_textbox(Inches(1.0), Inches(5.68), Inches(11.333), Inches(1.0))
+    tf20 = b20.text_frame
+    tf20.word_wrap = True
+
+    p = tf20.paragraphs[0]
+    p.text = "עיקרי ייצוא אצוות ושינוי בינארי מבוקר (WORM):"
+    p.font.name = FONT_FAMILY
+    p.font.size = Pt(11)
+    p.font.bold = True
+    p.font.color.rgb = AWS_ORANGE
+
+    p_sub = tf20.add_paragraph()
+    p_sub.text = "• ייצוא אצוות ZIP מרובת מסמכים (17): משיכה מקבילית של קבצים מ-S3, אריזה מהירה בזיכרון בתוספת קובץ ביקורת manifest.json, שמירת ה-ZIP ב-S3 (תוקף 14 יום) והחזרת קישור Presigned ל-15 דקות ללא פגיעה בסמכות המקור.\n• הוספת עמודים לקובץ PDF קיים (18): מיזוג דפים בזיכרון באמצעות ספריית pdf-lib על גבי Graviton ARM64, שמירת התוצאה כגרסה חדשה לחלוטין (S3 VersionId חדש), ועדכון אטומי של מספר הגרסה וסך העמודים ב-DynamoDB OCC."
+    p_sub.font.name = FONT_FAMILY
+    p_sub.font.size = Pt(9)
+    p_sub.font.color.rgb = TEXT_WHITE
+    p_sub.space_before = Pt(2)
+
+    add_footer(slide20, 20, TOTAL_SLIDES)
+
+    # =========================================================================
+    # SLIDE 21: Sequence Deep Dive - AI Assistant & Multimodal Suggestion (Hebrew)
+    # =========================================================================
+    slide21 = prs.slides.add_slide(blank_layout)
+    set_slide_background(slide21)
+    add_header(slide21, "פירוט תהליך רצף: סוכן שיחה מבוסס AI והשלמת מטא-דאטה מקדימה",
+               "תהליכי רצף 19 ו-20: POST /v1/agent/chat ו-POST /v1/metadata/suggest (Amazon Bedrock Nova 2 Lite)",
+               "בינה מלאכותית וסוכני Bedrock")
+
+    img_19 = os.path.join(script_dir, "diagrams/api_sequence_diagrams/19_post_agent_chat.jpg")
+    img_20 = os.path.join(script_dir, "diagrams/api_sequence_diagrams/20_post_metadata_suggest.jpg")
+
+    add_diagram_picture(slide21, img_19, Inches(0.8))
+    add_diagram_picture(slide21, img_20, Inches(6.8))
+
+    add_card(slide21, Inches(0.8), Inches(5.6), Inches(11.733), Inches(1.2), CARD_BG, CARD_BORDER)
+    b21 = slide21.shapes.add_textbox(Inches(1.0), Inches(5.68), Inches(11.333), Inches(1.0))
+    tf21 = b21.text_frame
+    tf21.word_wrap = True
+
+    p = tf21.paragraphs[0]
+    p.text = "עיקרי שילוב Amazon Bedrock Nova 2 Lite:"
+    p.font.name = FONT_FAMILY
+    p.font.size = Pt(11)
+    p.font.bold = True
+    p.font.color.rgb = ACCENT_BLUE
+
+    p_sub = tf21.add_paragraph()
+    p_sub.text = "• סוכן שיחה מסייע למסמכים (19): פועל באמצעות Bedrock AgentCore וכלי MCP ייעודיים (חיפוש, שליפת מטא-דאטה, הורדה). אוכף הקשר והרשאות RBAC, ממיר יחידות כספיות בדיוק נטול נקודה צפה, ומצטט מספרי מסמך וגרסה רשמיים.\n• חילוץ מטא-דאטה מולטימודלי (20): ניתוח תוכן בינארי (PDF/תמונה) באמצעות Bedrock Nova 2 Lite, חילוץ ישויות בנקאיות מדויקות על פי סכמת ה-JSON וחישוב מדדי ביטחון לטובת מילוי טפסים מהיר בפורטל."
+    p_sub.font.name = FONT_FAMILY
+    p_sub.font.size = Pt(9)
+    p_sub.font.color.rgb = TEXT_WHITE
+    p_sub.space_before = Pt(2)
+
+    add_footer(slide21, 21, TOTAL_SLIDES)
+
+    # =========================================================================
+    # SLIDE 22: Sequence Deep Dive - Unified Audit & Async LLM Enrichment (Hebrew)
+    # =========================================================================
+    slide22 = prs.slides.add_slide(blank_layout)
+    set_slide_background(slide22)
+    add_header(slide22, "פירוט תהליך רצף: תחקור יומן ביקורת מאוחד והעשרת מטא-דאטה מונעת אירועים",
+               "תהליכי רצף 21 ו-22: GET /v1/documents/{id}/audit וצינור העשרה אסינכרוני (LLM & PII Ratchet)",
+               "רגולציה, ביקורת והעשרת AI")
+
+    img_21 = os.path.join(script_dir, "diagrams/api_sequence_diagrams/21_get_documents_audit.jpg")
+    img_22 = os.path.join(script_dir, "diagrams/api_sequence_diagrams/22_async_llm_metadata_enrichment.jpg")
+
+    add_diagram_picture(slide22, img_21, Inches(0.8))
+    add_diagram_picture(slide22, img_22, Inches(6.8))
+
+    add_card(slide22, Inches(0.8), Inches(5.6), Inches(11.733), Inches(1.2), CARD_BG, CARD_BORDER)
+    b22 = slide22.shapes.add_textbox(Inches(1.0), Inches(5.68), Inches(11.333), Inches(1.0))
+    tf22 = b22.text_frame
+    tf22.word_wrap = True
+
+    p = tf22.paragraphs[0]
+    p.text = "שקיפות רגולטורית ומנגנון אבטחה ללא שנמוך (Non-Downgrade Ratchet):"
+    p.font.name = FONT_FAMILY
+    p.font.size = Pt(11)
+    p.font.bold = True
+    p.font.color.rgb = ACCENT_GREEN
+
+    p_sub = tf22.add_paragraph()
+    p_sub.text = "• תחקור יומן ביקורת מאוחד (21): שליפה ישירה מ-S3 Audit Bucket של רשומות WORM בלתי-ניתנות לשינוי עם דפדוף מבוסס Cursor, המאפשרות שחזור היסטוריית שינויים מלאה ומאומתת עבור גופי רגולציה.\n• צינור העשרה אסינכרוני מבוסס אירועים (22): תור SQS ייעודי קולט שינויי DynamoDB CDC, מפעיל עובד רקע המנתח את המסמך מול Bedrock Nova 2 Lite לזיהוי ישויות ומידע רגיש (PII), מעדכן ב-DynamoDB OCC, ואוסר שנמוך סיווג אבטחה."
+    p_sub.font.name = FONT_FAMILY
+    p_sub.font.size = Pt(9)
+    p_sub.font.color.rgb = TEXT_WHITE
+    p_sub.space_before = Pt(2)
+
+    add_footer(slide22, 22, TOTAL_SLIDES)
+
+    # =========================================================================
+    # SLIDE 23: UI & Backend Integration Architecture
+    # =========================================================================
+    slide23 = prs.slides.add_slide(blank_layout)
+    set_slide_background(slide23)
+    add_header(slide23, "פורטל אינטרנט Serverless וארכיטקטורת אינטגרציית לקוחות",
                "CloudFront + S3 SPA, אימות מאובטח ב-Cognito JWT וחישוב SHA-256 בצד הלקוח",
                "ארכיטקטורת ממשק משתמש ואינטגרציה")
 
     ui_img = os.path.join(script_dir, "diagrams/ui_backend_integration_architecture.png")
     if os.path.exists(ui_img):
-        slide20.shapes.add_picture(ui_img, Inches(0.8), Inches(1.65), Inches(8.0), Inches(5.15))
+        slide23.shapes.add_picture(ui_img, Inches(0.8), Inches(1.65), Inches(8.0), Inches(5.15))
 
-    add_card(slide20, Inches(9.0), Inches(1.65), Inches(3.533), Inches(5.15), CARD_BG, CARD_BORDER)
-    sb20 = slide20.shapes.add_textbox(Inches(9.2), Inches(1.85), Inches(3.133), Inches(4.75))
+    add_card(slide23, Inches(9.0), Inches(1.65), Inches(3.533), Inches(5.15), CARD_BG, CARD_BORDER)
+    sb20 = slide23.shapes.add_textbox(Inches(9.2), Inches(1.85), Inches(3.133), Inches(4.75))
     tf = sb20.text_frame
     tf.word_wrap = True
 
@@ -1447,18 +1567,18 @@ def build_hebrew_presentation(output_path="AWS_Document_Management_Platform_Arch
         run.font.size = Pt(8.5)
         run.font.color.rgb = TEXT_MUTED
 
-    add_footer(slide20, 20, TOTAL_SLIDES)
+    add_footer(slide23, 23, TOTAL_SLIDES)
 
     # =========================================================================
     # SLIDE 21: Cost Model & Financial Sizing / RBAC Matrix
     # =========================================================================
-    slide21 = prs.slides.add_slide(blank_layout)
-    set_slide_background(slide21)
-    add_header(slide21, "מטריצת הרשאות RBAC, הצפנת נתונים ובקרת WORM",
+    slide24 = prs.slides.add_slide(blank_layout)
+    set_slide_background(slide24)
+    add_header(slide24, "מטריצת הרשאות RBAC, הצפנת נתונים ובקרת WORM",
                "אכיפת הרשאות קשיחה ב-Cognito, מפתחות הצפנה ייעודיים ב-KMS ומשילות רגולטורית",
                "אבטחת מידע ומשילות הרשאות")
 
-    left_b = slide21.shapes.add_textbox(Inches(1.0), Inches(1.85), Inches(5.6), Inches(4.8))
+    left_b = slide24.shapes.add_textbox(Inches(1.0), Inches(1.85), Inches(5.6), Inches(4.8))
     tf = left_b.text_frame
     tf.word_wrap = True
 
@@ -1481,7 +1601,7 @@ def build_hebrew_presentation(output_path="AWS_Document_Management_Platform_Arch
         ("POST /search", "✅", "✅", "✅", "✅")
     ]
 
-    rbac_table_shape = slide21.shapes.add_table(len(rbac_rows), 5, Inches(1.0), Inches(2.25), Inches(5.6), Inches(4.3))
+    rbac_table_shape = slide24.shapes.add_table(len(rbac_rows), 5, Inches(1.0), Inches(2.25), Inches(5.6), Inches(4.3))
     rbac_table = rbac_table_shape.table
     rbac_table.columns[0].width = Inches(2.4)
     rbac_table.columns[1].width = Inches(0.8)
@@ -1519,8 +1639,8 @@ def build_hebrew_presentation(output_path="AWS_Document_Management_Platform_Arch
                 else:
                     p.font.color.rgb = ACCENT_GREEN if "✅" in val else ACCENT_ROSE
 
-    add_card(slide21, Inches(7.0), Inches(1.7), Inches(5.533), Inches(5.1), CARD_BG, CARD_BORDER)
-    right_b = slide21.shapes.add_textbox(Inches(7.25), Inches(1.9), Inches(5.033), Inches(4.7))
+    add_card(slide24, Inches(7.0), Inches(1.7), Inches(5.533), Inches(5.1), CARD_BG, CARD_BORDER)
+    right_b = slide24.shapes.add_textbox(Inches(7.25), Inches(1.9), Inches(5.033), Inches(4.7))
     tf_r = right_b.text_frame
     tf_r.word_wrap = True
 
@@ -1553,14 +1673,14 @@ def build_hebrew_presentation(output_path="AWS_Document_Management_Platform_Arch
         p2.font.color.rgb = TEXT_MUTED
         p2.space_before = Pt(1)
 
-    add_footer(slide21, 21, TOTAL_SLIDES)
+    add_footer(slide24, 24, TOTAL_SLIDES)
 
     # =========================================================================
-    # SLIDE 22: Infrastructure as Code (AWS CDK) & Stack Architecture
+    # SLIDE 25: Infrastructure as Code (AWS CDK) & Stack Architecture
     # =========================================================================
-    slide22 = prs.slides.add_slide(blank_layout)
-    set_slide_background(slide22)
-    add_header(slide22, "תשתית כקוד (IaC): 9 Stacks מודולריים ב-AWS CDK v2",
+    slide25 = prs.slides.add_slide(blank_layout)
+    set_slide_background(slide25)
+    add_header(slide25, "תשתית כקוד (IaC): 10 Stacks מודולריים ב-AWS CDK v2",
                "טופולוגיית TypeScript CloudFormation דטרמיניסטית, תיוג גלובלי ואפס תלויות מעגליות",
                "ארכיטקטורת פריסה ותשתית")
 
@@ -1568,17 +1688,19 @@ def build_hebrew_presentation(output_path="AWS_Document_Management_Platform_Arch
         ("1. SecurityStack", "Cognito User Pool, App Client & KMS CMK Key", "מנהל את ספריית המשתמשים, קבוצות ה-RBAC ומפתח ההצפנה המרכזי.", ACCENT_BLUE),
         ("2. StorageStack", "S3 Primary Document Bucket & S3 Audit Bucket", "מגדיר גרסאות, מדיניות הצפנה, CORS ומדיניות נעילת WORM.", ACCENT_GREEN),
         ("3. SearchStack", "OpenSearch Serverless Collection (documents-v1)", "מקים את אוסף החיפוש הוקטורי, מדיניות הצפנה ואבטחת רשת.", ACCENT_PURPLE),
-        ("4. MessagingStack", "Amazon SQS Indexing Queue & Dead-Letter Queue", "חוצץ אירועי CDC עם 3 ניסיונות חוזרים והתראות CloudWatch.", AWS_ORANGE),
+        ("4. MessagingStack", "Amazon SQS Queues (אינדוקס + העשרת AI מבוססת Bedrock)", "חוצץ אירועי CDC עם 3 ניסיונות חוזרים והתראות CloudWatch.", AWS_ORANGE),
         ("5. ControlPlaneStack", "DynamoDB Table (doc-platform-mvp-control)", "טבלה מרכזית בטכנולוגיית Single-Table עם PITR ו-Streams פעילים.", ACCENT_AMBER),
-        ("6. ComputeStack", "21 פונקציות Graviton ARM64 AWS Lambda", "פורס שירותי Command, Query, Search, Stream ו-Indexer מבודדים.", ACCENT_BLUE),
-        ("7. ApiStack", "Amazon API Gateway REST API & Cognito Authorizer", "מחבר נתיבים, מנגנון הרשאות, הגבלות קצב (Throttling) ו-CORS.", ACCENT_GREEN),
-        ("8. ObservabilityStack", "התראות CloudWatch, לוחות בקרה ותיוג גלובלי", "פורס התראות DLQ/5xx, לוחות בקרה תפעוליים ותגיות Project/Environment.", ACCENT_ROSE)
+        ("6. ComputeStack", "21 פונקציות Graviton ARM64 AWS Lambda", "פורס שירותי Command, Query, Search, Stream, Indexer ו-Enricher.", ACCENT_BLUE),
+        ("7. AgentStack", "Amazon Bedrock Nova 2 Lite סוכן שיחה ו-Gateway", "מנהל את תשתית הסוכן, כלי MCP ותשאול אינטראקטיבי.", ACCENT_PURPLE),
+        ("8. ApiStack", "Amazon API Gateway REST API & Cognito Authorizer", "מחבר 20 נתיבים, מנגנון הרשאות, הגבלות קצב ו-CORS.", ACCENT_GREEN),
+        ("9. ServerlessFrontendStack", "CloudFront CDN (OAC) & S3 Single Page App Bucket", "הפצה גלובלית מהירה ומאובטחת של פורטל ה-SPA עם TLS 1.3.", ACCENT_AMBER),
+        ("10. ObservabilityStack", "התראות CloudWatch, לוחות בקרה ותיוג גלובלי", "פורס התראות DLQ/5xx, לוחות בקרה תפעוליים ותגיות Project/Environment.", ACCENT_ROSE)
     ]
 
     st_w = Inches(5.7)
-    st_h = Inches(1.15)
+    st_h = Inches(0.92)
     st_gap_x = Inches(0.333)
-    st_gap_y = Inches(0.12)
+    st_gap_y = Inches(0.10)
     st_x1 = Inches(0.8)
     st_x2 = Inches(6.833)
     st_y_start = Inches(1.7)
@@ -1589,9 +1711,9 @@ def build_hebrew_presentation(output_path="AWS_Document_Management_Platform_Arch
         sx = st_x1 if col_idx == 0 else st_x2
         sy = st_y_start + row_idx * (st_h + st_gap_y)
 
-        add_card(slide22, sx, sy, st_w, st_h, CARD_BG, CARD_BORDER)
+        add_card(slide25, sx, sy, st_w, st_h, CARD_BG, CARD_BORDER)
 
-        tb = slide22.shapes.add_textbox(sx + Inches(0.15), sy + Inches(0.1), st_w - Inches(0.3), Inches(0.95))
+        tb = slide25.shapes.add_textbox(sx + Inches(0.15), sy + Inches(0.1), st_w - Inches(0.3), Inches(0.95))
         tf = tb.text_frame
         tf.word_wrap = True
 
@@ -1614,14 +1736,14 @@ def build_hebrew_presentation(output_path="AWS_Document_Management_Platform_Arch
         p_d.font.size = Pt(8)
         p_d.font.color.rgb = TEXT_MUTED
 
-    add_footer(slide22, 22, TOTAL_SLIDES)
+    add_footer(slide25, 25, TOTAL_SLIDES)
 
     # =========================================================================
-    # SLIDE 23: Strategic Architecture Summary & Architectural Decision Records
+    # SLIDE 26: Strategic Architecture Summary & Architectural Decision Records
     # =========================================================================
-    slide23 = prs.slides.add_slide(blank_layout)
-    set_slide_background(slide23)
-    add_header(slide23, "סיכום אסטרטגי ותיעוד החלטות ארכיטקטורה (ADRs)",
+    slide26 = prs.slides.add_slide(blank_layout)
+    set_slide_background(slide26)
+    add_header(slide26, "סיכום אסטרטגי ותיעוד החלטות ארכיטקטורה (ADRs)",
                "מדוע פתרון Serverless זה מספק שרידות מקסימלית, יעילות כלכלית ועמידה מלאה ברגולציה",
                "תמצית מנהלים וערך אסטרטגי")
 
@@ -1638,9 +1760,9 @@ def build_hebrew_presentation(output_path="AWS_Document_Management_Platform_Arch
 
     for i, (title, desc, col) in enumerate(pillars):
         px = px_start + i * (pw + pgap)
-        add_card(slide23, px, py, pw, ph, CARD_BG, CARD_BORDER)
+        add_card(slide26, px, py, pw, ph, CARD_BG, CARD_BORDER)
 
-        tb = slide23.shapes.add_textbox(px + Inches(0.15), py + Inches(0.15), pw - Inches(0.3), Inches(0.35))
+        tb = slide26.shapes.add_textbox(px + Inches(0.15), py + Inches(0.15), pw - Inches(0.3), Inches(0.35))
         tf = tb.text_frame
         tf.word_wrap = True
         p = tf.paragraphs[0]
@@ -1650,7 +1772,7 @@ def build_hebrew_presentation(output_path="AWS_Document_Management_Platform_Arch
         p.font.bold = True
         p.font.color.rgb = col
 
-        db = slide23.shapes.add_textbox(px + Inches(0.15), py + Inches(0.55), pw - Inches(0.3), Inches(1.05))
+        db = slide26.shapes.add_textbox(px + Inches(0.15), py + Inches(0.55), pw - Inches(0.3), Inches(1.05))
         tf_d = db.text_frame
         tf_d.word_wrap = True
         p_d = tf_d.paragraphs[0]
@@ -1669,7 +1791,7 @@ def build_hebrew_presentation(output_path="AWS_Document_Management_Platform_Arch
         ("אימות סכמות מטא-דאטה", "GitOps מהודר מראש (Ajv בזיכרון)", "שליפת סכמות מ-DB בעליית Lambda", "אפס תקורה בעליית פונקציה (Cold Start) ובקרת קוד קפדנית ב-Pull Requests.")
     ]
 
-    adr_table_shape = slide23.shapes.add_table(len(adr_rows), 4, Inches(0.8), adr_y, Inches(11.733), Inches(3.25))
+    adr_table_shape = slide26.shapes.add_table(len(adr_rows), 4, Inches(0.8), adr_y, Inches(11.733), Inches(3.25))
     adr_table = adr_table_shape.table
     adr_table.columns[0].width = Inches(2.5)
     adr_table.columns[1].width = Inches(2.8)
@@ -1711,7 +1833,7 @@ def build_hebrew_presentation(output_path="AWS_Document_Management_Platform_Arch
                 else:
                     p.font.color.rgb = TEXT_MUTED
 
-    add_footer(slide23, 23, TOTAL_SLIDES)
+    add_footer(slide26, 26, TOTAL_SLIDES)
 
     # -------------------------------------------------------------------------
     # Save Presentation
