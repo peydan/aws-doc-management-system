@@ -43,6 +43,7 @@ export class ComputeStack extends cdk.Stack {
       COGNITO_CLIENT_ID: props.userPoolClient.userPoolClientId,
       OPENSEARCH_ENDPOINT: props.openSearchEndpoint || '',
       INLINE_UPLOAD_MAX_BYTES: '4194304',
+      BEDROCK_MODEL_ID: process.env.BEDROCK_MODEL_ID || 'us.amazon.nova-2-lite-v1:0',
     };
 
     const denyDeleteVersionPolicy = new iam.PolicyStatement({

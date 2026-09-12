@@ -117,7 +117,7 @@ export interface AgentRunResult {
 }
 
 /**
- * Executes the agent loop: calls Claude Sonnet 5, dispatches tools, and updates ephemeral session memory.
+ * Executes the agent loop: calls Amazon Nova 2 Lite, dispatches tools, and updates ephemeral session memory.
  */
 export async function runAgentConversation(
   sessionId: string,
@@ -141,7 +141,7 @@ export async function runAgentConversation(
   while (maxTurns > 0) {
     maxTurns--;
 
-    Logger.info('Calling Bedrock Converse with Claude Sonnet 5', {
+    Logger.info('Calling Bedrock Converse with Amazon Nova 2 Lite', {
       modelId: AGENT_MODEL_ID,
       sessionId,
       messageCount: messages.length,

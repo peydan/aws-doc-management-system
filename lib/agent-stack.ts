@@ -33,7 +33,7 @@ export class AgentStack extends cdk.Stack {
       COGNITO_USER_POOL_ID: props.userPool.userPoolId,
       COGNITO_CLIENT_ID: props.userPoolClient.userPoolClientId,
       OPENSEARCH_ENDPOINT: props.openSearchEndpoint || '',
-      BEDROCK_MODEL_ID: process.env.BEDROCK_MODEL_ID || 'amazon.nova-pro-v1:0',
+      BEDROCK_MODEL_ID: process.env.BEDROCK_MODEL_ID || 'us.amazon.nova-2-lite-v1:0',
     };
 
     const denyDeleteVersionPolicy = new iam.PolicyStatement({
@@ -93,7 +93,7 @@ export class AgentStack extends cdk.Stack {
     this.fetchToolFunction.addToRolePolicy(s3AnnotationReadPolicy);
     this.fetchToolFunction.addToRolePolicy(denyDeleteVersionPolicy);
 
-    // 3. Agent Chat Function (AgentCore Harness + Claude Sonnet 5 reasoning & SSE streaming)
+    // 3. Agent Chat Function (AgentCore Harness + Amazon Nova 2 Lite reasoning & SSE streaming)
     this.chatFunction = new nodejs.NodejsFunction(this, 'AgentChatFunction', {
       runtime: lambda.Runtime.NODEJS_20_X,
       architecture: lambda.Architecture.ARM_64,
@@ -107,7 +107,7 @@ export class AgentStack extends cdk.Stack {
       environment: commonEnv,
     });
 
-    // Grant Bedrock model invocation permissions for Claude Sonnet 5
+    // Grant Bedrock model invocation permissions for Amazon Nova 2 Lite
     this.chatFunction.addToRolePolicy(
       new iam.PolicyStatement({
         actions: [
@@ -146,7 +146,7 @@ export class AgentStack extends cdk.Stack {
     // Stack Outputs
     new cdk.CfnOutput(this, 'AgentChatStreamingUrl', {
       value: this.chatFunctionUrl.url,
-      description: 'Lambda Function URL for real-time SSE streaming with AgentCore Harness & Claude Sonnet 5',
+      description: 'Lambda Function URL for real-time SSE streaming with AgentCore Harness & Amazon Nova 2 Lite',
     });
 
     new cdk.CfnOutput(this, 'AgentSearchToolArn', {

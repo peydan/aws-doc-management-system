@@ -565,7 +565,7 @@ async function fetchDocumentAudit(docId) {
     }
 
     const modelEl = document.getElementById('audit-llm-model');
-    if (modelEl) modelEl.innerText = llm.model_id || 'Claude 3 Haiku';
+    if (modelEl) modelEl.innerText = llm.model_id || 'Amazon Nova 2 Lite';
 
     const tokensEl = document.getElementById('audit-llm-tokens');
     if (tokensEl) tokensEl.innerText = (llm.total_tokens || 0).toLocaleString();
@@ -1157,7 +1157,7 @@ function updateEnrichmentAdvisor(mode = 'direct') {
       triggerHtml += `
         <div style="display: flex; align-items: center; gap: 6px;">
           <span style="color: #fbbf24;">⚡</span>
-          <span><strong>Attribute Auto-Extraction:</strong> <code>loan_number</code> is blank. Bedrock Claude 3 Haiku will extract loan reference, amount, currency, and signed date from document text.</span>
+          <span><strong>Attribute Auto-Extraction:</strong> <code>loan_number</code> is blank. Bedrock Amazon Nova 2 Lite will extract loan reference, amount, currency, and signed date from document text.</span>
         </div>
       `;
     }
@@ -1520,13 +1520,13 @@ async function fetchDocumentDetails(docId = null) {
               <span>🟢</span> <strong>Enrichment Completed:</strong> Automatically triggered on initial ingestion (Rev 1 ➔ 2).
             </div>
             <div style="color: var(--text-dim); margin-top: 2px;">
-              Bedrock Claude 3 Haiku extracted missing attributes, unioned newly identified PII into S3 annotations, and atomically bumped revision via DynamoDB OCC.
+              Bedrock Amazon Nova 2 Lite extracted missing attributes, unioned newly identified PII into S3 annotations, and atomically bumped revision via DynamoDB OCC.
             </div>
           `;
         }
 
         const modelEl = document.getElementById('ai-audit-model');
-        if (modelEl) modelEl.innerText = audit.model_id || 'Claude 3 Haiku';
+        if (modelEl) modelEl.innerText = audit.model_id || 'Amazon Nova 2 Lite';
 
         const tokensEl = document.getElementById('ai-audit-tokens');
         if (tokensEl) {
@@ -1650,7 +1650,7 @@ async function fetchDocumentDetails(docId = null) {
               <span>⏳</span> <strong>Asynchronous Enrichment Queued:</strong> Document is queued in SQS (<code>doc-platform-mvp-enrichment-queue</code>).
             </div>
             <div style="color: var(--text-dim); margin-top: 2px;">
-              Bedrock Claude 3 Haiku will enrich PII and generate metadata revision 2 in ~1.5s.
+              Bedrock Amazon Nova 2 Lite will enrich PII and generate metadata revision 2 in ~1.5s.
               <a href="javascript:void(0)" onclick="fetchDocumentDetails()" style="color: var(--aws-orange); text-decoration: underline; font-weight: 600;">Click here to refresh</a> in 2-3 seconds.
             </div>
           `;
@@ -2508,7 +2508,7 @@ async function executeBatchFetchZip() {
 }
  
 // ==========================================
-// 10. AI CONVERSATIONAL DOCUMENT ASSISTANT (Bedrock AgentCore + Claude Sonnet 5)
+// 10. AI CONVERSATIONAL DOCUMENT ASSISTANT (Bedrock AgentCore + Amazon Nova 2 Lite)
 // ==========================================
 
 function generateUuid() {

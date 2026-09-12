@@ -79,10 +79,10 @@ The table below catalogs all capabilities exposed across the platform's API Gate
 | **23** | **Cognito Persona Role Simulation** | Frontend UI | In-Browser Header Injection | Developer / Tester | 1-click persona switcher simulating `Reader`, `Writer`, `MetadataEditor`, and `Admin` JWT claims. |
 | **24** | **In-Browser Client-Side SHA-256 Calculation** | Frontend UI | Web Crypto API | All Personas | Generates client-side SHA-256 hashes prior to upload for end-to-end cryptographic integrity verification. |
 | **25** | **Dynamic Multi-Tenant Schema Validation** | Core Engine | Precompiled Ajv Schemas | Internal / API | Validates structured metadata against domain schemas (`loan_agreement`, `compliance_retention`, `security_classification`). |
-| **26** | **Automated LLM Metadata & PII Enrichment** | Background Event Pipeline | SQS Enrichment Queue | System / Bedrock | Asynchronously extracts domain metadata and discovers PII via Amazon Bedrock (Claude 3 Haiku); applies non-downgrade safety ratchet; commits revision bump via DynamoDB OCC; persists compliance audit trail in S3. |
-| **27** | **AI Conversational Document Assistant** | REST API & Function URL | `POST /agent/chat` & SSE URL | `Document.Reader` | Managed conversational reasoning via Amazon Bedrock AgentCore Harness and Anthropic Claude Sonnet 5 (1M token window); invokes MCP tools (`search_documents`, `fetch_document`); ephemeral 1-hour session memory; real-time progress and token streaming. |
+| **26** | **Automated LLM Metadata & PII Enrichment** | Background Event Pipeline | SQS Enrichment Queue | System / Bedrock | Asynchronously extracts domain metadata and discovers PII via Amazon Bedrock (Amazon Nova 2 Lite - `us.amazon.nova-2-lite-v1:0`); applies non-downgrade safety ratchet; commits revision bump via DynamoDB OCC; persists compliance audit trail in S3. |
+| **27** | **AI Conversational Document Assistant** | REST API & Function URL | `POST /agent/chat` & SSE URL | `Document.Reader` | Managed conversational reasoning via Amazon Bedrock AgentCore Harness and Amazon Nova 2 Lite (`us.amazon.nova-2-lite-v1:0`); invokes MCP tools (`search_documents`, `fetch_document`); ephemeral 1-hour session memory; real-time progress and token streaming. |
 | **28** | **Document Audit Trail & LLM Inspection** | REST API & Frontend UI | `GET /documents/{document_id}/audit` | `Document.Reader` | Unified document-specific audit trail combining Amazon Bedrock LLM enrichment metrics (model, prompt/completion tokens, latency, PII safety ratchets, S3 compliance URI) and server-side lifecycle mutations from DynamoDB & S3 WORM audit bucket. |
-| **29** | **AI-Assisted Metadata Pre-Fill for UI** | REST API & Frontend UI | `POST /metadata/suggest` | `Document.Reader` | Stateless pre-upload AI metadata extraction from document excerpt or file bytes via Amazon Bedrock (Claude 3 Haiku); partitions extracted attributes into shared banking and class-specific traits; auto-populates web console inputs prior to immutable persistence. |
+| **29** | **AI-Assisted Metadata Pre-Fill for UI** | REST API & Frontend UI | `POST /metadata/suggest` | `Document.Reader` | Stateless pre-upload AI metadata extraction from document excerpt or file bytes via Amazon Bedrock (Amazon Nova 2 Lite - `us.amazon.nova-2-lite-v1:0`); partitions extracted attributes into shared banking and class-specific traits; auto-populates web console inputs prior to immutable persistence. |
 
 ---
 
@@ -375,11 +375,11 @@ Consists of three coordinated operations designed to bypass API Gateway payload 
 
 ### 3.6 AI & Conversational Assistant Operations
 
-#### Capability: AI Conversational Document Assistant (AgentCore Harness + Claude Sonnet 5)
+#### Capability: AI Conversational Document Assistant (AgentCore Harness + Amazon Nova 2 Lite)
 - **Method & Route:** `POST /agent/chat` (REST API) & Lambda Function URL (`RESPONSE_STREAM` SSE)
 - **Operation ID:** `chatWithDocumentAssistant`
 - **Required Role:** `Document.Reader`
-- **Foundation Model:** Anthropic Claude Sonnet 5 (`anthropic.claude-sonnet-5-v1:0` via Amazon Bedrock) with 1 Million token context window and adaptive thinking.
+- **Foundation Model:** Amazon Nova 2 Lite (`us.amazon.nova-2-lite-v1:0` via Amazon Bedrock) with 1 Million token context window and adaptive thinking.
 - **Request Body:**
   ```json
   {
@@ -508,7 +508,7 @@ The platform delivers an enterprise Single-Page Application (SPA) hosted serverl
 8. **Live Metadata Editor with OCC Shielding**: Enables editing structured metadata with client-side JSON syntax checking and automatic submission of the current `metadata_revision` to prevent lost updates.
 9. **Page Splice & Append Studio**: Allows users to upload a donor PDF or image and splice it into an existing document at any position (append, prepend, or specific page index).
 10. **Multi-Document Batch ZIP Exporter**: Allows operators to select checkboxes across multiple search results and trigger an on-demand ZIP export with an embedded manifest.
-11. **Conversational AI Assistant UI**: Dedicated '🤖 AI Assistant' interface powered by Amazon Bedrock AgentCore and Anthropic Claude Sonnet 5, featuring real-time Server-Sent Events (SSE) streaming via Lambda Function URL / REST API Gateway, live MCP tool call badges (`search_documents`, `fetch_document`) with expandable JSON payload inspection, interactive document citation cards with one-click navigation into the Document Viewer, prompt starter chips, and ephemeral session management.
+11. **Conversational AI Assistant UI**: Dedicated '🤖 AI Assistant' interface powered by Amazon Bedrock AgentCore and Amazon Nova 2 Lite, featuring real-time Server-Sent Events (SSE) streaming via Lambda Function URL / REST API Gateway, live MCP tool call badges (`search_documents`, `fetch_document`) with expandable JSON payload inspection, interactive document citation cards with one-click navigation into the Document Viewer, prompt starter chips, and ephemeral session management.
 12. **AI Auto-Enrichment Advisor & Pipeline Stepper UI**: Dynamic pre-flight trigger evaluation embedded directly into upload studios, reactive `Auto-Enrich Document` cost guardrails (dynamically injecting `skip_enrichment: true`), 4-step asynchronous lifecycle pipeline visualizer (`Ingestion ➔ SQS Queue ➔ Bedrock Scan ➔ Rev 2 OCC`), explicit trigger diagnosis explaining why a document was enriched, skipped, or ineligible, and an in-app Bedrock Trigger Rules reference matrix.
 
 ---
@@ -563,7 +563,7 @@ The platform delivers an enterprise Single-Page Application (SPA) hosted serverl
 
 ### 6.2 Automated LLM Metadata & PII Enrichment Pipeline:
 - **Event-Driven Bedrock Invocation**: On initial document creation (`metadata_revision = 1`), `stream-processor.ts` enqueues an event to `doc-platform-mvp-enrichment-queue`.
-- **Bedrock Worker (`metadata-enricher.ts`)**: Consumes the SQS message, evaluates pre-flight skip rules (`skip_enrichment` or existing key fields), reads document text, and invokes Amazon Bedrock (Claude 3 Haiku).
+- **Bedrock Worker (`metadata-enricher.ts`)**: Consumes the SQS message, evaluates pre-flight skip rules (`skip_enrichment` or existing key fields), reads document text, and invokes Amazon Bedrock (Amazon Nova 2 Lite - `us.amazon.nova-2-lite-v1:0`).
 - **PII Discovery with Safety Ratchet**: Automatically scans text for PII entities, populates `contains_pii`, and unions discovered types into `pii_categories` (`NATIONAL_ID`, `FINANCIAL_ACCOUNT`, `CONTACT_INFO`, etc.). Strictly preserves uploader `contains_pii: true` without allowing downgrades.
 - **Governance Invariant Preservation**: Uploader-defined policy fields (`confidentiality_tier`, `minimum_clearance_role`, `classification_owner`, `encryption_requirement`) are strictly immutable and cannot be modified by the LLM.
 - **DynamoDB OCC & OpenSearch Re-Index**: Bumps `metadata_revision` from 1 to 2 via conditional check (`expected_metadata_revision = 1`), updates the native S3 annotation (`document-metadata`), which automatically triggers the DynamoDB Stream to update the OpenSearch search projection.

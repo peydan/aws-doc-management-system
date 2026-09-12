@@ -945,7 +945,7 @@
           </div>
           <input type="range" id="slider-ai-enrich-pct" min="0" max="100" step="5" value="100" oninput="updateValues(); recalculate();" />
           <div style="font-size: 11px; color: var(--color-text-muted); margin-top: 2px;">
-            Asynchronous Bedrock Claude 3 Haiku extracts missing attributes & safety-ratchets PII.
+            Asynchronous Bedrock Amazon Nova 2 Lite extracts missing attributes & safety-ratchets PII.
           </div>
         </div>
 
@@ -956,7 +956,7 @@
           </div>
           <input type="range" id="slider-ai-queries" min="0" max="500000" step="2500" value="10000" oninput="updateValues(); recalculate();" />
           <div style="font-size: 11px; color: var(--color-text-muted); margin-top: 2px;">
-            Bedrock AgentCore + Claude 3.5 Sonnet conversational assistant with MCP tool calls.
+            Bedrock AgentCore + Amazon Nova 2 Lite conversational assistant with MCP tool calls.
           </div>
         </div>
 
@@ -1106,7 +1106,7 @@
 
       <div class="insight-card" style="background-color: #f5f3ff; border: 1px solid #ddd6fe; color: #5b21b6;">
         <div class="insight-title">🤖 Cost-Optimized Bedrock AI</div>
-        <p>Decoupled async SQS architecture runs high-throughput Claude 3 Haiku for metadata/PII extraction (~$0.00075/doc) with bypass guardrails when attributes are pre-filled, alongside AgentCore Sonnet chat.</p>
+        <p>Decoupled async SQS architecture runs high-throughput Amazon Nova 2 Lite for metadata/PII extraction (~$0.00017/doc) with bypass guardrails when attributes are pre-filled, alongside AgentCore Nova 2 Lite chat.</p>
       </div>
     </section>
 
@@ -1138,10 +1138,8 @@
       kms_op_10k: 0.03,
       cw_ingest_gb: 0.55,
       egress_gb: 0.090,
-      bedrock_haiku_in_1m: 0.25,
-      bedrock_haiku_out_1m: 1.25,
-      bedrock_sonnet_in_1m: 3.00,
-      bedrock_sonnet_out_1m: 15.00
+      bedrock_nova2lite_in_1m: 0.06,
+      bedrock_nova2lite_out_1m: 0.24
     };
 
     const PRESETS = {
@@ -1319,16 +1317,16 @@
       const s3GetCost = (s3GetRequests / 1000) * RATES.s3_get_1k;
       const s3TotalCost = s3StorageCost + s3PutCost + s3GetCost;
 
-      // Amazon Bedrock AI Intelligence (Claude 3 Haiku Auto-Enrichment + Claude 3.5 Sonnet Assistant)
-      const haikuTokensIn = enrichedDocs * 1500;
-      const haikuTokensOut = enrichedDocs * 300;
-      const haikuCost = ((haikuTokensIn / 1000000) * RATES.bedrock_haiku_in_1m) + ((haikuTokensOut / 1000000) * RATES.bedrock_haiku_out_1m);
+      // Amazon Bedrock AI Intelligence (Amazon Nova 2 Lite Auto-Enrichment & Conversational Assistant)
+      const enrichTokensIn = enrichedDocs * 1500;
+      const enrichTokensOut = enrichedDocs * 300;
+      const enrichCost = ((enrichTokensIn / 1000000) * RATES.bedrock_nova2lite_in_1m) + ((enrichTokensOut / 1000000) * RATES.bedrock_nova2lite_out_1m);
       
-      const sonnetTokensIn = aiQueries * 2500;
-      const sonnetTokensOut = aiQueries * 400;
-      const sonnetCost = ((sonnetTokensIn / 1000000) * RATES.bedrock_sonnet_in_1m) + ((sonnetTokensOut / 1000000) * RATES.bedrock_sonnet_out_1m);
+      const assistantTokensIn = aiQueries * 2500;
+      const assistantTokensOut = aiQueries * 400;
+      const assistantCost = ((assistantTokensIn / 1000000) * RATES.bedrock_nova2lite_in_1m) + ((assistantTokensOut / 1000000) * RATES.bedrock_nova2lite_out_1m);
       
-      const bedrockTotalCost = haikuCost + sonnetCost;
+      const bedrockTotalCost = enrichCost + assistantCost;
 
       // DynamoDB Control Plane
       const ddbWRU = (ingest * 4) + (patches * 2) + (enrichedDocs * 1); // OCC revision bump for AI enrichment
@@ -1467,8 +1465,8 @@
           usd: c.s3TotalCost
         },
         {
-          name: 'Amazon Bedrock AI (Claude 3 Haiku & Sonnet)',
-          rate: '$0.25/$1.25 (Haiku) + $3.00/$15.00 (Sonnet) / 1M tok',
+          name: 'Amazon Bedrock AI (Amazon Nova 2 Lite)',
+          rate: '$0.06 in / $0.24 out per 1M tokens',
           vol: formatNumber(c.enrichedDocs) + ' enriched docs + ' + formatNumber(c.aiQueries) + ' agent chats',
           usd: c.bedrockTotalCost
         },

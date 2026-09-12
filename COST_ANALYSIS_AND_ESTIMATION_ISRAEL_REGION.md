@@ -49,9 +49,7 @@ All estimates in this model are based on published pricing for AWS Region **`il-
 | **AWS KMS** | Customer Managed Key (CMK) | **$1.00 per key-month** + $0.03 / 10k ops | Dedicated platform encryption key. |
 | **Amazon CloudWatch** | Logs Ingestion & Metrics | **$0.55 per GB ingested** + $0.30/metric | Structured JSON logs with 30-day retention. |
 | **AWS Cognito** | Active Users (MAU) | **Free up to 50,000 MAU**, then $0.0055/MAU | Identity & RBAC user pool tokens. |
-| **Data Transfer Out (Egress)** | Internet Egress | **$0.090 per GB** (First 100 GB/mo free) | Presigned download binary transfers to clients. |
-| **Amazon Bedrock (Claude 3 Haiku)** | Input Tokens / Output Tokens | **$0.25 / $1.25 per 1,000,000 tokens** | Asynchronous metadata extraction & PII safety ratchet. |
-| **Amazon Bedrock (Claude 3.5 Sonnet)** | Input Tokens / Output Tokens | **$3.00 / $15.00 per 1,000,000 tokens** | Conversational assistant & AgentCore MCP reasoning. |
+| **Amazon Bedrock (Amazon Nova 2 Lite)** | Input Tokens / Output Tokens | **$0.06 / $0.24 per 1,000,000 tokens** | Asynchronous metadata extraction, PII safety ratchet & AgentCore conversational assistant. |
 
 ---
 
@@ -101,27 +99,27 @@ When a user requests and downloads a 1 MB document:
 
 $$\mathbf{Total\ Cost\ per\ Download} \approx \mathbf{\$0.000096}\ \text{(approx. ₪0.000355)}$$
 
-### 3.5 Automated LLM Metadata & PII Enrichment (Bedrock Claude 3 Haiku)
+### 3.5 Automated LLM Metadata & PII Enrichment (Bedrock Amazon Nova 2 Lite)
 When asynchronous AI enrichment processes an uploaded document:
 1. **SQS Ingestion + Lambda (Metadata Enricher):** $200\text{ms}$ @ $512\text{MB}$ = $\$0.0000018$
-2. **Bedrock Claude 3 Haiku Tokens:**
-   - 1,500 prompt tokens @ $\$0.25/\text{1M}$ = $\$0.000375$
-   - 300 completion tokens @ $\$1.25/\text{1M}$ = $\$0.000375$
+2. **Bedrock Amazon Nova 2 Lite Tokens:**
+   - 1,500 prompt tokens @ $\$0.06/\text{1M}$ = $\$0.000090$
+   - 300 completion tokens @ $\$0.24/\text{1M}$ = $\$0.000072$
 3. **DynamoDB OCC Revision Increment (1 WRU):** $\$0.000000625$
 4. **S3 Compliance Audit Record PUT (`audit/...`):** $\$0.0000055$
 
-$$\mathbf{Total\ Cost\ per\ Enriched\ Document} \approx \mathbf{\$0.000758}\ \text{(approx. ₪0.0028)}$$
+$$\mathbf{Total\ Cost\ per\ Enriched\ Document} \approx \mathbf{\$0.000169}\ \text{(approx. ₪0.00063)}$$
 *(Note: Automated guardrails bypass Bedrock invocation when attributes are already complete, consuming $0 tokens).*
 
-### 3.6 Conversational Document Assistant (Bedrock AgentCore + Claude 3.5 Sonnet)
+### 3.6 Conversational Document Assistant (Bedrock AgentCore + Amazon Nova 2 Lite)
 When a user executes a natural language query with agentic reasoning:
 1. **API Gateway SSE / AgentCore Streaming Lambda:** $1.5\text{s}$ @ $512\text{MB}$ = $\$0.0000102$
 2. **DynamoDB Session Pointer & MCP Retrieval:** 2 RRUs = $\$0.00000025$
-3. **Bedrock Claude 3.5 Sonnet Tokens:**
-   - 2,500 prompt tokens (system instructions + MCP tool schema + document context) @ $\$3.00/\text{1M}$ = $\$0.00750$
-   - 400 completion tokens @ $\$15.00/\text{1M}$ = $\$0.00600$
+3. **Bedrock Amazon Nova 2 Lite Tokens:**
+   - 2,500 prompt tokens (system instructions + MCP tool schema + document context) @ $\$0.06/\text{1M}$ = $\$0.000150$
+   - 400 completion tokens @ $\$0.24/\text{1M}$ = $\$0.000096$
 
-$$\mathbf{Total\ Cost\ per\ AI\ Conversational\ Query} \approx \mathbf{\$0.01351}\ \text{(approx. ₪0.050)}$$
+$$\mathbf{Total\ Cost\ per\ AI\ Conversational\ Query} \approx \mathbf{\$0.000256}\ \text{(approx. ₪0.00095)}$$
 
 ---
 

@@ -84,7 +84,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           metadata_revision: doc.current_metadata_revision,
           timestamp: appliedAt,
           llm_details: enrichmentAudit || {
-            model_id: 'anthropic.claude-3-haiku-20240307-v1:0',
+            model_id: 'us.amazon.nova-2-lite-v1:0',
             prompt_tokens: 0,
             completion_tokens: 0,
             total_tokens: 0,
@@ -126,7 +126,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         actor: meta.metadata_updated_by || 'system:llm-enricher',
         description: `Automated Bedrock PII & metadata enrichment committed via DynamoDB OCC (rev ${doc.current_metadata_revision})`,
         details: {
-          model_id: enrichmentAudit?.model_id || 'Claude 3 Haiku',
+          model_id: enrichmentAudit?.model_id || 'Amazon Nova 2 Lite',
           total_tokens: enrichmentAudit?.total_tokens || 0,
           latency_ms: enrichmentAudit?.latency_ms || 0,
           contains_pii: meta.contains_pii,
@@ -178,7 +178,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         llm_enrichment_audit: {
           status: llmStatus,
           is_enriched: isEnriched,
-          model_id: enrichmentAudit?.model_id || 'anthropic.claude-3-haiku-20240307-v1:0',
+          model_id: enrichmentAudit?.model_id || 'us.amazon.nova-2-lite-v1:0',
           prompt_tokens: enrichmentAudit?.prompt_tokens || 0,
           completion_tokens: enrichmentAudit?.completion_tokens || 0,
           total_tokens: enrichmentAudit?.total_tokens || 0,

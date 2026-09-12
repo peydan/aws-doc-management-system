@@ -205,7 +205,7 @@ export class ApiStack extends cdk.Stack {
     );
 
     const agentChatLambda = createHandlerLambda('AgentChatLambdaHandler', '../src/agent/chat-handler.ts', {
-      BEDROCK_MODEL_ID: process.env.BEDROCK_MODEL_ID || 'amazon.nova-pro-v1:0',
+      BEDROCK_MODEL_ID: process.env.BEDROCK_MODEL_ID || 'us.amazon.nova-2-lite-v1:0',
     });
     props.documentBucket.grantRead(agentChatLambda);
     props.controlTable.grantReadData(agentChatLambda);
@@ -224,7 +224,7 @@ export class ApiStack extends cdk.Stack {
     );
 
     const metadataSuggestLambda = createHandlerLambda('MetadataSuggestLambda', '../src/command-api/metadata-suggest.ts', {
-      BEDROCK_MODEL_ID: process.env.BEDROCK_MODEL_ID || 'anthropic.claude-3-haiku-20240307-v1:0',
+      BEDROCK_MODEL_ID: process.env.BEDROCK_MODEL_ID || 'us.amazon.nova-2-lite-v1:0',
     });
     metadataSuggestLambda.addToRolePolicy(
       new iam.PolicyStatement({
@@ -290,7 +290,7 @@ export class ApiStack extends cdk.Stack {
     // Search
     search.addMethod('POST', new apigateway.LambdaIntegration(searchLambda), authOptions);
 
-    // /v1/agent/chat (Conversational AI Assistant via Claude Sonnet 5)
+    // /v1/agent/chat (Conversational AI Assistant via Amazon Nova 2 Lite)
     const agent = this.api.root.addResource('agent');
     addCors(agent);
     const agentChat = agent.addResource('chat');

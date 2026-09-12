@@ -5,7 +5,7 @@ const bedrockClient = new BedrockRuntimeClient({
 });
 
 export const DEFAULT_BEDROCK_MODEL_ID =
-  process.env.BEDROCK_MODEL_ID || 'anthropic.claude-3-haiku-20240307-v1:0';
+  process.env.BEDROCK_MODEL_ID || 'us.amazon.nova-2-lite-v1:0';
 
 export interface EnrichmentAuditDetails {
   model_id: string;

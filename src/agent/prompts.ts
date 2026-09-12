@@ -1,6 +1,6 @@
 /**
  * System prompts and behavioral instructions for the AI Conversational Document Assistant
- * powered by Amazon Bedrock AgentCore Harness and Anthropic Claude Sonnet 5.
+ * powered by Amazon Bedrock AgentCore Harness and Amazon Nova 2 Lite.
  */
 
 export const AGENT_SYSTEM_PROMPT = `You are the AI Document Assistant for the enterprise AWS Document Management Platform.
@@ -30,4 +30,4 @@ Your purpose is to help banking, compliance, and loan officers search for docume
 `;
 
 export const AGENT_NAME = 'DocPlatformAssistant';
-export const AGENT_MODEL_ID = process.env.BEDROCK_MODEL_ID || 'amazon.nova-pro-v1:0';
+export const AGENT_MODEL_ID = process.env.BEDROCK_MODEL_ID || 'us.amazon.nova-2-lite-v1:0';

@@ -33,7 +33,7 @@ describe('Document Audit & LLM Inspection Query API', () => {
       contains_pii: true,
       pii_categories: ['NATIONAL_ID', 'FINANCIAL_HISTORY'],
       enrichment_audit: {
-        model_id: 'anthropic.claude-3-haiku-20240307-v1:0',
+        model_id: 'us.amazon.nova-2-lite-v1:0',
         prompt_tokens: 1450,
         completion_tokens: 280,
         total_tokens: 1730,
@@ -94,7 +94,7 @@ describe('Document Audit & LLM Inspection Query API', () => {
     expect(body.llm_enrichment_audit).toBeDefined();
     expect(body.llm_enrichment_audit.status).toBe('ENRICHED');
     expect(body.llm_enrichment_audit.is_enriched).toBe(true);
-    expect(body.llm_enrichment_audit.model_id).toBe('anthropic.claude-3-haiku-20240307-v1:0');
+    expect(body.llm_enrichment_audit.model_id).toBe('us.amazon.nova-2-lite-v1:0');
     expect(body.llm_enrichment_audit.total_tokens).toBe(1730);
     expect(body.llm_enrichment_audit.prompt_tokens).toBe(1450);
     expect(body.llm_enrichment_audit.completion_tokens).toBe(280);

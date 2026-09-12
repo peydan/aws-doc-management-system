@@ -604,7 +604,7 @@
             "suggest"
           ]
         },
-        "description": "Stateless pre-upload AI metadata extraction using Amazon Bedrock Claude 3 Haiku."
+        "description": "Stateless pre-upload AI metadata extraction using Amazon Bedrock Amazon Nova 2 Lite."
       },
       "response": []
     }

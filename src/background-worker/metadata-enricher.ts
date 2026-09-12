@@ -56,7 +56,7 @@ export async function handler(event: SQSEvent): Promise<SQSBatchResponse> {
       const { body } = await S3Manager.getObjectBuffer(s3Key, s3_version_id);
       const textSnippet = body.toString('utf-8');
 
-      // 4. Invoke Bedrock LLM extraction (Claude 3 Haiku)
+      // 4. Invoke Bedrock LLM extraction (Amazon Nova 2 Lite)
       const { enrichedMetadata, auditDetails } = await enrichMetadataWithBedrock(
         textSnippet,
         currentMetadata,

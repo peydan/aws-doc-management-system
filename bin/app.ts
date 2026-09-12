@@ -86,7 +86,7 @@ const serverlessFrontendStack = new ServerlessFrontendStack(app, 'DocPlatformSer
   userPoolClient: securityStack.userPoolClient,
 });
 
-// 10. AI Document Assistant Stack (AgentCore Harness + Claude Sonnet 5 + SSE Streaming)
+// 10. AI Document Assistant Stack (AgentCore Harness + Amazon Nova 2 Lite + SSE Streaming)
 const agentStack = new AgentStack(app, 'DocPlatformAgentStack', {
   env,
   documentBucket: storageStack.documentBucket,
