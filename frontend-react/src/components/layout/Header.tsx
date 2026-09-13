@@ -14,7 +14,8 @@ export function Header() {
     ApiClient.getHealth()
       .then((res) => {
         if (isMounted) {
-          setHealthStatus(res.status === 'healthy' || res.status === 'ok' ? 'healthy' : 'unhealthy');
+          const statusLower = String(res.status || '').toLowerCase();
+          setHealthStatus(statusLower === 'healthy' || statusLower === 'ok' ? 'healthy' : 'unhealthy');
         }
       })
       .catch(() => {
