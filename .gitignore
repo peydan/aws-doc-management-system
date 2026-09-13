@@ -16,6 +16,8 @@ cdk.context.json
 # Frontend Configuration & Bundles
 frontend/config.json
 !frontend/config.example.json
+frontend-react/public/config.json
+!frontend-react/public/config.example.json
 
 
 # Node & TypeScript Build Outputs

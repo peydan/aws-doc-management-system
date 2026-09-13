@@ -10,6 +10,7 @@ import { ComputeStack } from '../lib/compute-stack';
 import { ApiStack } from '../lib/api-stack';
 import { ObservabilityStack } from '../lib/observability-stack';
 import { ServerlessFrontendStack } from '../lib/serverless-frontend-stack';
+import { ServerlessReactFrontendStack } from '../lib/serverless-react-frontend-stack';
 import { AgentStack } from '../lib/agent-stack';
 
 const app = new cdk.App();
@@ -93,6 +94,14 @@ const agentStack = new AgentStack(app, 'DocPlatformAgentStack', {
   openSearchEndpoint: searchStack.collection.attrCollectionEndpoint,
 });
 
+// 11. Serverless React Frontend Stack (Dual-Run Parallel Staging SPA)
+const serverlessReactFrontendStack = new ServerlessReactFrontendStack(app, 'DocPlatformReactFrontendStack', {
+  env,
+  api: apiStack.api,
+  userPool: securityStack.userPool,
+  userPoolClient: securityStack.userPoolClient,
+});
+
 // Apply standard tags to all stacks (excluding SearchStack due to CloudFormation CfnCollection replacement limitation)
 const taggableStacks = [
   securityStack,
@@ -103,6 +112,7 @@ const taggableStacks = [
   apiStack,
   observabilityStack,
   serverlessFrontendStack,
+  serverlessReactFrontendStack,
   agentStack,
 ];
 

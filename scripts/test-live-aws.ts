@@ -20,7 +20,7 @@ const API_URL = process.env.API_URL || config.apiUrl || 'https://k0urmbeen9.exec
 const COGNITO_CLIENT_ID = process.env.COGNITO_CLIENT_ID || config.userPoolClientId || '3fcn104kkvrb642f33khd5c0p6';
 const COGNITO_REGION = process.env.COGNITO_REGION || config.region || 'us-east-1';
 const USERNAME = process.env.COGNITO_USERNAME || 'admin-user';
-const PASSWORD = process.env.COGNITO_PASSWORD || 'DemoPass123!';
+const PASSWORD = process.env.COGNITO_PASSWORD || 'DemoPassword123!';
 let AUTH_TOKEN = process.env.AUTH_TOKEN || '';
 
 interface TestResult {
