@@ -58,8 +58,9 @@ export function LoginView() {
           <CardContent className="pt-6">
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-slate-300">Username or Email</label>
+                <label htmlFor="login-username" className="text-xs font-semibold text-slate-300">Username or Email</label>
                 <Input
+                  id="login-username"
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
@@ -71,8 +72,9 @@ export function LoginView() {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-slate-300">Password</label>
+                <label htmlFor="login-password" className="text-xs font-semibold text-slate-300">Password</label>
                 <Input
+                  id="login-password"
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -84,7 +86,7 @@ export function LoginView() {
               </div>
 
               {error && (
-                <Alert variant="destructive" className="py-2.5">
+                <Alert variant="destructive" role="alert" aria-live="assertive" className="py-2.5">
                   <AlertTriangle className="w-4 h-4" />
                   <AlertTitle className="text-xs">Authentication Failed</AlertTitle>
                   <AlertDescription className="text-xs">{error}</AlertDescription>

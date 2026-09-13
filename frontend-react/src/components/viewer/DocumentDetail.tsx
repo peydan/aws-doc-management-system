@@ -87,10 +87,17 @@ export function DocumentDetail({
   };
 
   const handleInspectVersion = async (verNum: number, s3VerId: string) => {
+    if (!doc) return;
     setSelectedVersionNum(verNum);
     try {
-      const urlData = await ApiClient.getDownloadUrl(doc!.document_id, s3VerId);
+      const [urlData, versionDoc] = await Promise.all([
+        ApiClient.getDownloadUrl(doc.document_id, s3VerId),
+        ApiClient.getDocument(doc.document_id, s3VerId).catch(() => null),
+      ]);
       setDownloadUrl(urlData.download_url);
+      if (versionDoc) {
+        setDoc(versionDoc);
+      }
     } catch (err: any) {
       alert('Failed to get download URL for version: ' + err.message);
     }
@@ -100,7 +107,7 @@ export function DocumentDetail({
     if (!doc) return;
     try {
       const urlData = await ApiClient.getDownloadUrl(doc.document_id, undefined, 'pdf');
-      window.open(urlData.download_url, '_blank');
+      window.open(urlData.download_url, '_blank', 'noopener,noreferrer');
     } catch (err: any) {
       alert('Failed to generate PDF derivative: ' + err.message);
     }
@@ -137,6 +144,10 @@ export function DocumentDetail({
   const handleDonorFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const f = e.target.files[0];
+      if (f.size > 15 * 1024 * 1024) {
+        alert('Donor file exceeds the 15 MB limit. Please select a smaller document.');
+        return;
+      }
       setDonorFile(f);
       const reader = new FileReader();
       reader.onload = () => {
@@ -190,7 +201,7 @@ export function DocumentDetail({
     try {
       const res = await ApiClient.batchDownload(ids, batchFormat, batchMeta);
       setBatchStatus(`ZIP created (Batch ID: ${res.batch_id})!`);
-      window.open(res.download_url, '_blank');
+      window.open(res.download_url, '_blank', 'noopener,noreferrer');
     } catch (err: any) {
       setBatchStatus('Batch ZIP failed: ' + err.message);
     } finally {
@@ -417,7 +428,7 @@ export function DocumentDetail({
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => window.open(downloadUrl, '_blank')}
+                    onClick={() => window.open(downloadUrl, '_blank', 'noopener,noreferrer')}
                     className="h-8 text-xs gap-1"
                   >
                     <Download className="w-3.5 h-3.5" /> Original

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { ApiClient, DocumentRecord } from '@/api/client';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -11,6 +11,65 @@ interface SearchExplorerProps {
   onEditMetadata: (doc: DocumentRecord) => void;
 }
 
+function resolveFormat(doc: DocumentRecord): string {
+  if (doc.format && doc.format.trim()) {
+    return doc.format.trim().toUpperCase();
+  }
+  const ext = doc.filename.split('.').pop();
+  if (ext && ext !== doc.filename) {
+    return ext.toUpperCase();
+  }
+  if (doc.content_type) {
+    const ct = doc.content_type.toLowerCase();
+    if (ct.includes('pdf')) return 'PDF';
+    if (ct.includes('word') || ct.includes('officedocument')) return 'DOCX';
+    if (ct.includes('tiff')) return 'TIFF';
+    if (ct.includes('png')) return 'PNG';
+    if (ct.includes('jpeg') || ct.includes('jpg')) return 'JPEG';
+  }
+  return 'FILE';
+}
+
+function getFormatBadge(doc: DocumentRecord) {
+  const fmt = resolveFormat(doc);
+  switch (fmt) {
+    case 'PDF':
+      return (
+        <Badge variant="destructive" className="text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5">
+          PDF
+        </Badge>
+      );
+    case 'DOCX':
+    case 'DOC':
+      return (
+        <Badge variant="info" className="text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5">
+          {fmt}
+        </Badge>
+      );
+    case 'PNG':
+    case 'JPEG':
+    case 'JPG':
+      return (
+        <Badge variant="success" className="text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5">
+          {fmt}
+        </Badge>
+      );
+    case 'TIFF':
+    case 'TIF':
+      return (
+        <Badge variant="warning" className="text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5">
+          {fmt}
+        </Badge>
+      );
+    default:
+      return (
+        <Badge variant="secondary" className="text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5">
+          {fmt}
+        </Badge>
+      );
+  }
+}
+
 export function SearchExplorer({ onSelectDocument, onEditMetadata }: SearchExplorerProps) {
   // Query fields
   const [query, setQuery] = useState<string>('');
@@ -19,12 +78,12 @@ export function SearchExplorer({ onSelectDocument, onEditMetadata }: SearchExplo
   const [docType, setDocType] = useState<string>('');
   const [loanNumber, setLoanNumber] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('ACTIVE');
-  const [pageSize, setPageSize] = useState<number>(20);
+  const [pageSize, setPageSize] = useState<number>(25);
 
   // Results
   const [results, setResults] = useState<DocumentRecord[]>([]);
   const [total, setTotal] = useState<number>(0);
-  const [tookMs, setTookMs] = useState<number | undefined>(undefined);
+  const [tookMs, setTookMs] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -33,6 +92,7 @@ export function SearchExplorer({ onSelectDocument, onEditMetadata }: SearchExplo
   const [includeMetaZip, setIncludeMetaZip] = useState<boolean>(true);
   const [batchLoading, setBatchLoading] = useState<boolean>(false);
   const [batchMessage, setBatchMessage] = useState<string | null>(null);
+  const searchAbortRef = useRef<AbortController | null>(null);
 
   const executeSearch = async (overrides?: {
     docClass?: string;
@@ -42,6 +102,12 @@ export function SearchExplorer({ onSelectDocument, onEditMetadata }: SearchExplo
     statusFilter?: string;
     query?: string;
   }) => {
+    if (searchAbortRef.current) {
+      searchAbortRef.current.abort();
+    }
+    const controller = new AbortController();
+    searchAbortRef.current = controller;
+
     setLoading(true);
     setError(null);
     setSelectedIds(new Set());
@@ -64,6 +130,8 @@ export function SearchExplorer({ onSelectDocument, onEditMetadata }: SearchExplo
         limit: pageSize,
       });
 
+      if (controller.signal.aborted) return;
+
       let items = data.items || [];
       if (cType.trim()) {
         items = items.filter((d) => (d.document_type || '').toLowerCase().includes(cType.trim().toLowerCase()));
@@ -76,10 +144,13 @@ export function SearchExplorer({ onSelectDocument, onEditMetadata }: SearchExplo
       setTotal(data.total || items.length);
       setTookMs(Math.round(performance.now() - t0));
     } catch (err: any) {
+      if (controller.signal.aborted) return;
       setError(err.message || 'Search execution failed');
       setResults([]);
     } finally {
-      setLoading(false);
+      if (!controller.signal.aborted) {
+        setLoading(false);
+      }
     }
   };
 
@@ -103,28 +174,28 @@ export function SearchExplorer({ onSelectDocument, onEditMetadata }: SearchExplo
       setDocType('');
       setLoanNumber('');
       setQuery('');
-      executeSearch({ customerId: '1094827' });
+      executeSearch({ docClass: '', customerId: '1094827', docType: '', loanNumber: '', statusFilter: 'ACTIVE', query: '' });
     } else if (preset === 'loan') {
       setDocClass('loan_agreement');
       setCustomerId('');
       setDocType('');
       setLoanNumber('');
       setQuery('');
-      executeSearch({ docClass: 'loan_agreement' });
+      executeSearch({ docClass: 'loan_agreement', customerId: '', docType: '', loanNumber: '', statusFilter: 'ACTIVE', query: '' });
     } else if (preset === 'compliance') {
       setDocClass('compliance_retention');
       setCustomerId('');
       setDocType('');
       setLoanNumber('');
       setQuery('');
-      executeSearch({ docClass: 'compliance_retention' });
+      executeSearch({ docClass: 'compliance_retention', customerId: '', docType: '', loanNumber: '', statusFilter: 'ACTIVE', query: '' });
     } else if (preset === 'security') {
       setDocClass('security_classification');
       setCustomerId('');
       setDocType('');
       setLoanNumber('');
       setQuery('');
-      executeSearch({ docClass: 'security_classification' });
+      executeSearch({ docClass: 'security_classification', customerId: '', docType: '', loanNumber: '', statusFilter: 'ACTIVE', query: '' });
     }
   };
 
@@ -154,7 +225,7 @@ export function SearchExplorer({ onSelectDocument, onEditMetadata }: SearchExplo
     try {
       const res = await ApiClient.batchDownload(Array.from(selectedIds), format, includeMetaZip);
       setBatchMessage(`ZIP generated (Batch ID: ${res.batch_id})!`);
-      window.open(res.download_url, '_blank');
+      window.open(res.download_url, '_blank', 'noopener,noreferrer');
     } catch (err: any) {
       setBatchMessage('Batch ZIP failed: ' + err.message);
     } finally {
@@ -373,9 +444,11 @@ export function SearchExplorer({ onSelectDocument, onEditMetadata }: SearchExplo
                 checked={isAllSelected}
                 onChange={(e) => handleToggleSelectAll(e.target.checked)}
                 title="Select all on this page"
+                aria-label="Select all documents on this page"
               />
             </TableHead>
             <TableHead>Document / Filename</TableHead>
+            <TableHead className="w-20">Format</TableHead>
             <TableHead>Class & Type</TableHead>
             <TableHead>Customer / Loan</TableHead>
             <TableHead>Status</TableHead>
@@ -386,14 +459,14 @@ export function SearchExplorer({ onSelectDocument, onEditMetadata }: SearchExplo
         <TableBody>
           {loading ? (
             <TableRow>
-              <TableCell colSpan={7} className="text-center py-12 text-slate-400">
+              <TableCell colSpan={8} className="text-center py-12 text-slate-400">
                 <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-aws-orange" />
                 Querying OpenSearch Serverless...
               </TableCell>
             </TableRow>
           ) : results.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={7} className="text-center py-12 text-slate-500">
+              <TableCell colSpan={8} className="text-center py-12 text-slate-500">
                 No documents found matching the filter criteria.
               </TableCell>
             </TableRow>
@@ -411,6 +484,7 @@ export function SearchExplorer({ onSelectDocument, onEditMetadata }: SearchExplo
                       type="checkbox"
                       checked={isSelected}
                       onChange={() => handleToggleRow(doc.document_id)}
+                      aria-label={`Select document ${doc.filename}`}
                     />
                   </TableCell>
 
@@ -426,6 +500,10 @@ export function SearchExplorer({ onSelectDocument, onEditMetadata }: SearchExplo
                         </div>
                       </div>
                     </div>
+                  </TableCell>
+
+                  <TableCell onClick={() => onSelectDocument(doc.document_id)}>
+                    {getFormatBadge(doc)}
                   </TableCell>
 
                   <TableCell onClick={() => onSelectDocument(doc.document_id)}>

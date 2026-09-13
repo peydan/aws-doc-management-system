@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Calculator } from 'lucide-react';
@@ -9,54 +9,94 @@ const PRICING_IL = {
   s3_get_1k: 0.00044,
   dynamo_wru_million: 0.625,
   dynamo_rru_million: 0.125,
-  dynamo_storage_gb_mo: 0.275,
+  dynamo_storage_gb_mo: 0.285,
   aoss_ocu_hr: 0.26,
-  lambda_invocations_million: 0.2,
-  lambda_gb_sec: 0.0000133334,
-  api_gw_million: 3.8,
-  cloudfront_gb: 0.0,
+  lambda_invocations_million: 0.20,
+  lambda_gb_sec: 0.0000166667,
+  api_gw_million: 3.50,
   kms_cmk_mo: 1.0,
-  cloudwatch_logs_gb: 0.55,
-  usd_to_ils_rate: 3.7,
+  usd_to_ils_rate: 3.70,
 };
 
 export function CostCalculator() {
-  const [currency, setCurrency] = useState<'USD' | 'ILS'>('USD');
+  const [currency, setCurrency] = useState<'USD' | 'ILS'>('ILS');
+
+  // Workload Input Sliders
   const [docsMonthly, setDocsMonthly] = useState<number>(10000);
   const [avgSizeMb, setAvgSizeMb] = useState<number>(1.0);
   const [docsCumulative, setDocsCumulative] = useState<number>(50000);
   const [queriesMonthly, setQueriesMonthly] = useState<number>(50000);
 
-  // Math Calculations
-  const primaryStorageGb = (docsCumulative * avgSizeMb) / 1024;
-  const derivativeStorageGb = (queriesMonthly * 0.25 * 0.35 * (14 / 30)) / 1024;
-  const totalStorageGb = primaryStorageGb + derivativeStorageGb;
+  // Math Calculations (Memoized)
+  const {
+    primaryStorageGb,
+    derivativeStorageGb,
+    totalStorageGb,
+    totalS3Cost,
+    totalDynamoCost,
+    ocuCount,
+    aossCost,
+    lambdaInvocations,
+    lambdaCost,
+    apiGwCost,
+    cloudfrontSpaCost,
+    logsAndKms,
+    totalMonthlyUsd,
+    costPerDocUsd,
+  } = useMemo(() => {
+    const primaryStorageGb = (docsCumulative * avgSizeMb) / 1024;
+    const derivativeStorageGb = (queriesMonthly * 0.25 * 0.35 * (14 / 30)) / 1024;
+    const totalStorageGb = primaryStorageGb + derivativeStorageGb;
 
-  const s3StorageCost = totalStorageGb * PRICING_IL.s3_storage_gb_mo;
-  const s3PutCost = ((docsMonthly * 2 + queriesMonthly * 0.25 * 0.2) * PRICING_IL.s3_put_1k) / 1000;
-  const s3GetCost = (queriesMonthly * PRICING_IL.s3_get_1k) / 1000;
-  const totalS3Cost = s3StorageCost + s3PutCost + s3GetCost;
+    const s3StorageCost = totalStorageGb * PRICING_IL.s3_storage_gb_mo;
+    const s3PutCost = ((docsMonthly * 2 + queriesMonthly * 0.25 * 0.2) * PRICING_IL.s3_put_1k) / 1000;
+    const s3GetCost = (queriesMonthly * PRICING_IL.s3_get_1k) / 1000;
+    const totalS3Cost = s3StorageCost + s3PutCost + s3GetCost;
 
-  const dynamoWruCost = ((docsMonthly * 4) / 1000000) * PRICING_IL.dynamo_wru_million;
-  const dynamoRruCost = ((queriesMonthly * 2) / 1000000) * PRICING_IL.dynamo_rru_million;
-  const dynamoStorageCost = Math.max(0.5, (docsCumulative * 2) / 1024 / 1024) * PRICING_IL.dynamo_storage_gb_mo;
-  const totalDynamoCost = dynamoWruCost + dynamoRruCost + dynamoStorageCost;
+    const dynamoWruCost = ((docsMonthly * 4) / 1000000) * PRICING_IL.dynamo_wru_million;
+    const dynamoRruCost = ((queriesMonthly * 2) / 1000000) * PRICING_IL.dynamo_rru_million;
+    const dynamoStorageCost = Math.max(0.5, (docsCumulative * 2) / 1024 / 1024) * PRICING_IL.dynamo_storage_gb_mo;
+    const totalDynamoCost = dynamoWruCost + dynamoRruCost + dynamoStorageCost;
 
-  const ocuCount = docsMonthly > 500000 ? 4.0 : 2.0;
-  const aossCost = ocuCount * 730 * PRICING_IL.aoss_ocu_hr;
+    const ocuCount = docsMonthly > 500000 ? 4.0 : 2.0;
+    const aossCost = ocuCount * 730 * PRICING_IL.aoss_ocu_hr;
 
-  const lambdaInvocations = docsMonthly * 3 + queriesMonthly;
-  const lambdaCost =
-    (lambdaInvocations / 1000000) * PRICING_IL.lambda_invocations_million +
-    lambdaInvocations * 0.15 * 0.5 * PRICING_IL.lambda_gb_sec;
+    const lambdaInvocations = docsMonthly * 3 + queriesMonthly;
+    const lambdaCost =
+      (lambdaInvocations / 1000000) * PRICING_IL.lambda_invocations_million +
+      lambdaInvocations * 0.15 * 0.5 * PRICING_IL.lambda_gb_sec;
 
-  const apiGwCost = ((docsMonthly * 2 + queriesMonthly) / 1000000) * PRICING_IL.api_gw_million;
-  const cloudfrontSpaCost = 0.01;
-  const logsAndKms = PRICING_IL.kms_cmk_mo + 5.0;
+    const apiGwCost = ((docsMonthly * 2 + queriesMonthly) / 1000000) * PRICING_IL.api_gw_million;
+    const cloudfrontSpaCost = 0.01;
+    const logsAndKms = PRICING_IL.kms_cmk_mo + 5.0;
 
-  const totalMonthlyUsd =
-    totalS3Cost + totalDynamoCost + aossCost + lambdaCost + apiGwCost + cloudfrontSpaCost + logsAndKms;
-  const costPerDocUsd = totalMonthlyUsd / Math.max(1, docsCumulative);
+    const totalMonthlyUsd =
+      totalS3Cost + totalDynamoCost + aossCost + lambdaCost + apiGwCost + cloudfrontSpaCost + logsAndKms;
+    const costPerDocUsd = totalMonthlyUsd / Math.max(1, docsCumulative);
+
+    return {
+      primaryStorageGb,
+      derivativeStorageGb,
+      totalStorageGb,
+      s3StorageCost,
+      s3PutCost,
+      s3GetCost,
+      totalS3Cost,
+      dynamoWruCost,
+      dynamoRruCost,
+      dynamoStorageCost,
+      totalDynamoCost,
+      ocuCount,
+      aossCost,
+      lambdaInvocations,
+      lambdaCost,
+      apiGwCost,
+      cloudfrontSpaCost,
+      logsAndKms,
+      totalMonthlyUsd,
+      costPerDocUsd,
+    };
+  }, [docsMonthly, avgSizeMb, docsCumulative, queriesMonthly]);
 
   const formatCost = (valUsd: number) => {
     if (currency === 'ILS') {
@@ -151,17 +191,19 @@ export function CostCalculator() {
             {/* Slider 1 */}
             <div className="space-y-2">
               <div className="flex justify-between items-center">
-                <label className="text-slate-300 font-medium">Monthly Document Ingestion Count</label>
+                <label htmlFor="cost-slider-ingestion" className="text-slate-300 font-medium">Monthly Document Ingestion Count</label>
                 <span className="font-bold text-white font-mono bg-slate-950 px-2 py-0.5 rounded border border-slate-800">
                   {docsMonthly.toLocaleString()} docs
                 </span>
               </div>
               <input
+                id="cost-slider-ingestion"
                 type="range"
                 min={1000}
                 max={2000000}
                 step={5000}
                 value={docsMonthly}
+                aria-label="Monthly Document Ingestion Count"
                 onChange={(e) => setDocsMonthly(parseInt(e.target.value, 10))}
                 className="w-full accent-aws-orange cursor-pointer"
               />
@@ -170,17 +212,19 @@ export function CostCalculator() {
             {/* Slider 2 */}
             <div className="space-y-2">
               <div className="flex justify-between items-center">
-                <label className="text-slate-300 font-medium">Average Document File Size</label>
+                <label htmlFor="cost-slider-filesize" className="text-slate-300 font-medium">Average Document File Size</label>
                 <span className="font-bold text-white font-mono bg-slate-950 px-2 py-0.5 rounded border border-slate-800">
                   {avgSizeMb.toFixed(1)} MB
                 </span>
               </div>
               <input
+                id="cost-slider-filesize"
                 type="range"
                 min={0.2}
                 max={10.0}
                 step={0.2}
                 value={avgSizeMb}
+                aria-label="Average Document File Size"
                 onChange={(e) => setAvgSizeMb(parseFloat(e.target.value))}
                 className="w-full accent-aws-orange cursor-pointer"
               />
@@ -189,17 +233,19 @@ export function CostCalculator() {
             {/* Slider 3 */}
             <div className="space-y-2">
               <div className="flex justify-between items-center">
-                <label className="text-slate-300 font-medium">Cumulative Documents Stored</label>
+                <label htmlFor="cost-slider-cumulative" className="text-slate-300 font-medium">Cumulative Documents Stored</label>
                 <span className="font-bold text-white font-mono bg-slate-950 px-2 py-0.5 rounded border border-slate-800">
                   {docsCumulative.toLocaleString()} docs
                 </span>
               </div>
               <input
+                id="cost-slider-cumulative"
                 type="range"
                 min={5000}
                 max={15000000}
                 step={25000}
                 value={docsCumulative}
+                aria-label="Cumulative Documents Stored"
                 onChange={(e) => setDocsCumulative(parseInt(e.target.value, 10))}
                 className="w-full accent-aws-orange cursor-pointer"
               />
@@ -208,17 +254,19 @@ export function CostCalculator() {
             {/* Slider 4 */}
             <div className="space-y-2">
               <div className="flex justify-between items-center">
-                <label className="text-slate-300 font-medium">Monthly Read &amp; Search Queries</label>
+                <label htmlFor="cost-slider-queries" className="text-slate-300 font-medium">Monthly Read &amp; Search Queries</label>
                 <span className="font-bold text-white font-mono bg-slate-950 px-2 py-0.5 rounded border border-slate-800">
                   {queriesMonthly.toLocaleString()} queries
                 </span>
               </div>
               <input
+                id="cost-slider-queries"
                 type="range"
                 min={5000}
                 max={5000000}
                 step={25000}
                 value={queriesMonthly}
+                aria-label="Monthly Read and Search Queries"
                 onChange={(e) => setQueriesMonthly(parseInt(e.target.value, 10))}
                 className="w-full accent-aws-orange cursor-pointer"
               />

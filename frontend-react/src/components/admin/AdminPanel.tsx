@@ -9,14 +9,14 @@ import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Archive, RotateCcw, Trash2, Download, Shield, Loader2, AlertTriangle, CheckCircle2 } from 'lucide-react';
 
 export function AdminPanel() {
-  const { primaryRole } = useAuth();
+  const { primaryRole, roles } = useAuth();
   const [docIdInput, setDocIdInput] = useState<string>('');
   const [batchIdsInput, setBatchIdsInput] = useState<string>('');
   const [actionStatus, setActionStatus] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
 
-  const isAdmin = primaryRole === 'Document.Admin';
+  const isAdmin = roles?.includes('Document.Admin') || primaryRole === 'Document.Admin';
 
   const handleSoftDelete = async () => {
     if (!docIdInput.trim()) return;
@@ -67,7 +67,7 @@ export function AdminPanel() {
     try {
       const res = await ApiClient.batchDownload(ids);
       setActionStatus(`Batch ZIP export bundle generated! (Batch ID: ${res.batch_id})`);
-      window.open(res.download_url, '_blank');
+      window.open(res.download_url, '_blank', 'noopener,noreferrer');
     } catch (err: any) {
       setActionError(err.message || 'Batch export failed');
     } finally {
@@ -122,8 +122,9 @@ export function AdminPanel() {
           </CardHeader>
           <CardContent className="space-y-4 text-xs">
             <div>
-              <label className="text-slate-300 font-medium">Target Document ID (UUIDv4)</label>
+              <label htmlFor="admin-target-doc-id" className="text-slate-300 font-medium">Target Document ID (UUIDv4)</label>
               <Input
+                id="admin-target-doc-id"
                 value={docIdInput}
                 onChange={(e) => setDocIdInput(e.target.value)}
                 placeholder="e.g. 550e8400-e29b-41d4-a716-446655440000"
@@ -174,8 +175,9 @@ export function AdminPanel() {
           </CardHeader>
           <CardContent className="space-y-4 text-xs">
             <div>
-              <label className="text-slate-300 font-medium">Document IDs (Comma or newline separated)</label>
+              <label htmlFor="admin-batch-doc-ids" className="text-slate-300 font-medium">Document IDs (Comma or newline separated)</label>
               <textarea
+                id="admin-batch-doc-ids"
                 value={batchIdsInput}
                 onChange={(e) => setBatchIdsInput(e.target.value)}
                 placeholder="550e8400-e29b-41d4-a716-446655440000, 6ba7b810-9dad-11d1-80b4-00c04fd430c8"

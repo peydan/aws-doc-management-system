@@ -45,3 +45,29 @@
     background: radial-gradient(circle at top, #1e293b 0%, #0f172a 100%);
   }
 }
+
+@layer utilities {
+  @keyframes enterFade {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes exitFade {
+    from { opacity: 1; }
+    to { opacity: 0; }
+  }
+  @keyframes enterZoom {
+    from { transform: translate(-50%, -50%) scale(0.95); opacity: 0; }
+    to { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+  }
+  @keyframes exitZoom {
+    from { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+    to { transform: translate(-50%, -50%) scale(0.95); opacity: 0; }
+  }
+
+  [data-state='open'].animate-in {
+    animation: enterFade 150ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+  [data-state='closed'].animate-out {
+    animation: exitFade 150ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+}

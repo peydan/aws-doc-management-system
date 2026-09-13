@@ -21,6 +21,36 @@ export function DocumentUpload({ onUploadSuccess }: DocumentUploadProps) {
   const [directFile, setDirectFile] = useState<File | null>(null);
   const [inlineFile, setInlineFile] = useState<File | null>(null);
   const [inlineBase64, setInlineBase64] = useState<string>('');
+  const [dragActiveDirect, setDragActiveDirect] = useState<boolean>(false);
+  const [dragActiveInline, setDragActiveInline] = useState<boolean>(false);
+
+  const handleDropDirect = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActiveDirect(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      setDirectFile(e.dataTransfer.files[0]);
+    }
+  };
+
+  const handleDropInline = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActiveInline(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      const f = e.dataTransfer.files[0];
+      if (f.size > 4 * 1024 * 1024) {
+        setError('File exceeds the 4 MB API Gateway inline payload limit. Switched to Direct S3 Upload.');
+        setDirectFile(f);
+        setActiveStudio('direct');
+        return;
+      }
+      setInlineFile(f);
+      const reader = new FileReader();
+      reader.onload = () => setInlineBase64((reader.result as string).split(',')[1]);
+      reader.readAsDataURL(f);
+    }
+  };
 
   // Shared & Class Metadata Textareas
   const [sharedMetaJson, setSharedMetaJson] = useState<string>(() => JSON.stringify(SHARED_BASE_TEMPLATE, null, 2));
@@ -250,6 +280,7 @@ export function DocumentUpload({ onUploadSuccess }: DocumentUploadProps) {
 
     try {
       const payloadMetadata = parseCombinedMetadata();
+      const resolvedContentType = directFile.type || 'application/pdf';
 
       setUploadStep('initiating');
       setProgressText('Phase 1: Computing WebCrypto SHA-256 & POST /documents/uploads (Generating direct S3 WORM upload ticket)...');
@@ -258,7 +289,7 @@ export function DocumentUpload({ onUploadSuccess }: DocumentUploadProps) {
 
       const { session_id, upload_url, document_id } = await ApiClient.initiateUpload({
         filename: directFile.name,
-        content_type: directFile.type || 'application/pdf',
+        content_type: resolvedContentType,
         document_class: docClass,
         metadata: payloadMetadata,
         checksum,
@@ -271,7 +302,7 @@ export function DocumentUpload({ onUploadSuccess }: DocumentUploadProps) {
       const s3PutRes = await fetch(upload_url, {
         method: 'PUT',
         body: directFile,
-        headers: { 'Content-Type': directFile.type || 'application/octet-stream' },
+        headers: { 'Content-Type': resolvedContentType },
       });
 
       if (!s3PutRes.ok) {
@@ -393,11 +424,18 @@ export function DocumentUpload({ onUploadSuccess }: DocumentUploadProps) {
 
               {/* File Dropzone */}
               <TabsContent value="direct" className="mt-0">
-                <div className="border-2 border-dashed border-slate-700 hover:border-aws-orange rounded-xl p-6 text-center transition-colors bg-slate-950/40">
+                <div
+                  onDragOver={(e) => { e.preventDefault(); setDragActiveDirect(true); }}
+                  onDragLeave={() => setDragActiveDirect(false)}
+                  onDrop={handleDropDirect}
+                  className={`border-2 border-dashed rounded-xl p-6 text-center transition-colors bg-slate-950/40 ${
+                    dragActiveDirect ? 'border-aws-orange bg-aws-orange/5' : 'border-slate-700 hover:border-aws-orange'
+                  }`}
+                >
                   <input
                     type="file"
                     id="direct-file-input"
-                    className="hidden"
+                    className="sr-only"
                     onChange={(e) => e.target.files && setDirectFile(e.target.files[0])}
                     accept=".pdf,.png,.jpg,.jpeg,.tiff,.docx"
                   />
@@ -419,14 +457,27 @@ export function DocumentUpload({ onUploadSuccess }: DocumentUploadProps) {
               </TabsContent>
 
               <TabsContent value="inline" className="mt-0">
-                <div className="border-2 border-dashed border-slate-700 hover:border-blue-400 rounded-xl p-6 text-center transition-colors bg-slate-950/40">
+                <div
+                  onDragOver={(e) => { e.preventDefault(); setDragActiveInline(true); }}
+                  onDragLeave={() => setDragActiveInline(false)}
+                  onDrop={handleDropInline}
+                  className={`border-2 border-dashed rounded-xl p-6 text-center transition-colors bg-slate-950/40 ${
+                    dragActiveInline ? 'border-blue-400 bg-blue-400/5' : 'border-slate-700 hover:border-blue-400'
+                  }`}
+                >
                   <input
                     type="file"
                     id="inline-file-input"
-                    className="hidden"
+                    className="sr-only"
                     onChange={(e) => {
                       if (e.target.files && e.target.files[0]) {
                         const f = e.target.files[0];
+                        if (f.size > 4 * 1024 * 1024) {
+                          setError('File exceeds the 4 MB API Gateway inline payload limit. Switched to Direct S3 Upload.');
+                          setDirectFile(f);
+                          setActiveStudio('direct');
+                          return;
+                        }
                         setInlineFile(f);
                         const reader = new FileReader();
                         reader.onload = () => setInlineBase64((reader.result as string).split(',')[1]);

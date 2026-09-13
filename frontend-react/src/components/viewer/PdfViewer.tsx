@@ -13,6 +13,7 @@ interface PdfViewerProps {
 
 export function PdfViewer({ url, onPageCountChange }: PdfViewerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const renderTaskRef = useRef<any>(null);
   const [pdfDoc, setPdfDoc] = useState<any>(null);
   const [pageNum, setPageNum] = useState<number>(1);
   const [numPages, setNumPages] = useState<number>(0);
@@ -52,6 +53,11 @@ export function PdfViewer({ url, onPageCountChange }: PdfViewerProps) {
 
     return () => {
       isCancelled = true;
+      if (renderTaskRef.current) {
+        renderTaskRef.current.cancel();
+        renderTaskRef.current = null;
+      }
+      loadingTask.destroy();
     };
   }, [url, onPageCountChange]);
 
@@ -60,22 +66,39 @@ export function PdfViewer({ url, onPageCountChange }: PdfViewerProps) {
     async (num: number, doc: any) => {
       if (!doc || !canvasRef.current) return;
       try {
+        if (renderTaskRef.current) {
+          renderTaskRef.current.cancel();
+          renderTaskRef.current = null;
+        }
+
         const page = await doc.getPage(num);
         const canvas = canvasRef.current;
         const context = canvas.getContext('2d');
         if (!context) return;
 
+        const pixelRatio = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
         const viewport = page.getViewport({ scale, rotation });
-        canvas.height = viewport.height;
-        canvas.width = viewport.width;
+
+        canvas.width = Math.floor(viewport.width * pixelRatio);
+        canvas.height = Math.floor(viewport.height * pixelRatio);
+        canvas.style.width = `${Math.floor(viewport.width)}px`;
+        canvas.style.height = `${Math.floor(viewport.height)}px`;
+
+        const transform = pixelRatio !== 1 ? [pixelRatio, 0, 0, pixelRatio, 0, 0] : null;
 
         const renderContext = {
           canvasContext: context,
           viewport: viewport,
+          transform: transform || undefined,
         };
-        await page.render(renderContext).promise;
-      } catch (err) {
-        console.warn('Page render cancelled or failed', err);
+
+        const renderTask = page.render(renderContext);
+        renderTaskRef.current = renderTask;
+        await renderTask.promise;
+      } catch (err: any) {
+        if (err?.name !== 'RenderingCancelledException') {
+          console.warn('Page render error:', err);
+        }
       }
     },
     [scale, rotation]
@@ -110,6 +133,7 @@ export function PdfViewer({ url, onPageCountChange }: PdfViewerProps) {
             onClick={handlePrevPage}
             disabled={pageNum <= 1 || isLoading}
             className="h-8 px-2"
+            aria-label="Previous Page"
           >
             <ChevronLeft className="w-4 h-4" />
           </Button>
@@ -122,20 +146,42 @@ export function PdfViewer({ url, onPageCountChange }: PdfViewerProps) {
             onClick={handleNextPage}
             disabled={pageNum >= numPages || isLoading}
             className="h-8 px-2"
+            aria-label="Next Page"
           >
             <ChevronRight className="w-4 h-4" />
           </Button>
         </div>
 
         <div className="flex items-center gap-2">
-          <Button variant="secondary" size="sm" onClick={handleZoomOut} disabled={isLoading} className="h-8 px-2">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handleZoomOut}
+            disabled={isLoading}
+            className="h-8 px-2"
+            aria-label="Zoom Out"
+          >
             <ZoomOut className="w-4 h-4" />
           </Button>
           <span className="text-xs text-slate-400 font-mono">{Math.round(scale * 100)}%</span>
-          <Button variant="secondary" size="sm" onClick={handleZoomIn} disabled={isLoading} className="h-8 px-2">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handleZoomIn}
+            disabled={isLoading}
+            className="h-8 px-2"
+            aria-label="Zoom In"
+          >
             <ZoomIn className="w-4 h-4" />
           </Button>
-          <Button variant="secondary" size="sm" onClick={handleRotate} disabled={isLoading} className="h-8 px-2 ml-2">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handleRotate}
+            disabled={isLoading}
+            className="h-8 px-2 ml-2"
+            aria-label="Rotate Clockwise"
+          >
             <RotateCw className="w-4 h-4" />
           </Button>
         </div>

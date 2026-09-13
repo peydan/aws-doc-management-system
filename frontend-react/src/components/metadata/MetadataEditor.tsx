@@ -38,7 +38,7 @@ export function MetadataEditor({ document, onSaved, onRefresh }: MetadataEditorP
   const [liveResponse, setLiveResponse] = useState<string>('Submit a patch to observe atomic revision increments.');
 
   useEffect(() => {
-    if (document) {
+    if (document && (doc?.document_id !== document.document_id || doc?.metadata_revision !== document.metadata_revision)) {
       setDoc(document);
       setDocId(document.document_id);
       setExpectedRev(document.metadata_revision);
@@ -51,6 +51,13 @@ export function MetadataEditor({ document, onSaved, onRefresh }: MetadataEditorP
       }
       if (document.currency !== undefined) mutable.currency = document.currency;
       if (document.confidentiality_tier !== undefined) mutable.confidentiality_tier = document.confidentiality_tier;
+      if (document.minimum_clearance_role !== undefined) mutable.minimum_clearance_role = document.minimum_clearance_role;
+      if (document.encryption_requirement !== undefined) mutable.encryption_requirement = document.encryption_requirement;
+      if (document.pii_categories !== undefined) {
+        mutable.pii_categories = Array.isArray(document.pii_categories) ? document.pii_categories.join(', ') : document.pii_categories;
+      }
+      if (document.contains_pii !== undefined) mutable.contains_pii = document.contains_pii;
+      if (document.export_restricted !== undefined) mutable.export_restricted = document.export_restricted;
       if (document.retention_schedule_code !== undefined) mutable.retention_schedule_code = document.retention_schedule_code;
       if (document.legal_hold_active !== undefined) mutable.legal_hold_active = document.legal_hold_active;
       if (document.regulatory_framework !== undefined) mutable.regulatory_framework = document.regulatory_framework;
@@ -67,6 +74,26 @@ export function MetadataEditor({ document, onSaved, onRefresh }: MetadataEditorP
       setDoc(fetched);
       setExpectedRev(fetched.metadata_revision);
       setLiveResponse(JSON.stringify(fetched, null, 2));
+
+      const mutable: Record<string, any> = {};
+      if (fetched.customer_id !== undefined) mutable.customer_id = fetched.customer_id;
+      if (fetched.loan_number !== undefined) mutable.loan_number = fetched.loan_number;
+      if (fetched.loan_amount_minor_units !== undefined) {
+        mutable.loan_amount = (fetched.loan_amount_minor_units / 100).toString();
+      }
+      if (fetched.currency !== undefined) mutable.currency = fetched.currency;
+      if (fetched.confidentiality_tier !== undefined) mutable.confidentiality_tier = fetched.confidentiality_tier;
+      if (fetched.minimum_clearance_role !== undefined) mutable.minimum_clearance_role = fetched.minimum_clearance_role;
+      if (fetched.encryption_requirement !== undefined) mutable.encryption_requirement = fetched.encryption_requirement;
+      if (fetched.pii_categories !== undefined) {
+        mutable.pii_categories = Array.isArray(fetched.pii_categories) ? fetched.pii_categories.join(', ') : fetched.pii_categories;
+      }
+      if (fetched.contains_pii !== undefined) mutable.contains_pii = fetched.contains_pii;
+      if (fetched.export_restricted !== undefined) mutable.export_restricted = fetched.export_restricted;
+      if (fetched.retention_schedule_code !== undefined) mutable.retention_schedule_code = fetched.retention_schedule_code;
+      if (fetched.legal_hold_active !== undefined) mutable.legal_hold_active = fetched.legal_hold_active;
+      if (fetched.regulatory_framework !== undefined) mutable.regulatory_framework = fetched.regulatory_framework;
+      setEditableFields(mutable);
     } catch (err: any) {
       setConflictError(err.message || 'Failed to fetch document');
       setLiveResponse(JSON.stringify({ error: err.message, status: err.status }, null, 2));
@@ -76,9 +103,9 @@ export function MetadataEditor({ document, onSaved, onRefresh }: MetadataEditorP
   };
 
   const handleApplyPatch = async (overrideRev?: number) => {
-    const targetDocId = docId.trim() || doc?.document_id;
+    const targetDocId = (docId || doc?.document_id || '').trim();
     if (!targetDocId) {
-      setConflictError('Please specify a target Document ID');
+      setConflictError('Please specify a Document UUID first.');
       return;
     }
 
@@ -95,11 +122,31 @@ export function MetadataEditor({ document, onSaved, onRefresh }: MetadataEditorP
     } else {
       payloadChanges = { ...editableFields };
       if (payloadChanges.loan_amount !== undefined) {
-        payloadChanges.loan_amount_minor_units = Math.round(parseFloat(payloadChanges.loan_amount) * 100);
-        delete payloadChanges.loan_amount;
+        if (payloadChanges.loan_amount === '') {
+          delete payloadChanges.loan_amount;
+        } else {
+          const parsed = parseFloat(payloadChanges.loan_amount);
+          if (!isNaN(parsed)) {
+            payloadChanges.loan_amount_minor_units = Math.round(parsed * 100);
+          }
+          delete payloadChanges.loan_amount;
+        }
       }
       if (payloadChanges.customer_id !== undefined) {
-        payloadChanges.customer_id = parseInt(payloadChanges.customer_id, 10);
+        if (payloadChanges.customer_id === '') {
+          delete payloadChanges.customer_id;
+        } else {
+          const parsedId = parseInt(payloadChanges.customer_id, 10);
+          if (!isNaN(parsedId)) {
+            payloadChanges.customer_id = parsedId;
+          }
+        }
+      }
+      if (typeof payloadChanges.pii_categories === 'string') {
+        payloadChanges.pii_categories = payloadChanges.pii_categories
+          .split(',')
+          .map((s: string) => s.trim())
+          .filter(Boolean);
       }
     }
 
@@ -275,8 +322,9 @@ export function MetadataEditor({ document, onSaved, onRefresh }: MetadataEditorP
               ) : (
                 <div className="space-y-3">
                   <div>
-                    <label className="text-slate-300 font-medium">Customer ID</label>
+                    <label htmlFor="meta-customer-id" className="text-slate-300 font-medium">Customer ID</label>
                     <Input
+                      id="meta-customer-id"
                       type="number"
                       value={editableFields.customer_id ?? ''}
                       onChange={(e) => setEditableFields((prev) => ({ ...prev, customer_id: e.target.value }))}
@@ -284,63 +332,167 @@ export function MetadataEditor({ document, onSaved, onRefresh }: MetadataEditorP
                     />
                   </div>
 
-                  <div>
-                    <label className="text-slate-300 font-medium">Loan Number</label>
-                    <Input
-                      type="text"
-                      value={editableFields.loan_number ?? ''}
-                      onChange={(e) => setEditableFields((prev) => ({ ...prev, loan_number: e.target.value }))}
-                      placeholder="e.g. LN-2026-88821"
-                      className="bg-slate-950 border-slate-700 font-mono text-xs mt-1"
-                    />
-                  </div>
+                  {/* Loan Agreement Fields */}
+                  {(!doc || doc.document_class === 'loan_agreement' || editableFields.loan_number !== undefined) && (
+                    <>
+                      <div>
+                        <label htmlFor="meta-loan-number" className="text-slate-300 font-medium">Loan Number</label>
+                        <Input
+                          id="meta-loan-number"
+                          type="text"
+                          value={editableFields.loan_number ?? ''}
+                          onChange={(e) => setEditableFields((prev) => ({ ...prev, loan_number: e.target.value }))}
+                          placeholder="e.g. LN-2026-88821"
+                          className="bg-slate-950 border-slate-700 font-mono text-xs mt-1"
+                        />
+                      </div>
 
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-slate-300 font-medium">Loan Amount (Major Units)</label>
-                      <Input
-                        type="number"
-                        value={editableFields.loan_amount ?? ''}
-                        onChange={(e) => setEditableFields((prev) => ({ ...prev, loan_amount: e.target.value }))}
-                        placeholder="e.g. 450000"
-                        className="bg-slate-950 border-slate-700 font-mono text-xs mt-1"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-slate-300 font-medium">Currency</label>
-                      <Input
-                        type="text"
-                        value={editableFields.currency ?? 'ILS'}
-                        onChange={(e) => setEditableFields((prev) => ({ ...prev, currency: e.target.value }))}
-                        className="bg-slate-950 border-slate-700 font-mono text-xs mt-1"
-                      />
-                    </div>
-                  </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label htmlFor="meta-loan-amount" className="text-slate-300 font-medium">Loan Amount (Major Units)</label>
+                          <Input
+                            id="meta-loan-amount"
+                            type="number"
+                            value={editableFields.loan_amount ?? ''}
+                            onChange={(e) => setEditableFields((prev) => ({ ...prev, loan_amount: e.target.value }))}
+                            placeholder="e.g. 450000"
+                            className="bg-slate-950 border-slate-700 font-mono text-xs mt-1"
+                          />
+                        </div>
+                        <div>
+                          <label htmlFor="meta-currency" className="text-slate-300 font-medium">Currency</label>
+                          <Input
+                            id="meta-currency"
+                            type="text"
+                            value={editableFields.currency ?? 'ILS'}
+                            onChange={(e) => setEditableFields((prev) => ({ ...prev, currency: e.target.value }))}
+                            className="bg-slate-950 border-slate-700 font-mono text-xs mt-1"
+                          />
+                        </div>
+                      </div>
+                    </>
+                  )}
 
-                  <div>
-                    <label className="text-slate-300 font-medium">Retention Schedule Code</label>
-                    <Input
-                      type="text"
-                      value={editableFields.retention_schedule_code ?? ''}
-                      onChange={(e) => setEditableFields((prev) => ({ ...prev, retention_schedule_code: e.target.value }))}
-                      placeholder="e.g. RET-FIN-001"
-                      className="bg-slate-950 border-slate-700 font-mono text-xs mt-1"
-                    />
-                  </div>
+                  {/* Compliance & Retention Fields */}
+                  {(!doc || doc.document_class === 'compliance_retention' || editableFields.retention_schedule_code !== undefined) && (
+                    <>
+                      <div>
+                        <label htmlFor="meta-retention-code" className="text-slate-300 font-medium">Retention Schedule Code</label>
+                        <Input
+                          id="meta-retention-code"
+                          type="text"
+                          value={editableFields.retention_schedule_code ?? ''}
+                          onChange={(e) => setEditableFields((prev) => ({ ...prev, retention_schedule_code: e.target.value }))}
+                          placeholder="e.g. RET-FIN-001"
+                          className="bg-slate-950 border-slate-700 font-mono text-xs mt-1"
+                        />
+                      </div>
 
-                  <div>
-                    <label className="text-slate-300 font-medium">Regulatory Framework</label>
-                    <select
-                      value={editableFields.regulatory_framework ?? 'SOX'}
-                      onChange={(e) => setEditableFields((prev) => ({ ...prev, regulatory_framework: e.target.value }))}
-                      className="w-full h-9 rounded-md border border-slate-700 bg-slate-950 px-3 text-xs text-slate-200 mt-1"
-                    >
-                      <option value="SOX">SOX</option>
-                      <option value="GDPR">GDPR</option>
-                      <option value="BASEL_III">BASEL_III</option>
-                      <option value="LOCAL_BANKING_REG">LOCAL_BANKING_REG</option>
-                    </select>
-                  </div>
+                      <div>
+                        <label htmlFor="meta-regulatory-framework" className="text-slate-300 font-medium">Regulatory Framework</label>
+                        <select
+                          id="meta-regulatory-framework"
+                          value={editableFields.regulatory_framework ?? 'SOX'}
+                          onChange={(e) => setEditableFields((prev) => ({ ...prev, regulatory_framework: e.target.value }))}
+                          className="w-full h-9 rounded-md border border-slate-700 bg-slate-950 px-3 text-xs text-slate-200 mt-1"
+                        >
+                          <option value="SOX">SOX</option>
+                          <option value="GDPR">GDPR</option>
+                          <option value="BASEL_III">BASEL_III</option>
+                          <option value="LOCAL_BANKING_REG">LOCAL_BANKING_REG</option>
+                        </select>
+                      </div>
+
+                      <div className="flex items-center gap-2 pt-1">
+                        <input
+                          id="meta-legal-hold"
+                          type="checkbox"
+                          checked={!!editableFields.legal_hold_active}
+                          onChange={(e) => setEditableFields((prev) => ({ ...prev, legal_hold_active: e.target.checked }))}
+                          className="rounded border-slate-700 bg-slate-950 text-aws-orange focus:ring-aws-orange"
+                        />
+                        <label htmlFor="meta-legal-hold" className="text-slate-300 text-xs font-medium cursor-pointer">
+                          Legal Hold Active (Prevents purge/disposal)
+                        </label>
+                      </div>
+                    </>
+                  )}
+
+                  {/* Security Classification Fields */}
+                  {(!doc || doc.document_class === 'security_classification' || editableFields.confidentiality_tier !== undefined) && (
+                    <>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label htmlFor="meta-confidentiality-tier" className="text-slate-300 font-medium">Confidentiality Tier</label>
+                          <select
+                            id="meta-confidentiality-tier"
+                            value={editableFields.confidentiality_tier ?? 'RESTRICTED'}
+                            onChange={(e) => setEditableFields((prev) => ({ ...prev, confidentiality_tier: e.target.value }))}
+                            className="w-full h-9 rounded-md border border-slate-700 bg-slate-950 px-3 text-xs text-slate-200 mt-1"
+                          >
+                            <option value="PUBLIC">PUBLIC</option>
+                            <option value="INTERNAL">INTERNAL</option>
+                            <option value="RESTRICTED">RESTRICTED</option>
+                            <option value="HIGHLY_CONFIDENTIAL">HIGHLY_CONFIDENTIAL</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label htmlFor="meta-min-role" className="text-slate-300 font-medium">Minimum Clearance Role</label>
+                          <select
+                            id="meta-min-role"
+                            value={editableFields.minimum_clearance_role ?? 'Document.Reader'}
+                            onChange={(e) => setEditableFields((prev) => ({ ...prev, minimum_clearance_role: e.target.value }))}
+                            className="w-full h-9 rounded-md border border-slate-700 bg-slate-950 px-3 text-xs text-slate-200 mt-1"
+                          >
+                            <option value="Document.Reader">Document.Reader</option>
+                            <option value="Document.Writer">Document.Writer</option>
+                            <option value="Document.MetadataEditor">Document.MetadataEditor</option>
+                            <option value="Document.Admin">Document.Admin</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label htmlFor="meta-encryption-req" className="text-slate-300 font-medium">Encryption Requirement</label>
+                        <select
+                          id="meta-encryption-req"
+                          value={editableFields.encryption_requirement ?? 'SSE_KMS_DEFAULT'}
+                          onChange={(e) => setEditableFields((prev) => ({ ...prev, encryption_requirement: e.target.value }))}
+                          className="w-full h-9 rounded-md border border-slate-700 bg-slate-950 px-3 text-xs text-slate-200 mt-1"
+                        >
+                          <option value="SSE_S3">SSE_S3</option>
+                          <option value="SSE_KMS_DEFAULT">SSE_KMS_DEFAULT</option>
+                          <option value="SSE_KMS_CUSTOMER_MANAGED">SSE_KMS_CUSTOMER_MANAGED</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label htmlFor="meta-pii-categories" className="text-slate-300 font-medium">PII Categories (Comma-separated)</label>
+                        <Input
+                          id="meta-pii-categories"
+                          type="text"
+                          value={editableFields.pii_categories ?? ''}
+                          onChange={(e) => setEditableFields((prev) => ({ ...prev, pii_categories: e.target.value }))}
+                          placeholder="e.g. NATIONAL_ID, FINANCIAL_HISTORY"
+                          className="bg-slate-950 border-slate-700 font-mono text-xs mt-1"
+                        />
+                      </div>
+
+                      <div className="flex items-center gap-2 pt-1">
+                        <input
+                          id="meta-contains-pii"
+                          type="checkbox"
+                          checked={!!editableFields.contains_pii}
+                          onChange={(e) => setEditableFields((prev) => ({ ...prev, contains_pii: e.target.checked }))}
+                          className="rounded border-slate-700 bg-slate-950 text-aws-orange focus:ring-aws-orange"
+                        />
+                        <label htmlFor="meta-contains-pii" className="text-slate-300 text-xs font-medium cursor-pointer">
+                          Contains PII
+                        </label>
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
 

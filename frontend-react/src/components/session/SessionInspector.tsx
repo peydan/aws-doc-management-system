@@ -9,12 +9,19 @@ import { UserCheck, Copy, CheckCircle2, Shield, Key, Clock } from 'lucide-react'
 export function SessionInspector() {
   const { token, claims, primaryRole, username } = useAuth();
   const [copied, setCopied] = useState<boolean>(false);
+  const [copyError, setCopyError] = useState<string | null>(null);
 
-  const handleCopyToken = () => {
+  const handleCopyToken = async () => {
     if (token) {
-      navigator.clipboard.writeText(token);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2500);
+      try {
+        await navigator.clipboard.writeText(token);
+        setCopied(true);
+        setCopyError(null);
+        setTimeout(() => setCopied(false), 2500);
+      } catch (err: any) {
+        setCopyError('Unable to copy token: ' + (err.message || 'Clipboard access denied'));
+        setTimeout(() => setCopyError(null), 3000);
+      }
     }
   };
 
@@ -50,13 +57,19 @@ export function SessionInspector() {
         </Alert>
       )}
 
+      {copyError && (
+        <Alert variant="destructive">
+          <AlertDescription>{copyError}</AlertDescription>
+        </Alert>
+      )}
+
       {/* Persona Overview Card */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card className="bg-slate-900/60">
           <CardContent className="p-4 space-y-1">
             <div className="text-xs text-slate-400 font-medium">Active Username</div>
             <div className="text-base font-bold text-white mt-1">
-              {username || 'admin-user'}
+              {username || 'Unknown'}
             </div>
             <div className="text-[11px] text-slate-500 font-mono">
               sub: {claims?.sub ? claims.sub.slice(0, 16) + '...' : '-'}
@@ -70,7 +83,7 @@ export function SessionInspector() {
             <div className="mt-1">
               <Badge variant="primary" className="text-xs font-semibold">
                 <Shield className="w-3 h-3 mr-1 inline" />
-                {primaryRole || 'Document.Admin'}
+                {primaryRole || 'Document.Reader'}
               </Badge>
             </div>
             <div className="text-[11px] text-slate-500 mt-1">From <code>cognito:groups</code> claim</div>

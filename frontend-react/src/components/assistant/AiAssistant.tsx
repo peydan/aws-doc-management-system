@@ -47,21 +47,24 @@ export function AiAssistant({ onSelectDocument }: AiAssistantProps) {
   const [streamingText, setStreamingText] = useState<string>('');
   const [customEndpoint, setCustomEndpoint] = useState<string>('');
   const [showEndpointConfig, setShowEndpointConfig] = useState<boolean>(false);
-  const [sessionId, setSessionId] = useState<string>(() => 'sess-' + Math.random().toString(36).substring(2, 10));
+  const [sessionId, setSessionId] = useState<string>(() => {
+    return 'sess-' + (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID().slice(0, 8) : Math.random().toString(36).substring(2, 10));
+  });
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
-  const scrollToBottom = () => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  const scrollToBottom = (smooth = false) => {
+    chatEndRef.current?.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto' });
   };
 
   useEffect(() => {
-    scrollToBottom();
+    // Avoid smooth scroll layout thrashing during high-frequency token streaming
+    scrollToBottom(!isProcessing);
   }, [messages, streamingText, isProcessing]);
 
   const handleStartNewSession = () => {
-    const newSess = 'sess-' + Math.random().toString(36).substring(2, 10);
+    const newSess = 'sess-' + (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID().slice(0, 8) : Math.random().toString(36).substring(2, 10));
     setSessionId(newSess);
     setMessages([
       {
@@ -108,6 +111,12 @@ export function AiAssistant({ onSelectDocument }: AiAssistantProps) {
       const streamingUrl = customEndpoint.trim() || config.agentStreamingUrl;
       const isFunctionUrl = !!(streamingUrl && streamingUrl.includes('lambda-url'));
 
+      // Validate endpoint before forwarding Cognito Bearer token
+      const isTrustedEndpoint =
+        !customEndpoint.trim() ||
+        streamingUrl.includes('.lambda-url.') ||
+        (config.apiUrl && streamingUrl.startsWith(new URL(config.apiUrl).origin));
+
       if (isFunctionUrl) {
         // SSE Streaming Handler (when Lambda Function URL is available)
         setProcessingStatus('Streaming from Amazon Bedrock...');
@@ -115,7 +124,7 @@ export function AiAssistant({ onSelectDocument }: AiAssistantProps) {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            ...(token && isTrustedEndpoint ? { Authorization: `Bearer ${token}` } : {}),
           },
           body: JSON.stringify({
             message: prompt,
@@ -320,7 +329,7 @@ export function AiAssistant({ onSelectDocument }: AiAssistantProps) {
       </div>
 
       {/* Message List */}
-      <CardContent className="flex-1 overflow-y-auto p-6 space-y-4">
+      <CardContent role="log" aria-live="polite" className="flex-1 overflow-y-auto p-6 space-y-4">
         {messages.map((msg) => (
           <div
             key={msg.id}

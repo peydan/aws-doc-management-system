@@ -43,11 +43,11 @@ export function AuditInspector({ activeDocument }: AuditInspectorProps) {
 
   // Update docId when activeDocument changes
   useEffect(() => {
-    if (activeDocument) {
+    if (activeDocument?.document_id) {
       setDocId(activeDocument.document_id);
       fetchAudit(activeDocument.document_id);
     }
-  }, [activeDocument]);
+  }, [activeDocument?.document_id]);
 
   const fetchAudit = async (targetId?: string) => {
     const idToFetch = (targetId || docId).trim();
@@ -62,7 +62,7 @@ export function AuditInspector({ activeDocument }: AuditInspectorProps) {
       const data = await ApiClient.getDocumentAudit(idToFetch);
       setAuditData(data);
     } catch (err: any) {
-      setError(err.message || 'Failed to load document audit trail');
+      setError(err.message || 'Failed to retrieve document audit trail');
       setAuditData(null);
     } finally {
       setLoading(false);
@@ -78,9 +78,13 @@ export function AuditInspector({ activeDocument }: AuditInspectorProps) {
     }
   };
 
-  const handleCopy = (text: string, label: string) => {
-    navigator.clipboard.writeText(text);
-    setCopyFeedback(`${label} copied to clipboard!`);
+  const handleCopy = async (text: string, label: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopyFeedback(`${label} copied to clipboard!`);
+    } catch {
+      setCopyFeedback(`Failed to copy ${label}`);
+    }
     setTimeout(() => setCopyFeedback(null), 2500);
   };
 
