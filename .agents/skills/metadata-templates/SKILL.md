@@ -98,7 +98,7 @@ Because downstream artifacts are automated, modifying metadata is now a 3-step p
      defaultsRegistry['<class_name>:1'] = ajvDefaults.compile(newClassSchema);
      classSchemas['<class_name>'] = newClassSchema;
      ```
-3. Add the `<option value="<class_name>">` to the class `<select>` dropdowns in `frontend/index.html`.
+3. Add the document class to the select dropdowns in `frontend-react/src/components/upload/DocumentUpload.tsx` and search filters.
 
 ---
 
@@ -111,8 +111,7 @@ npm run generate
 
 This single command triggers `scripts/generate-artifacts.ts` which automatically:
 1. **Extracts all defaults** across shared and class schemas and generates:
-   - `frontend/generated-templates.js`
-   - `frontend/dist/generated-templates.js`
+   - `frontend-react/src/generated/templates.ts`
 2. **Translates schema types** into OpenSearch Serverless field types and generates:
    - `src/shared/generated-os-mappings.json` (consumed by `src/shared/opensearch.ts`)
 
@@ -123,11 +122,13 @@ This single command triggers `scripts/generate-artifacts.ts` which automatically
 Run:
 ```bash
 npm test
+npm run test:ui
 ```
 
 Confirm that:
 - TypeScript compilation succeeds (`npm run build`).
-- Unit tests pass.
+- React production build succeeds (`npm run build:react`).
+- Unit and UI tests pass.
 - If needed, regenerate synthetic demo data: `npm run seed`.
 
 ---
@@ -137,8 +138,8 @@ Confirm that:
 | Role | Path | Mechanism |
 |---|---|---|
 | **Single Source of Truth** | `schemas/*.json` | JSON Schema draft-07 with `default` and `x-immutable` |
-| **Artifact Generator** | `scripts/generate-artifacts.ts` | Builds OpenSearch mappings & frontend templates |
+| **Artifact Generator** | `scripts/generate-artifacts.ts` | Builds OpenSearch mappings & React TypeScript templates |
 | **Validator & Defaults Engine** | `src/shared/validator.ts` | Ajv with `useDefaults: true` and `getImmutableFields()` |
 | **Dynamic Immutability Guard** | `src/command-api/metadata-update.ts` | Rejects mutation of any `x-immutable` field |
 | **Search Mappings** | `src/shared/generated-os-mappings.json` | Generated from schemas, imported by `opensearch.ts` |
-| **Frontend Presets** | `frontend/generated-templates.js` | Generated from schemas, loaded before `app.js` |
+| **Frontend Presets** | `frontend-react/src/generated/templates.ts` | Generated from schemas, imported by React components |

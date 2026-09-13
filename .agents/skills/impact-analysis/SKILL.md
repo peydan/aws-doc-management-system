@@ -67,13 +67,13 @@ When examining the impact of a change, evaluate each of the 6 architectural laye
 ---
 
 ### Layer 4: Client & Frontend User Interface
-* [ ] **Frontend Presets (`frontend/generated-templates.js`, `frontend/dist/generated-templates.js`)**:
-  * Was `npm run generate` run to rebuild `window.METADATA_TEMPLATES` and `window.CLASS_SPECIFIC_TEMPLATES` directly from schema defaults?
-* [ ] **HTML Forms & Templates (`frontend/index.html`, `frontend/dist/index.html`)**:
-  * For new classes: Are `<option value="<class>">` elements added to class selectors?
-  * Are new search input filters and table headers added?
-* [ ] **Client Logic (`frontend/app.js`)**:
-  * Does `app.js` consume `window.METADATA_TEMPLATES` and handle any new fields or actions?
+* [ ] **Frontend Presets (`frontend-react/src/generated/templates.ts`)**:
+  * Was `npm run generate` run to rebuild `METADATA_TEMPLATES` and `CLASS_SPECIFIC_TEMPLATES` directly from schema defaults?
+* [ ] **React Components (`frontend-react/src/components/*`)**:
+  * For new classes: Are class options, search filters, and table columns updated?
+  * Does `frontend-react` build cleanly via `npm run build:react`?
+* [ ] **Client State & API Client (`frontend-react/src/api/client.ts`)**:
+  * Does the client handle any new API contracts, methods, or parameters?
 
 ---
 

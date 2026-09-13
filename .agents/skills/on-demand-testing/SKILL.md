@@ -24,20 +24,19 @@ This skill defines the **On-Demand Testing Architecture**, **Execution Commands*
 
 | Command | Target | Description | Standing Cost |
 |---|---|---|:---:|
-| `npm run test:complete` | **All Layers** | Orchestrates Live AWS API + Classic UI + React UI + CloudWatch in one unified run. | **$0** |
+| `npm run test:complete` | **All Layers** | Orchestrates Live AWS API + React UI + CloudWatch in one unified run. | **$0** |
 | `npm run test:aws` | **Live AWS API** | Standalone runner validating 21 sequential capabilities against deployed AWS infrastructure. | **$0** |
-| `npm run test:ui` | **Web Portal UI** | Headless browser verification of `frontend/index.html` and `frontend/app.js`. | **$0** |
-| `npm run test:react-ui` | **React 18 Portal UI**| Headless 10-step verification of React 18 bundles, tabs, OCC, WebCrypto & CloudFront. | **$0** |
+| `npm run test:ui` | **React 18 Portal UI** | Headless 10-step verification of React 18 bundles, tabs, OCC, WebCrypto & CloudFront. | **$0** |
 | `npm run review:cloudwatch` | **Observability** | On-demand scan of recent Lambda logs and API Gateway metrics via AWS SigV4. | **$0** |
 | `npm run test:postman` | **API Regression** | Executes `postman_collection.json` with Newman CLI and automated `pm.test` assertions. | **$0** |
-| `npm test` | **Unit Mocks** | Executes 13 local Jest test suites (125 tests) with AWS SDK mocks. | **$0** |
+| `npm test` | **Unit Mocks** | Executes 17 local Jest test suites (155 tests) with AWS SDK mocks. | **$0** |
 | `npm run build` | **Type & Schema Build**| Re-generates OpenSearch mappings and frontend templates, followed by `tsc`. | **$0** |
 
 ---
 
 ## 3. Configuration & Credential Resolution
 
-All on-demand test scripts automatically read deployment settings from `frontend/config.json`:
+All on-demand test scripts automatically read deployment settings from `frontend-react/public/config.json`:
 - `apiUrl`: Live API Gateway endpoint (e.g., `https://k0urmbeen9.execute-api.us-east-1.amazonaws.com/v1`).
 - `userPoolClientId`: Amazon Cognito Client ID.
 - `region`: AWS deployment region (e.g., `us-east-1` or `il-central-1`).

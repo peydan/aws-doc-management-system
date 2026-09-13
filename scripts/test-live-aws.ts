@@ -7,12 +7,12 @@ import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 // Configuration
 // ---------------------------------------------------------------------------
 let config: any = {};
-const configPath = path.join(__dirname, '..', 'frontend', 'config.json');
+const configPath = path.join(__dirname, '..', 'frontend-react', 'public', 'config.json');
 if (fs.existsSync(configPath)) {
   try {
     config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
   } catch (e) {
-    console.warn('Could not parse frontend/config.json, falling back to defaults.');
+    console.warn('Could not parse frontend-react/public/config.json, falling back to defaults.');
   }
 }
 
