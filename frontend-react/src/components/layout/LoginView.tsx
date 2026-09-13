@@ -4,7 +4,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
-import { Lock, Loader2, AlertTriangle, ExternalLink } from 'lucide-react';
+import { Lock, Loader2, AlertTriangle } from 'lucide-react';
 
 export function LoginView() {
   const { login } = useAuth();
@@ -98,19 +98,9 @@ export function LoginView() {
                 disabled={loading}
                 className="w-full h-10 bg-aws-orange hover:bg-aws-orangeHover text-slate-950 font-bold gap-2 mt-2"
               >
-                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : '🚀 Sign In & Enter React Portal'}
+                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : '🚀 Sign In & Enter Portal'}
               </Button>
             </form>
-
-            <div className="mt-6 pt-4 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-500">
-              <span>Dual-Run Coexistence</span>
-              <a
-                href={window.location.port === '3001' ? 'http://localhost:3000' : '/'}
-                className="inline-flex items-center gap-1 text-slate-400 hover:text-aws-orange transition-colors"
-              >
-                Classic Vanilla JS UI <ExternalLink className="w-3 h-3" />
-              </a>
-            </div>
           </CardContent>
         </Card>
       </div>
