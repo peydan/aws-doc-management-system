@@ -1714,7 +1714,7 @@ def build_presentation(output_path="AWS_Document_Management_Platform_Architectur
         ("6. ComputeStack", "21 Graviton ARM64 AWS Lambda Functions", "Deploys Command, Query, Search, Stream, Indexer & Enricher services.", ACCENT_BLUE),
         ("7. AgentStack", "Amazon Bedrock Nova 2 Lite Assistant & Gateway", "Provisions AgentCore harness, MCP tools, and session execution.", ACCENT_PURPLE),
         ("8. ApiStack", "Amazon API Gateway REST API & Cognito Authorizer", "Wires 20 routes, authorizer, throttling limits, and CORS configuration.", ACCENT_GREEN),
-        ("9. ServerlessFrontendStack", "CloudFront CDN (OAC) & S3 Single Page App Bucket", "Distributes high-speed static portal assets globally with TLS 1.3.", ACCENT_AMBER),
+        ("9. ServerlessReactFrontendStack", "CloudFront CDN & S3 React 18 SPA Bucket", "Distributes high-speed React 18 static portal assets globally with TLS 1.3.", ACCENT_AMBER),
         ("10. ObservabilityStack", "CloudWatch Alarms, Dashboards & Global Tagging", "Provisions DLQ/5xx alarms, operational dashboards, and global resource tags.", ACCENT_ROSE)
     ]
 

@@ -1693,7 +1693,7 @@ def build_hebrew_presentation(output_path="AWS_Document_Management_Platform_Arch
         ("6. ComputeStack", "21 פונקציות Graviton ARM64 AWS Lambda", "פורס שירותי Command, Query, Search, Stream, Indexer ו-Enricher.", ACCENT_BLUE),
         ("7. AgentStack", "Amazon Bedrock Nova 2 Lite סוכן שיחה ו-Gateway", "מנהל את תשתית הסוכן, כלי MCP ותשאול אינטראקטיבי.", ACCENT_PURPLE),
         ("8. ApiStack", "Amazon API Gateway REST API & Cognito Authorizer", "מחבר 20 נתיבים, מנגנון הרשאות, הגבלות קצב ו-CORS.", ACCENT_GREEN),
-        ("9. ServerlessFrontendStack", "CloudFront CDN (OAC) & S3 Single Page App Bucket", "הפצה גלובלית מהירה ומאובטחת של פורטל ה-SPA עם TLS 1.3.", ACCENT_AMBER),
+        ("9. ServerlessReactFrontendStack", "CloudFront CDN & S3 React 18 SPA Bucket", "הפצה גלובלית מהירה ומאובטחת של פורטל React 18 SPA עם TLS 1.3.", ACCENT_AMBER),
         ("10. ObservabilityStack", "התראות CloudWatch, לוחות בקרה ותיוג גלובלי", "פורס התראות DLQ/5xx, לוחות בקרה תפעוליים ותגיות Project/Environment.", ACCENT_ROSE)
     ]
 

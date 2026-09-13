@@ -9,7 +9,6 @@ import { SearchStack } from '../lib/search-stack';
 import { ComputeStack } from '../lib/compute-stack';
 import { ApiStack } from '../lib/api-stack';
 import { ObservabilityStack } from '../lib/observability-stack';
-import { ServerlessFrontendStack } from '../lib/serverless-frontend-stack';
 import { ServerlessReactFrontendStack } from '../lib/serverless-react-frontend-stack';
 import { AgentStack } from '../lib/agent-stack';
 
@@ -75,15 +74,7 @@ const observabilityStack = new ObservabilityStack(app, 'DocPlatformObservability
   api: apiStack.api,
 });
 
-// 9. 100% Serverless Frontend Stack (CloudFront + S3 SPA - Zero Idle Cost)
-const serverlessFrontendStack = new ServerlessFrontendStack(app, 'DocPlatformServerlessFrontendStack', {
-  env,
-  api: apiStack.api,
-  userPool: securityStack.userPool,
-  userPoolClient: securityStack.userPoolClient,
-});
-
-// 10. AI Document Assistant Stack (AgentCore Harness + Amazon Nova 2 Lite + SSE Streaming)
+// 9. AI Document Assistant Stack (AgentCore Harness + Amazon Nova 2 Lite + SSE Streaming)
 const agentStack = new AgentStack(app, 'DocPlatformAgentStack', {
   env,
   documentBucket: storageStack.documentBucket,
@@ -94,7 +85,7 @@ const agentStack = new AgentStack(app, 'DocPlatformAgentStack', {
   openSearchEndpoint: searchStack.collection.attrCollectionEndpoint,
 });
 
-// 11. Serverless React Frontend Stack (Dual-Run Parallel Staging SPA)
+// 10. Serverless React Frontend Stack (Single Page Application - CloudFront + S3)
 const serverlessReactFrontendStack = new ServerlessReactFrontendStack(app, 'DocPlatformReactFrontendStack', {
   env,
   api: apiStack.api,
@@ -111,9 +102,8 @@ const taggableStacks = [
   computeStack,
   apiStack,
   observabilityStack,
-  serverlessFrontendStack,
-  serverlessReactFrontendStack,
   agentStack,
+  serverlessReactFrontendStack,
 ];
 
 for (const stack of taggableStacks) {

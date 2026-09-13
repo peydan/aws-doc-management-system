@@ -1619,7 +1619,7 @@ graph TD
   MessagingStack --> ObservabilityStack[8. ObservabilityStack<br/>Alarms & Dashboard]
   ApiStack --> ObservabilityStack
 
-  ApiStack --> FrontendStack[9. ServerlessFrontendStack<br/>CloudFront CDN & S3 SPA]
+  ApiStack --> FrontendStack[9. ServerlessReactFrontendStack<br/>CloudFront CDN & S3 React 18 SPA]
   SecurityStack --> FrontendStack
 
   StorageStack --> AgentStack[10. AgentStack<br/>Bedrock AI Chat & Tools]

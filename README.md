@@ -72,7 +72,7 @@ An enterprise-grade, cloud-native document management platform built entirely on
 ├── bin/                             # CDK application entry point
 ├── lib/                             # AWS CDK infrastructure stacks (Storage, API, Search, Auth, Frontend)
 ├── src/                             # Lambda handlers (Commands, Queries, Search, Stream Processor)
-├── frontend/                        # Serverless Web Portal assets (HTML5, Vanilla JS, CSS)
+├── frontend-react/                  # Enterprise React 18 Single-Page Application (Vite, TypeScript, Tailwind)
 ├── schemas/                         # Dynamic Document JSON Schemas
 ├── scripts/                         # Seeding, deployment, E2E scenarios, and migrations
 ├── openapi.yaml                     # OpenAPI 3.0 Specification
@@ -90,6 +90,8 @@ An enterprise-grade, cloud-native document management platform built entirely on
 ├── openapi.yaml                     # OpenAPI 3.0 Specification
 └── postman_collection.json          # Postman E2E Test Suite
 ```
+
+> **Note on Classic UI**: The legacy vanilla JavaScript UI has been retired in favor of the React 18 SPA. Its complete codebase is permanently preserved in Git and can be accessed via tag `legacy-vanilla-ui` or branch `archive/classic-ui`.
 
 ---
 
@@ -116,21 +118,22 @@ npm run seed
 
 ### 3. Launch or Deploy the Web Portal
 ```bash
-# Upload web portal assets to Amazon S3 & CloudFront
-npm run deploy:frontend-assets
+# Run React 18 Web Portal locally with Vite hot-reloading
+npm run gui
 
-# Or run locally for development
-npm run gui:local
+# Build and deploy React 18 assets to Amazon S3 & CloudFront
+npm run build:react
+npm run deploy:frontend-assets
 ```
 
 ### 4. On-Demand Testing & Verification (Zero Standing Cost)
 ```bash
-# Run the complete test suite (Live AWS API + Headless UI + CloudWatch review)
+# Run the complete test suite (Live AWS API + React UI + CloudWatch review)
 npm run test:complete
 
 # Or run individual verification suites on-demand:
 npm run test:aws          # Live AWS API capability verification
-npm run test:ui           # Headless Web Portal UI test
+npm run test:ui           # React 18 Web Portal UI verification
 npm run review:cloudwatch # CloudWatch log & metrics audit
 npm run test:postman      # Newman CLI Postman collection regression
 npm test                  # Local unit tests (125 tests with mocks)

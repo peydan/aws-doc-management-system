@@ -467,9 +467,9 @@ Every document in the system inherits and validates against the shared enterpris
 
 ---
 
-## 5. Web Management Portal Capabilities (`frontend/`)
+## 5. Web Management Portal Capabilities (`frontend-react/`)
 
-The platform delivers an enterprise Single-Page Application (SPA) hosted serverlessly on **Amazon CloudFront + Amazon S3**:
+The platform delivers an enterprise React 18 Single-Page Application (SPA) hosted serverlessly on **Amazon CloudFront + Amazon S3** (`DocPlatformReactFrontendStack`):
 
 ```
 +----------------------------------------------------------------------------------------------------+
@@ -511,7 +511,7 @@ The platform delivers an enterprise Single-Page Application (SPA) hosted serverl
 10. **Multi-Document Batch ZIP Exporter**: Allows operators to select checkboxes across multiple search results and trigger an on-demand ZIP export with an embedded manifest.
 11. **Conversational AI Assistant UI**: Dedicated '🤖 AI Assistant' interface powered by Amazon Bedrock AgentCore and Amazon Nova 2 Lite, featuring real-time Server-Sent Events (SSE) streaming via Lambda Function URL / REST API Gateway, live MCP tool call badges (`search_documents`, `fetch_document`) with expandable JSON payload inspection, interactive document citation cards with one-click navigation into the Document Viewer, prompt starter chips, and ephemeral session management.
 12. **AI Auto-Enrichment Advisor & Pipeline Stepper UI**: Dynamic pre-flight trigger evaluation embedded directly into upload studios, reactive `Auto-Enrich Document` cost guardrails (dynamically injecting `skip_enrichment: true`), 4-step asynchronous lifecycle pipeline visualizer (`Ingestion ➔ SQS Queue ➔ Bedrock Scan ➔ Rev 2 OCC`), explicit trigger diagnosis explaining why a document was enriched, skipped, or ineligible, and an in-app Bedrock Trigger Rules reference matrix.
-13. **Dual-Run React 18 SPA Portal & On-Demand E2E Test Suite**: Modern enterprise React 18 + TypeScript + Tailwind CSS application (`frontend-react/`) hosted in dual-run coexistence via dedicated private S3 and CloudFront infrastructure (`DocPlatformReactFrontendStack`). Supported by an automated 10-step zero-cost headless test suite (`npm run test:react-ui`), CloudFront deployment smoke verification, and CDK infrastructure unit assertions (`test/unit/react-frontend-stack.test.ts`), integrated into the unified 4-phase system test (`npm run test:complete`).
+13. **Enterprise React 18 SPA Portal & On-Demand E2E Test Suite**: Modern enterprise React 18 + TypeScript + Tailwind CSS application (`frontend-react/`) hosted serverlessly via dedicated private S3 and CloudFront infrastructure (`DocPlatformReactFrontendStack`). Supported by an automated 10-step zero-cost headless test suite (`npm run test:ui`), CloudFront deployment smoke verification, and CDK infrastructure unit assertions (`test/unit/react-frontend-stack.test.ts`), integrated into the unified 3-phase system test (`npm run test:complete`). The legacy vanilla JS UI is permanently archived in Git under tag `legacy-vanilla-ui`.
 
 ---
 
