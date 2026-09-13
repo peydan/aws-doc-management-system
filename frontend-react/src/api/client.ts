@@ -370,6 +370,8 @@ export class ApiClient {
     content_type: string;
     document_class: string;
     metadata: Record<string, any>;
+    checksum?: string;
+    content_length?: number;
   }): Promise<{
     session_id: string;
     upload_url: string;

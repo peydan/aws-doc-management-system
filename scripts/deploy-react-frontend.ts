@@ -1,6 +1,7 @@
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3';
 import * as fs from 'fs';
 import * as path from 'path';
+import { runReactUiTests } from '../test/e2e/react-ui-test';
 
 const region = process.env.CDK_DEFAULT_REGION || process.env.AWS_REGION || 'us-east-1';
 const account = process.env.CDK_DEFAULT_ACCOUNT || process.env.AWS_ACCOUNT_ID;
@@ -51,6 +52,25 @@ async function uploadDirectory(dir: string, prefix = '') {
   }
 }
 
+async function verifyDeployment(): Promise<void> {
+  console.log('\n--- Verifying React S3 Bucket Objects & Integrity ---');
+  const requiredKeys = ['index.html', 'config.json'];
+  for (const key of requiredKeys) {
+    try {
+      await s3.send(new HeadObjectCommand({ Bucket: bucketName, Key: key }));
+      console.log(`  ✓ Verified s3://${bucketName}/${key} exists`);
+    } catch (err: any) {
+      console.warn(`  ⚠️ Warning: Could not verify s3://${bucketName}/${key}: ${err.message}`);
+    }
+  }
+
+  console.log('\n--- Running React UI Test Suite ---');
+  const testResults = await runReactUiTests();
+  if (testResults.failed > 0) {
+    throw new Error(`React UI verification suite reported ${testResults.failed} failures`);
+  }
+}
+
 async function main() {
   console.log(`Starting React frontend asset upload to ${bucketName}...`);
   const distDir = path.join(__dirname, '../frontend-react/dist');
@@ -61,6 +81,9 @@ async function main() {
 
   await uploadDirectory(distDir);
   console.log(`✅ All React frontend assets uploaded successfully to s3://${bucketName}/`);
+
+  await verifyDeployment();
+  console.log('🎉 React frontend deployment and automated verification complete!');
 }
 
 main().catch((err) => {

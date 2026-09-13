@@ -24,9 +24,10 @@ This skill defines the **On-Demand Testing Architecture**, **Execution Commands*
 
 | Command | Target | Description | Standing Cost |
 |---|---|---|:---:|
-| `npm run test:complete` | **All Layers** | Orchestrates Live AWS API + Web UI + CloudWatch review in one unified run. | **$0** |
+| `npm run test:complete` | **All Layers** | Orchestrates Live AWS API + Classic UI + React UI + CloudWatch in one unified run. | **$0** |
 | `npm run test:aws` | **Live AWS API** | Standalone runner validating 21 sequential capabilities against deployed AWS infrastructure. | **$0** |
 | `npm run test:ui` | **Web Portal UI** | Headless browser verification of `frontend/index.html` and `frontend/app.js`. | **$0** |
+| `npm run test:react-ui` | **React 18 Portal UI**| Headless 10-step verification of React 18 bundles, tabs, OCC, WebCrypto & CloudFront. | **$0** |
 | `npm run review:cloudwatch` | **Observability** | On-demand scan of recent Lambda logs and API Gateway metrics via AWS SigV4. | **$0** |
 | `npm run test:postman` | **API Regression** | Executes `postman_collection.json` with Newman CLI and automated `pm.test` assertions. | **$0** |
 | `npm test` | **Unit Mocks** | Executes 13 local Jest test suites (125 tests) with AWS SDK mocks. | **$0** |

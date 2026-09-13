@@ -232,6 +232,13 @@ export function DocumentUpload({ onUploadSuccess }: DocumentUploadProps) {
     };
   };
 
+  const computeSha256 = async (file: File): Promise<string> => {
+    const buffer = await file.arrayBuffer();
+    const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+  };
+
   // 1. Direct S3 Upload Handler
   const handleDirectUpload = async () => {
     if (!directFile) {
@@ -245,13 +252,17 @@ export function DocumentUpload({ onUploadSuccess }: DocumentUploadProps) {
       const payloadMetadata = parseCombinedMetadata();
 
       setUploadStep('initiating');
-      setProgressText('Phase 1: POST /documents/uploads (Generating direct S3 WORM upload ticket)...');
+      setProgressText('Phase 1: Computing WebCrypto SHA-256 & POST /documents/uploads (Generating direct S3 WORM upload ticket)...');
+
+      const checksum = await computeSha256(directFile);
 
       const { session_id, upload_url, document_id } = await ApiClient.initiateUpload({
         filename: directFile.name,
         content_type: directFile.type || 'application/pdf',
         document_class: docClass,
         metadata: payloadMetadata,
+        checksum,
+        content_length: directFile.size,
       });
 
       setUploadStep('uploading_s3');

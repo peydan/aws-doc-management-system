@@ -25,6 +25,8 @@
     "test:complete": "ts-node scripts/test-complete.ts",
     "test:aws": "ts-node scripts/test-live-aws.ts",
     "test:ui": "ts-node test/e2e/ui-test.ts",
+    "test:react-ui": "ts-node test/e2e/react-ui-test.ts",
+    "test:react-live": "ts-node test/e2e/react-ui-test.ts --live",
     "review:cloudwatch": "ts-node scripts/review-cloudwatch.ts",
     "test:postman": "npx newman run postman_collection.json -e postman_environment.json"
   },
